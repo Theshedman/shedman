@@ -49,7 +49,7 @@ repo.shedos.org/
 │   │       └── neovim-0.10.0.pkg.tar.zst
 │   └── aarch64/
 │
-├── universal/                      # .shed packages (all distros)
+├── shed/                      # .shed packages (all distros)
 │   ├── index.json                  # Package index + TUF metadata
 │   ├── deps-map/                   # Abstract → distro mapping
 │   │   ├── openssl.yml
@@ -73,9 +73,9 @@ repo.shedos.org/
 |---------|-----|
 | Arch DB | `repo.shedos.org/arch/x86_64/shedos.db` |
 | Arch Pkg | `repo.shedos.org/arch/x86_64/packages/*.pkg.tar.zst` |
-| Universal Index | `repo.shedos.org/universal/index.json` |
-| Universal Pkg | `repo.shedos.org/universal/packages/{name}/{ver}/*.shed` |
-| Deps Map | `repo.shedos.org/universal/deps-map/*.yml` |
+| Universal Index | `repo.shedos.org/shed/index.json` |
+| Universal Pkg | `repo.shedos.org/shed/packages/{name}/{ver}/*.shed` |
+| Deps Map | `repo.shedos.org/shed/deps-map/*.yml` |
 
 ### Dependency Mapping Database
 
@@ -96,7 +96,7 @@ packages:
 graph TD
     A["shedman install pkg"] --> B{"In arch/?"}
     B -->|Yes| C["Install .pkg.tar.zst"]
-    B -->|No| D{"In universal/?"}
+    B -->|No| D{"In shed/?"}
     D -->|Yes| E["Install .shed"]
     D -->|No| F{"Foreign format?"}
     F -->|Yes| G["Convert → Install"]
@@ -104,7 +104,7 @@ graph TD
 ```
 
 1. `arch/` (native .pkg.tar.zst) — fastest
-2. `universal/` (.shed) — cross-distro
+2. `shed/` (.shed) — cross-distro
 3. Convert foreign format — fallback
 4. Build from source — last resort
 
@@ -1981,7 +1981,7 @@ type PackageBackend interface {
 | `pacman` | Official Arch repos | `.pkg.tar.zst` |
 | `aur` | Arch User Repository | PKGBUILD |
 | `shedos` | repo.shedos.org/arch/ | `.pkg.tar.zst` |
-| `shedrepo` | repo.shedos.org/universal/ | `.shed` |
+| `shedrepo` | repo.shedos.org/shed/ | `.shed` |
 
 **Future backends (Cross-Distro):**
 
