@@ -5,6 +5,7 @@ import (
 "github.com/theshedman/shedman/pkg/shedman"
 "github.com/theshedman/shedman/pkg/shedman/backends"
 "github.com/theshedman/shedman/pkg/shedman/cache"
+"github.com/theshedman/shedman/pkg/shedman/config"
 )
 
 var (
@@ -25,6 +26,12 @@ By default, syncs all databases. Use flags to sync specific sources:
   --shedos      Sync ShedOS repository only
   --refresh     Force refresh even if cache exists`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Load configuration
+		cfg, err := config.Load(configFile)
+		if err != nil {
+			return err
+		}
+
 		c := cache.NewFileSystemCache()
 
 		// Collect backends based on flags
@@ -38,7 +45,8 @@ By default, syncs all databases. Use flags to sync specific sources:
 			backendList = append(backendList, backends.NewAURBackend(c))
 		}
 		if syncAll || syncShedOS {
-			shedRepo := backends.NewShedRepoBackend(c)
+			// Use mirrors from config
+			shedRepo := backends.NewShedRepoBackendWithMirrors(cfg.ShedRepoMirrors, c)
 			if syncRefresh {
 				shedRepo.SetForceRefresh(true)
 			}
@@ -47,7 +55,9 @@ By default, syncs all databases. Use flags to sync specific sources:
 
 		// Debug output
 		if debugFlag {
+			cmd.Printf("[DEBUG] Config file: %s\n", configFile)
 			cmd.Printf("[DEBUG] Cache directory: %s\n", c.GetDir())
+			cmd.Printf("[DEBUG] ShedRepo mirrors: %v\n", cfg.ShedRepoMirrors)
 			cmd.Printf("[DEBUG] Backends to sync: %d\n", len(backendList))
 			cmd.Printf("[DEBUG] Refresh mode: %v\n", syncRefresh)
 			for _, b := range backendList {
