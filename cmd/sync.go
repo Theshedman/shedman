@@ -46,7 +46,7 @@ By default, syncs all databases. Use flags to sync specific sources:
 		}
 		if syncAll || syncShedOS {
 			// Use mirrors from config
-			shedRepo := backends.NewShedRepoBackendWithMirrors(cfg.ShedRepoMirrors, c)
+			shedRepo := backends.NewShedRepoBackendWithMirrors(cfg.Mirrors.ShedOS, c)
 			if syncRefresh {
 				shedRepo.SetForceRefresh(true)
 			}
@@ -57,7 +57,7 @@ By default, syncs all databases. Use flags to sync specific sources:
 		if debugFlag {
 			cmd.Printf("[DEBUG] Config file: %s\n", configFile)
 			cmd.Printf("[DEBUG] Cache directory: %s\n", c.GetDir())
-			cmd.Printf("[DEBUG] ShedRepo mirrors: %v\n", cfg.ShedRepoMirrors)
+			cmd.Printf("[DEBUG] ShedRepo mirrors: %v\n", cfg.Mirrors.ShedOS)
 			cmd.Printf("[DEBUG] Backends to sync: %d\n", len(backendList))
 			cmd.Printf("[DEBUG] Refresh mode: %v\n", syncRefresh)
 			for _, b := range backendList {

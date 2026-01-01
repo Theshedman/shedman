@@ -16,12 +16,20 @@ func TestConfig_Default(t *testing.T) {
 		t.Fatal("Default() should return non-nil config")
 	}
 
-	if len(cfg.ShedRepoMirrors) == 0 {
-		t.Error("Default config should have ShedRepo mirrors")
+	if len(cfg.Mirrors.ShedOS) == 0 {
+		t.Error("Default config should have ShedOS mirrors")
 	}
 
-	if cfg.CacheMaxAge == 0 {
-		t.Error("Default config should have CacheMaxAge set")
+	if cfg.Cache.GetMaxAge() == 0 {
+		t.Error("Default config should have Cache.MaxAge set")
+	}
+
+	if cfg.Network.ParallelDownloads != 5 {
+		t.Error("Default parallel downloads should be 5")
+	}
+
+	if cfg.General.Color != true {
+		t.Error("Default color should be true")
 	}
 }
 
@@ -30,11 +38,16 @@ func TestConfig_Load_FromFile(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 	os.MkdirAll(tmpDir, 0755)
 
-	configPath := filepath.Join(tmpDir, "config.yaml")
+	configPath := filepath.Join(tmpDir, "config.toml")
 	configContent := `
-shedrepo_mirrors:
-  - https://custom.mirror.org
-cache_max_age: 2h
+[mirrors]
+shedos = ["https://custom.mirror.org"]
+
+[cache]
+max_age = "2h"
+
+[network]
+parallel_downloads = 10
 `
 	os.WriteFile(configPath, []byte(configContent), 0644)
 
@@ -43,25 +56,63 @@ cache_max_age: 2h
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if len(cfg.ShedRepoMirrors) != 1 {
-		t.Errorf("Expected 1 mirror, got %d", len(cfg.ShedRepoMirrors))
+	if len(cfg.Mirrors.ShedOS) != 1 {
+		t.Errorf("Expected 1 mirror, got %d", len(cfg.Mirrors.ShedOS))
 	}
-	if cfg.ShedRepoMirrors[0] != "https://custom.mirror.org" {
-		t.Errorf("Expected custom mirror, got %s", cfg.ShedRepoMirrors[0])
+	if cfg.Mirrors.ShedOS[0] != "https://custom.mirror.org" {
+		t.Errorf("Expected custom mirror, got %s", cfg.Mirrors.ShedOS[0])
 	}
-	if cfg.CacheMaxAge != 2*time.Hour {
-		t.Errorf("Expected 2h, got %v", cfg.CacheMaxAge)
+	if cfg.Cache.GetMaxAge() != 2*time.Hour {
+		t.Errorf("Expected 2h, got %v", cfg.Cache.GetMaxAge())
+	}
+	if cfg.Network.ParallelDownloads != 10 {
+		t.Errorf("Expected 10 parallel downloads, got %d", cfg.Network.ParallelDownloads)
 	}
 }
 
 func TestConfig_Load_FileNotExists_ReturnsDefault(t *testing.T) {
-	cfg, err := config.Load("/nonexistent/path/config.yaml")
+	cfg, err := config.Load("/nonexistent/path/config.toml")
 	if err != nil {
 		t.Fatalf("Load should not error for missing file: %v", err)
 	}
 
-	// Should return defaults
-	if len(cfg.ShedRepoMirrors) == 0 {
+	if len(cfg.Mirrors.ShedOS) == 0 {
 		t.Error("Should return default config when file not found")
+	}
+}
+
+func TestConfig_AllSections(t *testing.T) {
+	cfg := config.Default()
+
+	// Test all 14 sections exist
+	if cfg.General.Color != true {
+		t.Error("General section missing")
+	}
+	if cfg.Network.Timeout != 30 {
+		t.Error("Network section missing")
+	}
+	if cfg.Cache.CleanKeep != 3 {
+		t.Error("Cache section missing")
+	}
+	if cfg.Boot.KeepKernels != 3 {
+		t.Error("Boot section missing")
+	}
+	if cfg.Snapshot.KeepLocal != 10 {
+		t.Error("Snapshot section missing")
+	}
+	if cfg.Notifications.Enabled != true {
+		t.Error("Notifications section missing")
+	}
+	if cfg.AUR.Enabled != true {
+		t.Error("AUR section missing")
+	}
+	if cfg.Security.SigLevel != "Required" {
+		t.Error("Security section missing")
+	}
+	if cfg.Logging.Level != "info" {
+		t.Error("Logging section missing")
+	}
+	if cfg.UI.ProgressBar != true {
+		t.Error("UI section missing")
 	}
 }
