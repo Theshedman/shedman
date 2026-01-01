@@ -11,6 +11,7 @@ var (
 syncOfficial bool
 syncAUR      bool
 syncShedOS   bool
+syncRefresh  bool
 )
 
 var syncCmd = &cobra.Command{
@@ -21,26 +22,55 @@ var syncCmd = &cobra.Command{
 By default, syncs all databases. Use flags to sync specific sources:
   --official    Sync official Arch repositories only
   --aur         Sync AUR cache only
-  --shedos      Sync ShedOS repository only`,
+  --shedos      Sync ShedOS repository only
+  --refresh     Force refresh even if cache exists`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		engine := shedman.NewEngine()
 		c := cache.NewFileSystemCache()
 
-		// Determine which backends to use
+		// Collect backends based on flags
+		var backendList []shedman.PackageBackend
 		syncAll := !syncOfficial && !syncAUR && !syncShedOS
 
 		if syncAll || syncOfficial {
-			engine.AddBackend(backends.NewPacmanBackend())
+			backendList = append(backendList, backends.NewPacmanBackend())
 		}
 		if syncAll || syncAUR {
-			engine.AddBackend(backends.NewAURBackend(c))
+			backendList = append(backendList, backends.NewAURBackend(c))
 		}
 		if syncAll || syncShedOS {
-			engine.AddBackend(backends.NewShedRepoBackend(c))
+			backendList = append(backendList, backends.NewShedRepoBackend(c))
+		}
+
+		// Debug output
+		if debugFlag {
+			cmd.Printf("[DEBUG] Cache directory: %s\n", c.GetDir())
+			cmd.Printf("[DEBUG] Backends to sync: %d\n", len(backendList))
+			cmd.Printf("[DEBUG] Refresh mode: %v\n", syncRefresh)
+			for _, b := range backendList {
+				cmd.Printf("[DEBUG]   - %s\n", b.Name())
+			}
+		}
+
+		// Dry-run mode
+		if dryRunFlag {
+			cmd.Println("Dry-run mode: would sync the following backends:")
+			for _, b := range backendList {
+				cmd.Printf("  - %s\n", b.Name())
+			}
+			return nil
 		}
 
 		if !quietFlag {
 			cmd.Println("Synchronizing package databases...")
+		}
+
+		// Sync each backend with verbose progress
+		engine := shedman.NewEngine()
+		for _, backend := range backendList {
+			if verboseFlag {
+				cmd.Printf("  Syncing %s...\n", backend.Name())
+			}
+			engine.AddBackend(backend)
 		}
 
 		if err := engine.Sync(); err != nil {
@@ -51,10 +81,6 @@ By default, syncs all databases. Use flags to sync specific sources:
 			cmd.Println("Sync complete.")
 		}
 
-		if verboseFlag {
-			cmd.Println("Verbose: All backends synced successfully.")
-		}
-
 		return nil
 	},
 }
@@ -63,4 +89,5 @@ func init() {
 	syncCmd.Flags().BoolVar(&syncOfficial, "official", false, "Sync official Arch repositories only")
 	syncCmd.Flags().BoolVar(&syncAUR, "aur", false, "Sync AUR cache only")
 	syncCmd.Flags().BoolVar(&syncShedOS, "shedos", false, "Sync ShedOS repository only")
+	syncCmd.Flags().BoolVar(&syncRefresh, "refresh", false, "Force refresh even if cache exists")
 }
