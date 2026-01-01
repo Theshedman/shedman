@@ -1,11 +1,19 @@
 package backends_test
 
 import (
-"errors"
-"testing"
+	"errors"
+	"testing"
 
-"github.com/theshedman/shedman/pkg/shedman/backends"
+	"github.com/theshedman/shedman/pkg/shedman/backends"
 )
+
+type MockRootChecker struct {
+	IsRootValue bool
+}
+
+func (m *MockRootChecker) IsRoot() bool {
+	return m.IsRootValue
+}
 
 // MockCommandExecutor simulates command execution for testing
 type MockCommandExecutor struct {
@@ -35,7 +43,7 @@ func TestPacmanBackend_Name(t *testing.T) {
 
 func TestPacmanBackend_Sync_Success(t *testing.T) {
 	mock := &MockCommandExecutor{ShouldFail: false}
-	backend := backends.NewPacmanBackendWithExecutor("/usr/bin/pacman", mock)
+	backend := backends.NewPacmanBackendWithExecutor("/usr/bin/pacman", mock, &MockRootChecker{IsRootValue: true})
 
 	err := backend.Sync()
 
@@ -55,7 +63,7 @@ func TestPacmanBackend_Sync_Success(t *testing.T) {
 
 func TestPacmanBackend_Sync_Failure(t *testing.T) {
 	mock := &MockCommandExecutor{ShouldFail: true}
-	backend := backends.NewPacmanBackendWithExecutor("/usr/bin/pacman", mock)
+	backend := backends.NewPacmanBackendWithExecutor("/usr/bin/pacman", mock, &MockRootChecker{IsRootValue: true})
 
 	err := backend.Sync()
 
@@ -66,11 +74,35 @@ func TestPacmanBackend_Sync_Failure(t *testing.T) {
 
 func TestPacmanBackend_CustomBinaryPath(t *testing.T) {
 	mock := &MockCommandExecutor{ShouldFail: false}
-	backend := backends.NewPacmanBackendWithExecutor("/custom/path/pacman", mock)
+	backend := backends.NewPacmanBackendWithExecutor("/custom/path/pacman", mock, &MockRootChecker{IsRootValue: true})
 
 	_ = backend.Sync()
 
 	if mock.LastCommand != "/custom/path/pacman" {
 		t.Errorf("expected custom path '/custom/path/pacman', got '%s'", mock.LastCommand)
+	}
+}
+
+func TestPacmanBackend_Sync_RequiresRoot(t *testing.T) {
+	// Mock executor that would succeed
+	mockExecutor := &MockCommandExecutor{ShouldFail: false}
+
+	// Mock root checker that returns false (not root)
+	mockRootChecker := &MockRootChecker{IsRootValue: false}
+
+	backend := backends.NewPacmanBackendWithExecutor(
+		"/usr/bin/pacman",
+		mockExecutor,
+		mockRootChecker)
+
+	err := backend.Sync()
+
+	if err == nil {
+		t.Error("Sync should fail when not running as root")
+	}
+
+	// Command should NOT have been called
+	if mockExecutor.ExecuteCalls > 0 {
+		t.Error("pacman should not be called when not root")
 	}
 }
