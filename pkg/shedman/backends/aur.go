@@ -1,9 +1,7 @@
 package backends
 
 import (
-"encoding/json"
 "fmt"
-"io"
 "net/http"
 "time"
 
@@ -15,15 +13,6 @@ AURBaseURL    = "https://aur.archlinux.org/rpc/"
 AURAPIVersion = "5"
 HTTPTimeout   = 30 * time.Second
 )
-
-// AURResponse represents the AUR RPC API response structure
-type AURResponse struct {
-	Version     int           `json:"version"`
-	Type        string        `json:"type"`
-	ResultCount int           `json:"resultcount"`
-	Results     []interface{} `json:"results"`
-	Error       string        `json:"error,omitempty"`
-}
 
 type AURBackend struct {
 	baseURL string
@@ -49,7 +38,12 @@ func (a *AURBackend) Name() string {
 	return "aur"
 }
 
+// Sync verifies the AUR API is reachable.
+// Unlike traditional repositories, the AUR is queried on-demand via its RPC API.
+// There is no package database to download - packages are searched and fetched
+// in real-time when needed (during install/search operations).
 func (a *AURBackend) Sync() error {
+	// Verify AUR API connectivity with a simple request
 	url := fmt.Sprintf("%s?v=%s&type=info&arg=linux", a.baseURL, AURAPIVersion)
 
 	resp, err := a.client.Get(url)
@@ -62,27 +56,6 @@ func (a *AURBackend) Sync() error {
 		return fmt.Errorf("AUR API returned status %d", resp.StatusCode)
 	}
 
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read AUR response: %w", err)
-	}
-
-	// Parse to check for API errors
-	var result AURResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return fmt.Errorf("failed to decode AUR response: %w", err)
-	}
-
-	if result.Error != "" {
-		return fmt.Errorf("AUR API error: %s", result.Error)
-	}
-
-	// Save to cache
-	cacheFile := a.cache.GetFilePath("aur", "packages.json")
-	if err := a.cache.WriteFile(cacheFile, body); err != nil {
-		return fmt.Errorf("failed to cache AUR data: %w", err)
-	}
-
+	// AUR is reachable and responding correctly
 	return nil
 }
