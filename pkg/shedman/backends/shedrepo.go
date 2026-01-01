@@ -4,6 +4,7 @@ import (
 "fmt"
 "io"
 "net/http"
+"time"
 
 "github.com/theshedman/shedman/pkg/shedman/cache"
 )
@@ -12,12 +13,14 @@ const (
 ShedRepoBaseURL = "https://repo.shedos.org"
 ArchDBPath      = "/arch/x86_64/shedos.db"
 ShedIndexPath   = "/shed/index.json"
+CacheMaxAge     = 1 * time.Hour
 )
 
 type ShedRepoBackend struct {
-	baseURL string
-	client  *http.Client
-	cache   cache.Cache
+	baseURL      string
+	client       *http.Client
+	cache        cache.Cache
+	forceRefresh bool
 }
 
 func NewShedRepoBackend(c cache.Cache) *ShedRepoBackend {
@@ -26,14 +29,20 @@ func NewShedRepoBackend(c cache.Cache) *ShedRepoBackend {
 
 func NewShedRepoBackendWithURL(baseURL string, c cache.Cache) *ShedRepoBackend {
 	return &ShedRepoBackend{
-		baseURL: baseURL,
-		client:  &http.Client{Timeout: HTTPTimeout},
-		cache:   c,
+		baseURL:      baseURL,
+		client:       &http.Client{Timeout: HTTPTimeout},
+		cache:        c,
+		forceRefresh: false,
 	}
 }
 
 func (s *ShedRepoBackend) Name() string {
 	return "shedrepo"
+}
+
+// SetForceRefresh sets whether to force re-download regardless of cache freshness
+func (s *ShedRepoBackend) SetForceRefresh(force bool) {
+	s.forceRefresh = force
 }
 
 func (s *ShedRepoBackend) Sync() error {
@@ -51,6 +60,13 @@ func (s *ShedRepoBackend) Sync() error {
 }
 
 func (s *ShedRepoBackend) syncAndCache(urlPath, filename string) error {
+	cacheFile := s.cache.GetFilePath("shedrepo", filename)
+
+	// Check if cache is fresh (skip download if not forcing refresh)
+	if !s.forceRefresh && s.cache.IsFresh(cacheFile, CacheMaxAge) {
+		return nil
+	}
+
 	resp, err := s.client.Get(s.baseURL + urlPath)
 	if err != nil {
 		return err
@@ -68,7 +84,6 @@ func (s *ShedRepoBackend) syncAndCache(urlPath, filename string) error {
 	}
 
 	// Save to cache
-	cacheFile := s.cache.GetFilePath("shedrepo", filename)
 	if err := s.cache.WriteFile(cacheFile, body); err != nil {
 		return fmt.Errorf("failed to cache %s: %w", filename, err)
 	}

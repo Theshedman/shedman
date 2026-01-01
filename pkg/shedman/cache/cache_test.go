@@ -1,11 +1,12 @@
 package cache_test
 
 import (
-"os"
-"path/filepath"
-"testing"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
 
-"github.com/theshedman/shedman/pkg/shedman/cache"
+	"github.com/theshedman/shedman/pkg/shedman/cache"
 )
 
 func TestNewFileSystemCache(t *testing.T) {
@@ -114,5 +115,92 @@ func TestWriteAndReadFile(t *testing.T) {
 
 	if string(data) != string(testData) {
 		t.Errorf("data mismatch: expected %s, got %s", testData, data)
+	}
+}
+
+func TestCache_IsFresh_ReturnsTrue_WhenFileIsRecent(t *testing.T) {
+	tmpDir := filepath.Join(os.TempDir(), "shedman-test-fresh")
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+	testFile := c.GetFilePath("test", "recent.json")
+
+	// Write a file (will have current timestamp)
+	err := c.WriteFile(testFile, []byte("test"))
+	if err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	// File written just now should be fresh for 1 hour
+	if !c.IsFresh(testFile, 1*time.Hour) {
+		t.Error("file written just now should be fresh")
+	}
+}
+
+func TestCache_IsFresh_ReturnsFalse_WhenFileIsStale(t *testing.T) {
+	tmpDir := filepath.Join(os.TempDir(), "shedman-test-stale")
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+	testFile := c.GetFilePath("test", "stale.json")
+
+	// Write a file
+	err := c.WriteFile(testFile, []byte("test"))
+	if err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	// File is stale if maxAge is 0 (always stale)
+	if c.IsFresh(testFile, 0) {
+		t.Error("file should be stale when maxAge is 0")
+	}
+}
+
+func TestCache_IsFresh_ReturnsFalse_WhenFileNotExists(t *testing.T) {
+	tmpDir := filepath.Join(os.TempDir(), "shedman-test-noexist")
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+	testFile := c.GetFilePath("test", "nonexistent.json")
+
+	if c.IsFresh(testFile, 1*time.Hour) {
+		t.Error("non-existent file should not be fresh")
+	}
+}
+
+func TestCache_GetModTime_ReturnsTime(t *testing.T) {
+	tmpDir := filepath.Join(os.TempDir(), "shedman-test-modtime")
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+	testFile := c.GetFilePath("test", "modtime.json")
+
+	before := time.Now().Add(-1 * time.Second)
+	err := c.WriteFile(testFile, []byte("test"))
+	if err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+	after := time.Now().Add(1 * time.Second)
+
+	modTime, err := c.GetModTime(testFile)
+	if err != nil {
+		t.Fatalf("GetModTime failed: %v", err)
+	}
+
+	if modTime.Before(before) || modTime.After(after) {
+		t.Errorf("modTime %v should be between %v and %v", modTime, before, after)
+	}
+}
+
+func TestCache_GetModTime_ErrorsWhenNotExists(t *testing.T) {
+	tmpDir := filepath.Join(os.TempDir(), "shedman-test-modtime-err")
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+	testFile := c.GetFilePath("test", "nonexistent.json")
+
+	_, err := c.GetModTime(testFile)
+	if err == nil {
+		t.Error("GetModTime should error for non-existent file")
 	}
 }

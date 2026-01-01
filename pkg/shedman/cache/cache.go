@@ -1,13 +1,14 @@
 package cache
 
 import (
-"os"
-"path/filepath"
+	"os"
+	"path/filepath"
+	"time"
 )
 
 const (
-    DirPermission  = 0755  // rwxr-xr-x
-    FilePermission = 0644  // rw-r--r--
+	DirPermission  = 0755 // rwxr-xr-x
+	FilePermission = 0644 // rw-r--r--
 )
 
 // Cache interface for file system operations
@@ -18,6 +19,8 @@ type Cache interface {
 	EnsureDir(path string) error
 	WriteFile(path string, data []byte) error
 	ReadFile(path string) ([]byte, error)
+	IsFresh(path string, maxAge time.Duration) bool
+	GetModTime(path string) (time.Time, error)
 }
 
 // FileSystemCache implements Cache using the real file system
@@ -71,4 +74,22 @@ func (c *FileSystemCache) WriteFile(path string, data []byte) error {
 
 func (c *FileSystemCache) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
+}
+
+// IsFresh checks if a cached file is younger than maxAge
+func (c *FileSystemCache) IsFresh(path string, maxAge time.Duration) bool {
+	modTime, err := c.GetModTime(path)
+	if err != nil {
+		return false
+	}
+	return time.Since(modTime) < maxAge
+}
+
+// GetModTime returns the modification time of a cached file
+func (c *FileSystemCache) GetModTime(path string) (time.Time, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return info.ModTime(), nil
 }
