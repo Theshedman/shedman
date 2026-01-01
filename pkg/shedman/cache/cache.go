@@ -5,6 +5,11 @@ import (
 "path/filepath"
 )
 
+const (
+    DirPermission  = 0755  // rwxr-xr-x
+    FilePermission = 0644  // rw-r--r--
+)
+
 // Cache interface for file system operations
 type Cache interface {
 	GetDir() string
@@ -54,14 +59,14 @@ func (c *FileSystemCache) GetFilePath(subdir, filename string) string {
 }
 
 func (c *FileSystemCache) EnsureDir(path string) error {
-	return os.MkdirAll(path, 0755)
+	return os.MkdirAll(path, DirPermission)
 }
 
 func (c *FileSystemCache) WriteFile(path string, data []byte) error {
 	if err := c.EnsureDir(filepath.Dir(path)); err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, FilePermission)
 }
 
 func (c *FileSystemCache) ReadFile(path string) ([]byte, error) {
