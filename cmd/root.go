@@ -1,26 +1,30 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
+"fmt"
+"os"
 
-	"github.com/spf13/cobra"
+"github.com/spf13/cobra"
 )
 
 // Version information - set at build time
 var (
-	Version   = "dev"
-	GitCommit = "unknown"
-	BuildDate = "unknown"
+Version   = "dev"
+GitCommit = "unknown"
+BuildDate = "unknown"
 )
 
 // Global flags
 var (
-	yesFlag     bool
-	quietFlag   bool
-	verboseFlag bool
-	debugFlag   bool
-	dryRunFlag  bool
+yesFlag       bool
+noconfirmFlag bool // Alias for yesFlag (pacman compat)
+quietFlag     bool
+verboseFlag   bool
+debugFlag     bool
+dryRunFlag    bool
+colorFlag     bool
+noColorFlag   bool
+configFile    string
 )
 
 var rootCmd = &cobra.Command{
@@ -34,6 +38,12 @@ Features:
   • Universal .shed packages — install packages from any Linux distro
   • Snapshots — backup and restore your entire system state
   • Cloud sync — never lose your packages, configs, or themes`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Handle noconfirm as alias for yes
+		if noconfirmFlag {
+			yesFlag = true
+		}
+	},
 }
 
 // Execute runs the root command
@@ -51,8 +61,12 @@ func init() {
 
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip all confirmations")
+	rootCmd.PersistentFlags().BoolVar(&noconfirmFlag, "noconfirm", false, "Alias for --yes (pacman compat)")
 	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false, "Minimal output")
 	rootCmd.PersistentFlags().BoolVarP(&verboseFlag, "verbose", "v", false, "Detailed output")
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Developer debug output")
 	rootCmd.PersistentFlags().BoolVar(&dryRunFlag, "dry-run", false, "Preview without executing")
+	rootCmd.PersistentFlags().BoolVar(&colorFlag, "color", false, "Force colored output")
+	rootCmd.PersistentFlags().BoolVar(&noColorFlag, "no-color", false, "Disable colors")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Custom config file path")
 }

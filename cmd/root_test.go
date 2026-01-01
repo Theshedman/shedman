@@ -1,14 +1,16 @@
 package cmd
 
 import (
-	"testing"
+"testing"
 )
 
 func TestGlobalFlagsRegistry(t *testing.T) {
-	// Arrange
-	flags := []string{"yes", "quiet", "verbose", "debug", "dry-run"}
+	// All global flags from docs/README.md
+	flags := []string{
+		"yes", "noconfirm", "quiet", "verbose",
+		"debug", "dry-run", "color", "no-color", "config",
+	}
 
-	// Act & Assert
 	for _, flagName := range flags {
 		flag := rootCmd.PersistentFlags().Lookup(flagName)
 		if flag == nil {
@@ -18,22 +20,36 @@ func TestGlobalFlagsRegistry(t *testing.T) {
 }
 
 func TestGlobalFlagsParsing(t *testing.T) {
-	// Arrange: Reset flags (variables are package-global)
+	// Reset flags
 	yesFlag = false
 	quietFlag = false
+	noconfirmFlag = false
 
-	// Act: parse specific flags
-	// Note: We use ParseFlags to test the flags logic without executing the command
-	err := rootCmd.PersistentFlags().Parse([]string{"--yes", "--quiet"})
+	err := rootCmd.PersistentFlags().Parse([]string{"--yes", "--quiet", "--noconfirm"})
 	if err != nil {
 		t.Fatalf("unexpected error parsing flags: %v", err)
 	}
 
-	// Assert
 	if !yesFlag {
 		t.Error("expected yesFlag to be true after parsing --yes")
 	}
 	if !quietFlag {
 		t.Error("expected quietFlag to be true after parsing --quiet")
+	}
+	if !noconfirmFlag {
+		t.Error("expected noconfirmFlag to be true after parsing --noconfirm")
+	}
+}
+
+func TestNoconfirmIsAliasForYes(t *testing.T) {
+	// Reset flags
+	yesFlag = false
+	noconfirmFlag = true
+
+	// PersistentPreRun should set yesFlag when noconfirmFlag is true
+	rootCmd.PersistentPreRun(rootCmd, []string{})
+
+	if !yesFlag {
+		t.Error("expected yesFlag to be true when noconfirmFlag is true")
 	}
 }
