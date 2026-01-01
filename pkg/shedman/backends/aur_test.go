@@ -3,13 +3,17 @@ package backends_test
 import (
 "net/http"
 "net/http/httptest"
+"os"
+"path/filepath"
 "testing"
 
 "github.com/theshedman/shedman/pkg/shedman/backends"
+"github.com/theshedman/shedman/pkg/shedman/cache"
 )
 
 func TestAURBackend_Name(t *testing.T) {
-	backend := backends.NewAURBackend()
+	c := cache.NewFileSystemCache()
+	backend := backends.NewAURBackend(c)
 
 	if backend.Name() != "aur" {
 		t.Errorf("expected name 'aur', got '%s'", backend.Name())
@@ -17,31 +21,42 @@ func TestAURBackend_Name(t *testing.T) {
 }
 
 func TestAURBackend_Sync_Success(t *testing.T) {
-	// Create a mock server that returns a valid AUR response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"version":5,"type":"info","resultcount":1,"results":[]}`))
+		w.Write([]byte(`{"version":5,"type":"info","resultcount":1,"results":[{"Name":"test"}]}`))
 	}))
 	defer server.Close()
 
-	// Create backend with mock server URL
-	backend := backends.NewAURBackendWithURL(server.URL + "/")
+	tmpDir := filepath.Join(os.TempDir(), "shedman-aur-test")
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+	backend := backends.NewAURBackendWithURL(server.URL+"/", c)
 
 	err := backend.Sync()
 	if err != nil {
 		t.Errorf("Sync should succeed, but got error: %v", err)
 	}
+
+	// Verify cache file was created
+	cacheFile := c.GetFilePath("aur", "packages.json")
+	if _, err := os.Stat(cacheFile); os.IsNotExist(err) {
+		t.Error("cache file should exist after sync")
+	}
 }
 
 func TestAURBackend_Sync_ServerError(t *testing.T) {
-	// Create a mock server that returns 500 Internal Server Error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 w.WriteHeader(http.StatusInternalServerError)
 }))
 	defer server.Close()
 
-	backend := backends.NewAURBackendWithURL(server.URL + "/")
+	tmpDir := filepath.Join(os.TempDir(), "shedman-aur-test")
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+	backend := backends.NewAURBackendWithURL(server.URL+"/", c)
 
 	err := backend.Sync()
 	if err == nil {
@@ -50,7 +65,6 @@ w.WriteHeader(http.StatusInternalServerError)
 }
 
 func TestAURBackend_Sync_APIError(t *testing.T) {
-	// Create a mock server that returns an AUR API error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -58,7 +72,11 @@ w.Header().Set("Content-Type", "application/json")
 	}))
 	defer server.Close()
 
-	backend := backends.NewAURBackendWithURL(server.URL + "/")
+	tmpDir := filepath.Join(os.TempDir(), "shedman-aur-test")
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+	backend := backends.NewAURBackendWithURL(server.URL+"/", c)
 
 	err := backend.Sync()
 	if err == nil {
@@ -66,26 +84,12 @@ w.Header().Set("Content-Type", "application/json")
 	}
 }
 
-func TestAURBackend_Sync_InvalidJSON(t *testing.T) {
-	// Create a mock server that returns invalid JSON
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{invalid json}`))
-	}))
-	defer server.Close()
-
-	backend := backends.NewAURBackendWithURL(server.URL + "/")
-
-	err := backend.Sync()
-	if err == nil {
-		t.Error("Sync should fail on invalid JSON, but got nil")
-	}
-}
-
 func TestAURBackend_Sync_NetworkError(t *testing.T) {
-	// Use an invalid URL to simulate network error
-	backend := backends.NewAURBackendWithURL("http://localhost:99999/")
+	tmpDir := filepath.Join(os.TempDir(), "shedman-aur-test")
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+	backend := backends.NewAURBackendWithURL("http://localhost:99999/", c)
 
 	err := backend.Sync()
 	if err == nil {

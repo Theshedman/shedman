@@ -1,15 +1,16 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/shedman"
-	"github.com/theshedman/shedman/pkg/shedman/backends"
+"github.com/spf13/cobra"
+"github.com/theshedman/shedman/pkg/shedman"
+"github.com/theshedman/shedman/pkg/shedman/backends"
+"github.com/theshedman/shedman/pkg/shedman/cache"
 )
 
 var (
-	syncOfficial bool
-	syncAUR      bool
-	syncShedOS   bool
+syncOfficial bool
+syncAUR      bool
+syncShedOS   bool
 )
 
 var syncCmd = &cobra.Command{
@@ -23,6 +24,7 @@ By default, syncs all databases. Use flags to sync specific sources:
   --shedos      Sync ShedOS repository only`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		engine := shedman.NewEngine()
+		c := cache.NewFileSystemCache()
 
 		// Determine which backends to use
 		syncAll := !syncOfficial && !syncAUR && !syncShedOS
@@ -31,10 +33,10 @@ By default, syncs all databases. Use flags to sync specific sources:
 			engine.AddBackend(backends.NewPacmanBackend())
 		}
 		if syncAll || syncAUR {
-			engine.AddBackend(backends.NewAURBackend())
+			engine.AddBackend(backends.NewAURBackend(c))
 		}
 		if syncAll || syncShedOS {
-			engine.AddBackend(backends.NewShedRepoBackend())
+			engine.AddBackend(backends.NewShedRepoBackend(c))
 		}
 
 		if !quietFlag {
