@@ -1,28 +1,28 @@
 package config
 
 import (
-"os"
-"time"
+	"os"
+	"time"
 
-"github.com/pelletier/go-toml/v2"
+	"github.com/pelletier/go-toml/v2"
 )
 
 // Config holds all shedman configuration
 type Config struct {
-	General       GeneralConfig       `toml:"general"`
-	Network       NetworkConfig       `toml:"network"`
-	Cache         CacheConfig         `toml:"cache"`
-	Mirrors       MirrorConfig        `toml:"mirrors"`
-	Packages      PackageConfig       `toml:"packages"`
-	Boot          BootConfig          `toml:"boot"`
-	Snapshot      SnapshotConfig      `toml:"snapshot"`
-	Notifications NotificationConfig  `toml:"notifications"`
-	AUR           AURConfig           `toml:"aur"`
-	Security      SecurityConfig      `toml:"security"`
-	Hooks         HookConfig          `toml:"hooks"`
-	Logging       LoggingConfig       `toml:"logging"`
-	UI            UIConfig            `toml:"ui"`
-	Cloud         CloudConfig         `toml:"cloud"`
+	General       GeneralConfig      `toml:"general"`
+	Network       NetworkConfig      `toml:"network"`
+	Cache         CacheConfig        `toml:"cache"`
+	Mirrors       MirrorConfig       `toml:"mirrors"`
+	Packages      PackageConfig      `toml:"packages"`
+	Boot          BootConfig         `toml:"boot"`
+	Snapshot      SnapshotConfig     `toml:"snapshot"`
+	Notifications NotificationConfig `toml:"notifications"`
+	AUR           AURConfig          `toml:"aur"`
+	Security      SecurityConfig     `toml:"security"`
+	Hooks         HookConfig         `toml:"hooks"`
+	Logging       LoggingConfig      `toml:"logging"`
+	UI            UIConfig           `toml:"ui"`
+	Cloud         CloudConfig        `toml:"cloud"`
 }
 
 type GeneralConfig struct {
@@ -58,6 +58,7 @@ func (c *CacheConfig) GetMaxAge() time.Duration {
 type MirrorConfig struct {
 	ShedOS []string `toml:"shedos"`
 	Arch   []string `toml:"arch"`
+	AUR    string   `toml:"aur"`
 	Apt    []string `toml:"apt"`
 	Dnf    []string `toml:"dnf"`
 	Zypper []string `toml:"zypper"`
@@ -75,10 +76,18 @@ type BootConfig struct {
 }
 
 type SnapshotConfig struct {
-	AutoBeforeUpdate bool   `toml:"auto_before_update"`
-	KeepLocal        int    `toml:"keep_local"`
-	DefaultRemote    string `toml:"default_remote"`
-	Encrypt          bool   `toml:"encrypt"`
+	AutoBeforeUpdate  bool     `toml:"auto_before_update"`
+	KeepLocal         int      `toml:"keep_local"`
+	DefaultRemote     string   `toml:"default_remote"`
+	Encrypt           bool     `toml:"encrypt"`
+	ScheduleEnabled   bool     `toml:"schedule_enabled"`
+	ScheduleFrequency string   `toml:"schedule_frequency"`
+	ScheduleDays      []string `toml:"schedule_days"`
+	ScheduleTime      string   `toml:"schedule_time"`
+	ScheduleToRemote  bool     `toml:"schedule_to_remote"`
+	RequireACPower    bool     `toml:"require_ac_power"`
+	RequireWifi       bool     `toml:"require_wifi"`
+	NotifyOnComplete  bool     `toml:"notify_on_complete"`
 }
 
 type NotificationConfig struct {
@@ -157,15 +166,25 @@ func Default() *Config {
 		},
 		Mirrors: MirrorConfig{
 			ShedOS: []string{"https://repo.shedos.org"},
+			Arch:   []string{"https://geo.mirror.pkgbuild.com/$repo/os/$arch"},
+			AUR:    "https://aur.archlinux.org",
 		},
 		Boot: BootConfig{
 			KeepKernels: 3,
 		},
 		Snapshot: SnapshotConfig{
-			AutoBeforeUpdate: true,
-			KeepLocal:        10,
-			DefaultRemote:    "gdrive",
-			Encrypt:          true,
+			AutoBeforeUpdate:  true,
+			KeepLocal:         10,
+			DefaultRemote:     "gdrive",
+			Encrypt:           true,
+			ScheduleEnabled:   false,
+			ScheduleFrequency: "weekly",
+			ScheduleDays:      []string{"sunday"},
+			ScheduleTime:      "03:00",
+			ScheduleToRemote:  true,
+			RequireACPower:    false,
+			RequireWifi:       false,
+			NotifyOnComplete:  true,
 		},
 		Notifications: NotificationConfig{
 			Enabled:  true,
@@ -193,18 +212,18 @@ func Default() *Config {
 
 // Load reads configuration from a file, returning defaults if file doesn't exist
 func Load(path string) (*Config, error) {
-data, err := os.ReadFile(path)
-if err != nil {
-if os.IsNotExist(err) {
-return Default(), nil
-}
-return nil, err
-}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Default(), nil
+		}
+		return nil, err
+	}
 
-cfg := Default()
-if err := toml.Unmarshal(data, cfg); err != nil {
-return nil, err
-}
+	cfg := Default()
+	if err := toml.Unmarshal(data, cfg); err != nil {
+		return nil, err
+	}
 
-return cfg, nil
+	return cfg, nil
 }
