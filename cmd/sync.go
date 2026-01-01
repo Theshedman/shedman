@@ -38,7 +38,11 @@ By default, syncs all databases. Use flags to sync specific sources:
 			backendList = append(backendList, backends.NewAURBackend(c))
 		}
 		if syncAll || syncShedOS {
-			backendList = append(backendList, backends.NewShedRepoBackend(c))
+			shedRepo := backends.NewShedRepoBackend(c)
+			if syncRefresh {
+				shedRepo.SetForceRefresh(true)
+			}
+			backendList = append(backendList, shedRepo)
 		}
 
 		// Debug output

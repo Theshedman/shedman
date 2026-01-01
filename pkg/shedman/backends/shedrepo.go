@@ -7,6 +7,7 @@ import (
 "time"
 
 "github.com/theshedman/shedman/pkg/shedman/cache"
+shedhttp "github.com/theshedman/shedman/pkg/shedman/http"
 )
 
 const (
@@ -16,21 +17,30 @@ ShedIndexPath   = "/shed/index.json"
 CacheMaxAge     = 1 * time.Hour
 )
 
+// ShedOS mirror list - primary and fallbacks
+var DefaultMirrors = []string{
+	"https://repo.shedos.org",
+	"https://mirror1.shedos.org",
+	"https://mirror2.shedos.org",
+}
+
 type ShedRepoBackend struct {
-	baseURL      string
-	client       *http.Client
+	client       *shedhttp.RetryClient
 	cache        cache.Cache
 	forceRefresh bool
 }
 
 func NewShedRepoBackend(c cache.Cache) *ShedRepoBackend {
-	return NewShedRepoBackendWithURL(ShedRepoBaseURL, c)
+	return NewShedRepoBackendWithMirrors(DefaultMirrors, c)
 }
 
 func NewShedRepoBackendWithURL(baseURL string, c cache.Cache) *ShedRepoBackend {
+	return NewShedRepoBackendWithMirrors([]string{baseURL}, c)
+}
+
+func NewShedRepoBackendWithMirrors(mirrors []string, c cache.Cache) *ShedRepoBackend {
 	return &ShedRepoBackend{
-		baseURL:      baseURL,
-		client:       &http.Client{Timeout: HTTPTimeout},
+		client:       shedhttp.NewRetryClient(mirrors),
 		cache:        c,
 		forceRefresh: false,
 	}
@@ -67,7 +77,7 @@ func (s *ShedRepoBackend) syncAndCache(urlPath, filename string) error {
 		return nil
 	}
 
-	resp, err := s.client.Get(s.baseURL + urlPath)
+	resp, err := s.client.Get(urlPath)
 	if err != nil {
 		return err
 	}
