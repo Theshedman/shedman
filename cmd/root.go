@@ -14,6 +14,15 @@ var (
 	BuildDate = "unknown"
 )
 
+// Global flags
+var (
+	yesFlag     bool
+	quietFlag   bool
+	verboseFlag bool
+	debugFlag   bool
+	dryRunFlag  bool
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "shedman",
 	Short: "A universal package manager for ShedOS and beyond",
@@ -38,4 +47,12 @@ func Execute() {
 func init() {
 	// Add subcommands here
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(syncCmd)
+
+	// Global flags
+	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip all confirmations")
+	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false, "Minimal output")
+	rootCmd.PersistentFlags().BoolVarP(&verboseFlag, "verbose", "v", false, "Detailed output")
+	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Developer debug output")
+	rootCmd.PersistentFlags().BoolVar(&dryRunFlag, "dry-run", false, "Preview without executing")
 }

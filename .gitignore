@@ -2,7 +2,7 @@
 task.md
 
 # Binaries
-shedman
+/shedman
 *.exe
 *.exe~
 *.dll
