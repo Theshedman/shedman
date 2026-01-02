@@ -1,11 +1,15 @@
 package installer
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 
 	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
 )
+
+// ErrPacmanNotFound is returned when pacman is not available
+var ErrPacmanNotFound = errors.New("pacman is required but not found in PATH")
 
 // PacmanInstaller wraps pacman for official repo installs
 type PacmanInstaller struct {
@@ -17,6 +21,12 @@ func NewPacmanInstaller() *PacmanInstaller {
 	return &PacmanInstaller{
 		executor: DefaultExecutor,
 	}
+}
+
+// IsPacmanAvailable checks if pacman command exists in PATH
+func (p *PacmanInstaller) IsPacmanAvailable() bool {
+	_, err := exec.LookPath("pacman")
+	return err == nil
 }
 
 // DefaultExecutor runs commands using os/exec
