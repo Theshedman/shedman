@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/theshedman/shedman/pkg/shedman/config"
 	"github.com/theshedman/shedman/pkg/shedman/installer"
 )
 
@@ -13,6 +14,33 @@ func TestAURInstaller_NewAURInstaller(t *testing.T) {
 	ai := installer.NewAURInstaller()
 	if ai == nil {
 		t.Fatal("NewAURInstaller should return non-nil")
+	}
+}
+
+func TestAURInstaller_NewAURInstallerWithConfig(t *testing.T) {
+	cfg := config.Default()
+	cfg.AUR.BuildDir = "/custom/build/dir"
+
+	ai := installer.NewAURInstallerWithConfig(cfg)
+	if ai == nil {
+		t.Fatal("NewAURInstallerWithConfig should return non-nil")
+	}
+
+	// Verify the build dir is used
+	if ai.GetCacheDir() != "/custom/build/dir" {
+		t.Errorf("Expected cache dir '/custom/build/dir', got '%s'", ai.GetCacheDir())
+	}
+}
+
+func TestAURInstaller_UsesDefaultBuildDirWhenEmpty(t *testing.T) {
+	cfg := config.Default()
+	cfg.AUR.BuildDir = "" // Empty = use default
+
+	ai := installer.NewAURInstallerWithConfig(cfg)
+
+	// Should fall back to default
+	if ai.GetCacheDir() == "" {
+		t.Error("Expected non-empty cache dir when BuildDir is empty")
 	}
 }
 

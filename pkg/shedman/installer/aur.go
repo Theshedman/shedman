@@ -5,23 +5,43 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/theshedman/shedman/pkg/shedman/config"
 )
 
 // AURInstaller handles AUR package builds with full security features
 type AURInstaller struct {
-	executor       Executor
-	cacheDir       string
-	sandboxEnabled bool
+	executor        Executor
+	cacheDir        string
+	sandboxEnabled  bool
+	cleanAfterBuild bool
 }
 
-// NewAURInstaller creates a new AURInstaller
+// NewAURInstaller creates a new AURInstaller with default config
 func NewAURInstaller() *AURInstaller {
-	home, _ := os.UserHomeDir()
-	return &AURInstaller{
-		executor:       DefaultExecutor,
-		cacheDir:       filepath.Join(home, ".cache", "shedman", "aur"),
-		sandboxEnabled: true, // Sandbox enabled by default for security
+	cfg := config.Default()
+	return NewAURInstallerWithConfig(cfg)
+}
+
+// NewAURInstallerWithConfig creates a new AURInstaller with the given config
+func NewAURInstallerWithConfig(cfg *config.Config) *AURInstaller {
+	cacheDir := cfg.AUR.BuildDir
+	if cacheDir == "" {
+		home, _ := os.UserHomeDir()
+		cacheDir = filepath.Join(home, ".cache", "shedman", "aur")
 	}
+
+	return &AURInstaller{
+		executor:        DefaultExecutor,
+		cacheDir:        cacheDir,
+		sandboxEnabled:  true, // Sandbox enabled by default for security
+		cleanAfterBuild: cfg.AUR.CleanAfterBuild,
+	}
+}
+
+// GetCacheDir returns the cache directory
+func (a *AURInstaller) GetCacheDir() string {
+	return a.cacheDir
 }
 
 // SetExecutor sets a custom command executor (for testing)
