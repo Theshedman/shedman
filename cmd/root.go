@@ -58,6 +58,9 @@ func Execute() {
 }
 
 func init() {
+	// Setup colored help templates
+	output.SetupColoredHelp(rootCmd)
+
 	// Add subcommands here
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(syncCmd)
