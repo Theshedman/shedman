@@ -49,13 +49,30 @@ type ShedInstaller struct {
 	cacheDir string
 }
 
-// NewShedInstaller creates a new ShedInstaller
+// NewShedInstaller creates a new ShedInstaller with default cache directory
 func NewShedInstaller() *ShedInstaller {
 	home, _ := os.UserHomeDir()
 	return &ShedInstaller{
 		executor: DefaultExecutor,
 		cacheDir: filepath.Join(home, ".cache", "shedman", "shed"),
 	}
+}
+
+// NewShedInstallerWithCacheDir creates a new ShedInstaller with a custom cache directory
+func NewShedInstallerWithCacheDir(cacheDir string) *ShedInstaller {
+	if cacheDir == "" {
+		home, _ := os.UserHomeDir()
+		cacheDir = filepath.Join(home, ".cache", "shedman", "shed")
+	}
+	return &ShedInstaller{
+		executor: DefaultExecutor,
+		cacheDir: cacheDir,
+	}
+}
+
+// GetCacheDir returns the cache directory
+func (s *ShedInstaller) GetCacheDir() string {
+	return s.cacheDir
 }
 
 // SetExecutor sets a custom command executor (for testing)
