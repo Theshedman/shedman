@@ -1,28 +1,28 @@
 package output
 
 import (
-"strings"
+	"strings"
 
-"github.com/spf13/cobra"
+	"github.com/spf13/cobra"
 )
 
 // SetupColoredHelp configures Cobra with a colored help template
 func SetupColoredHelp(cmd *cobra.Command) {
 	cobra.AddTemplateFunc("cyan", func(s string) string {
-return Colorize(Cyan, s)
-})
+		return Colorize(Cyan, s)
+	})
 	cobra.AddTemplateFunc("green", func(s string) string {
-return Colorize(Green, s)
-})
+		return Colorize(Green, s)
+	})
 	cobra.AddTemplateFunc("yellow", func(s string) string {
-return Colorize(Yellow, s)
-})
+		return Colorize(Yellow, s)
+	})
 	cobra.AddTemplateFunc("bold", func(s string) string {
-return Colorize(Bold, s)
-})
+		return Colorize(Bold, s)
+	})
 	cobra.AddTemplateFunc("magenta", func(s string) string {
-return Colorize(Magenta, s)
-})
+		return Colorize(Magenta, s)
+	})
 
 	cmd.SetUsageTemplate(coloredUsageTemplate)
 	cmd.SetHelpTemplate(coloredHelpTemplate)
@@ -71,21 +71,46 @@ func init() {
 func colorizeFlags(s string) string {
 	lines := strings.Split(s, "\n")
 	for i, line := range lines {
-		// Color the flag part (starts with -)
-		if strings.Contains(line, "--") {
-			// Find and color --flagname
-			parts := strings.SplitN(line, " ", 2)
-			if len(parts) >= 1 {
-				flagPart := parts[0]
-				// Color short and long flags
-				flagPart = strings.Replace(flagPart, "-", Colorize(Yellow, "-"), 2)
-				if len(parts) == 2 {
-					lines[i] = flagPart + " " + parts[1]
-				} else {
-					lines[i] = flagPart
+		if len(line) == 0 {
+			continue
+		}
+
+		// Find the flags part (before the description)
+		// Format is typically: "  -s, --long-flag type   description"
+		trimmed := strings.TrimLeft(line, " ")
+		leadingSpaces := line[:len(line)-len(trimmed)]
+
+		// Find where the description starts (after multiple spaces)
+		descIdx := strings.Index(trimmed, "   ")
+		if descIdx == -1 {
+			descIdx = len(trimmed)
+		}
+
+		flagPart := trimmed[:descIdx]
+		descPart := ""
+		if descIdx < len(trimmed) {
+			descPart = trimmed[descIdx:]
+		}
+
+		// Color the flag part
+		// Handle -s, --long patterns
+		coloredFlag := ""
+		for j := 0; j < len(flagPart); j++ {
+			ch := flagPart[j]
+			if ch == '-' {
+				// Find the end of this flag
+				end := j + 1
+				for end < len(flagPart) && flagPart[end] != ' ' && flagPart[end] != ',' {
+					end++
 				}
+				coloredFlag += Colorize(Yellow, flagPart[j:end])
+				j = end - 1
+			} else {
+				coloredFlag += string(ch)
 			}
 		}
+
+		lines[i] = leadingSpaces + coloredFlag + descPart
 	}
 	return strings.Join(lines, "\n")
 }
