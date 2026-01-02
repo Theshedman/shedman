@@ -1,30 +1,31 @@
 package cmd
 
 import (
-"fmt"
-"os"
+	"fmt"
+	"os"
 
-"github.com/spf13/cobra"
+	"github.com/spf13/cobra"
+	"github.com/theshedman/shedman/pkg/shedman/output"
 )
 
 // Version information - set at build time
 var (
-Version   = "dev"
-GitCommit = "unknown"
-BuildDate = "unknown"
+	Version   = "dev"
+	GitCommit = "unknown"
+	BuildDate = "unknown"
 )
 
 // Global flags
 var (
-yesFlag       bool
-noconfirmFlag bool // Alias for yesFlag (pacman compat)
-quietFlag     bool
-verboseFlag   bool
-debugFlag     bool
-dryRunFlag    bool
-colorFlag     bool
-noColorFlag   bool
-configFile    string
+	yesFlag       bool
+	noconfirmFlag bool // Alias for yesFlag (pacman compat)
+	quietFlag     bool
+	verboseFlag   bool
+	debugFlag     bool
+	dryRunFlag    bool
+	colorFlag     bool
+	noColorFlag   bool
+	configFile    string
 )
 
 var rootCmd = &cobra.Command{
@@ -43,6 +44,8 @@ Features:
 		if noconfirmFlag {
 			yesFlag = true
 		}
+		// Initialize color output
+		output.InitColor(colorFlag, noColorFlag)
 	},
 }
 

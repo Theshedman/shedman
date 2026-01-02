@@ -1,23 +1,24 @@
 package backends
 
 import (
-"fmt"
-"net/http"
-"time"
+	"fmt"
+	"net/http"
+	"time"
 
-"github.com/theshedman/shedman/pkg/shedman/cache"
+	"github.com/theshedman/shedman/pkg/shedman/cache"
 )
 
 const (
-AURBaseURL    = "https://aur.archlinux.org/rpc/"
-AURAPIVersion = "5"
-HTTPTimeout   = 30 * time.Second
+	AURBaseURL    = "https://aur.archlinux.org/rpc/"
+	AURAPIVersion = "5"
+	HTTPTimeout   = 30 * time.Second
 )
 
 type AURBackend struct {
-	baseURL string
-	client  *http.Client
-	cache   cache.Cache
+	baseURL      string
+	client       *http.Client
+	cache        cache.Cache
+	forceRefresh bool // No-op for AUR (on-demand API)
 }
 
 // NewAURBackend creates a new AURBackend with default settings
@@ -36,6 +37,11 @@ func NewAURBackendWithURL(baseURL string, c cache.Cache) *AURBackend {
 
 func (a *AURBackend) Name() string {
 	return "aur"
+}
+
+// SetForceRefresh is a no-op for AUR since it's an on-demand API with no local cache
+func (a *AURBackend) SetForceRefresh(force bool) {
+	a.forceRefresh = force
 }
 
 // Sync verifies the AUR API is reachable.

@@ -1,18 +1,19 @@
 package cmd
 
 import (
-"github.com/spf13/cobra"
-"github.com/theshedman/shedman/pkg/shedman"
-"github.com/theshedman/shedman/pkg/shedman/backends"
-"github.com/theshedman/shedman/pkg/shedman/cache"
-"github.com/theshedman/shedman/pkg/shedman/config"
+	"github.com/spf13/cobra"
+	"github.com/theshedman/shedman/pkg/shedman"
+	"github.com/theshedman/shedman/pkg/shedman/backends"
+	"github.com/theshedman/shedman/pkg/shedman/cache"
+	"github.com/theshedman/shedman/pkg/shedman/config"
+	"github.com/theshedman/shedman/pkg/shedman/output"
 )
 
 var (
-syncOfficial bool
-syncAUR      bool
-syncShedOS   bool
-syncRefresh  bool
+	syncOfficial bool
+	syncAUR      bool
+	syncShedOS   bool
+	syncRefresh  bool
 )
 
 var syncCmd = &cobra.Command{
@@ -75,7 +76,7 @@ By default, syncs all databases. Use flags to sync specific sources:
 		}
 
 		if !quietFlag {
-			cmd.Println("Synchronizing package databases...")
+			output.Info("Synchronizing package databases...")
 		}
 
 		// Sync each backend with verbose progress
@@ -92,7 +93,7 @@ By default, syncs all databases. Use flags to sync specific sources:
 		}
 
 		if !quietFlag {
-			cmd.Println("Sync complete.")
+			output.Success("Sync complete.")
 		}
 
 		return nil
