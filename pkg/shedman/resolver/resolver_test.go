@@ -30,6 +30,79 @@ func TestResolveRequest_ParseVersionConstraint(t *testing.T) {
 	if req.Version != "0.10.0" {
 		t.Errorf("Expected Version '0.10.0', got '%s'", req.Version)
 	}
+	if req.Operator != "=" {
+		t.Errorf("Expected Operator '=', got '%s'", req.Operator)
+	}
+}
+
+func TestResolveRequest_ParseVersionGTE(t *testing.T) {
+	req := resolver.ParseRequest("neovim>=0.9.0")
+
+	if req.Name != "neovim" {
+		t.Errorf("Expected Name 'neovim', got '%s'", req.Name)
+	}
+	if req.Version != "0.9.0" {
+		t.Errorf("Expected Version '0.9.0', got '%s'", req.Version)
+	}
+	if req.Operator != ">=" {
+		t.Errorf("Expected Operator '>=', got '%s'", req.Operator)
+	}
+}
+
+func TestResolveRequest_ParseVersionLTE(t *testing.T) {
+	req := resolver.ParseRequest("neovim<=1.0.0")
+
+	if req.Name != "neovim" {
+		t.Errorf("Expected Name 'neovim', got '%s'", req.Name)
+	}
+	if req.Version != "1.0.0" {
+		t.Errorf("Expected Version '1.0.0', got '%s'", req.Version)
+	}
+	if req.Operator != "<=" {
+		t.Errorf("Expected Operator '<=', got '%s'", req.Operator)
+	}
+}
+
+func TestResolveRequest_ParseVersionGT(t *testing.T) {
+	req := resolver.ParseRequest("neovim>0.8.0")
+
+	if req.Name != "neovim" {
+		t.Errorf("Expected Name 'neovim', got '%s'", req.Name)
+	}
+	if req.Version != "0.8.0" {
+		t.Errorf("Expected Version '0.8.0', got '%s'", req.Version)
+	}
+	if req.Operator != ">" {
+		t.Errorf("Expected Operator '>', got '%s'", req.Operator)
+	}
+}
+
+func TestResolveRequest_ParseVersionLT(t *testing.T) {
+	req := resolver.ParseRequest("neovim<2.0.0")
+
+	if req.Name != "neovim" {
+		t.Errorf("Expected Name 'neovim', got '%s'", req.Name)
+	}
+	if req.Version != "2.0.0" {
+		t.Errorf("Expected Version '2.0.0', got '%s'", req.Version)
+	}
+	if req.Operator != "<" {
+		t.Errorf("Expected Operator '<', got '%s'", req.Operator)
+	}
+}
+
+func TestResolveRequest_ParseVersionExact(t *testing.T) {
+	req := resolver.ParseRequest("neovim=0.10.0")
+
+	if req.Name != "neovim" {
+		t.Errorf("Expected Name 'neovim', got '%s'", req.Name)
+	}
+	if req.Version != "0.10.0" {
+		t.Errorf("Expected Version '0.10.0', got '%s'", req.Version)
+	}
+	if req.Operator != "=" {
+		t.Errorf("Expected Operator '=', got '%s'", req.Operator)
+	}
 }
 
 func TestResolveRequest_ParseGroup(t *testing.T) {
