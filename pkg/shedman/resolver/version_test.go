@@ -11,6 +11,7 @@ func TestCompareVersions(t *testing.T) {
 		v1, v2   string
 		expected int
 	}{
+		// Basic comparisons
 		{"1.0.0", "1.0.0", 0},
 		{"1.0.0", "1.0.1", -1},
 		{"1.0.1", "1.0.0", 1},
@@ -18,10 +19,25 @@ func TestCompareVersions(t *testing.T) {
 		{"1.10.0", "1.9.0", 1},
 		{"1.2.3", "1.2.3.4", -1},
 		{"0.10.0", "0.9.5", 1},
-		{"v1.0.0", "1.0.0", 0}, // Handle v prefix
-		{"1:1.0", "1:0.9", 1},  // Epoch comparison (same epoch)
-		{"2:1.0", "1:9.0", 1},  // Higher epoch wins
-		{"1.0-1", "1.0-2", -1}, // Release number comparison
+		{"v1.0.0", "1.0.0", 0},
+
+		// Epoch comparisons
+		{"1:1.0", "1:0.9", 1},
+		{"2:1.0", "1:9.0", 1},
+
+		// Package release
+		{"1.0-1", "1.0-2", -1},
+		{"1.0.0-3", "1.0.0-1", 1},
+
+		// Pre-release comparisons
+		{"1.0.0-alpha", "1.0.0", -1},         // pre-release < release
+		{"1.0.0", "1.0.0-alpha", 1},          // release > pre-release
+		{"1.0.0-alpha", "1.0.0-beta", -1},    // alpha < beta
+		{"1.0.0-beta", "1.0.0-rc", -1},       // beta < rc
+		{"1.0.0-rc", "1.0.0-rc2", -1},        // rc < rc2
+		{"1.0.0-rc1", "1.0.0-rc2", -1},       // rc1 < rc2
+		{"1.0.0-alpha", "1.0.0-alpha", 0},    // same pre-release
+		{"1.0.0-alpha1", "1.0.0-alpha2", -1}, // alpha1 < alpha2
 	}
 
 	for _, tt := range tests {
