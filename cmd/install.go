@@ -158,9 +158,30 @@ func selectDatabase(cfg *config.Config, source string) pkgdb.PackageDB {
 	case pkgdb.SourceShedOS:
 		return pkgdb.NewShedDBWithConfig(cfg)
 	default:
-		// Default: use official repos
-		return pkgdb.NewPacmanDB()
+		// Auto-detect: use MultiSourceResolver to query all sources with priority
+		return buildMultiSourceResolver(cfg)
 	}
+}
+
+// buildMultiSourceResolver creates a resolver that queries all sources in priority order
+func buildMultiSourceResolver(cfg *config.Config) *resolver.MultiSourceResolver {
+	ms := resolver.NewMultiSource()
+
+	// Add sources in priority order (highest first)
+	// ShedOS first (if mirrors are configured)
+	if len(cfg.Mirrors.ShedOS) > 0 {
+		ms.AddSource(pkgdb.SourceShedOS, pkgdb.NewShedDBWithConfig(cfg))
+	}
+
+	// Official repos (always available on Arch-based systems)
+	ms.AddSource(pkgdb.SourceOfficial, pkgdb.NewPacmanDB())
+
+	// AUR (if enabled in config)
+	if cfg.AUR.Enabled {
+		ms.AddSource(pkgdb.SourceAUR, pkgdb.NewAURDBWithConfig(cfg))
+	}
+
+	return ms
 }
 
 // executeInstall runs the appropriate installer for each package
