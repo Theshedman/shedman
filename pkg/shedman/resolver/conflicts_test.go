@@ -70,6 +70,168 @@ func TestConflict_String(t *testing.T) {
 	}
 }
 
+// ============== Phase 4 Refactoring Tests ==============
+
+func TestConflictDetector_VersionAwareConflict(t *testing.T) {
+	db := &conflictTestDB{
+		packages: map[string]pkgdb.PackageInfo{
+			"app": {Name: "app", Version: "1.0", Conflicts: []string{"lib>=2.0"}},
+			"lib": {Name: "lib", Version: "2.5.0"},
+		},
+	}
+
+	detector := resolver.NewConflictDetector(db)
+	conflicts := detector.Detect([]string{"app", "lib"})
+
+	// lib 2.5.0 >= 2.0, so conflict should be detected
+	if len(conflicts) != 1 {
+		t.Errorf("Expected 1 conflict (lib>=2.0 matches 2.5.0), got %d", len(conflicts))
+	}
+}
+
+func TestConflictDetector_VersionNoConflict(t *testing.T) {
+	db := &conflictTestDB{
+		packages: map[string]pkgdb.PackageInfo{
+			"app": {Name: "app", Version: "1.0", Conflicts: []string{"lib>=3.0"}},
+			"lib": {Name: "lib", Version: "2.5.0"},
+		},
+	}
+
+	detector := resolver.NewConflictDetector(db)
+	conflicts := detector.Detect([]string{"app", "lib"})
+
+	// lib 2.5.0 < 3.0, so no conflict
+	if len(conflicts) != 0 {
+		t.Errorf("Expected no conflicts (lib 2.5.0 < 3.0), got %d", len(conflicts))
+	}
+}
+
+func TestConflictDetector_WithInstalled(t *testing.T) {
+	newDB := &conflictTestDB{
+		packages: map[string]pkgdb.PackageInfo{
+			"neovim": {Name: "neovim", Version: "0.10.0", Conflicts: []string{"vim"}},
+		},
+	}
+	installedDB := &conflictTestDB{
+		packages: map[string]pkgdb.PackageInfo{
+			"vim": {Name: "vim", Version: "9.0"},
+		},
+	}
+
+	detector := resolver.NewConflictDetectorWithInstalled(newDB, installedDB)
+	conflicts := detector.DetectWithInstalled([]string{"neovim"}, []string{"vim"})
+
+	if len(conflicts) != 1 {
+		t.Errorf("Expected 1 conflict with installed vim, got %d", len(conflicts))
+	}
+	if len(conflicts) > 0 && conflicts[0].Reason != "conflicts with installed package" {
+		t.Errorf("Expected 'conflicts with installed package', got %s", conflicts[0].Reason)
+	}
+}
+
+func TestConflictResult_HasErrors(t *testing.T) {
+	result := &resolver.ConflictResult{
+		PackageConflicts: []resolver.Conflict{
+			{Package1: "a", Package2: "b", Severity: resolver.ConflictError},
+		},
+	}
+
+	if !result.HasErrors() {
+		t.Error("Expected HasErrors to return true")
+	}
+}
+
+func TestConflictResult_IsEmpty(t *testing.T) {
+	emptyResult := &resolver.ConflictResult{}
+	if !emptyResult.IsEmpty() {
+		t.Error("Expected empty result")
+	}
+
+	nonEmptyResult := &resolver.ConflictResult{
+		PackageConflicts: []resolver.Conflict{{Package1: "a", Package2: "b"}},
+	}
+	if nonEmptyResult.IsEmpty() {
+		t.Error("Expected non-empty result")
+	}
+}
+
+func TestFileConflict_OwnershipConflict(t *testing.T) {
+	fc := resolver.NewFileConflictChecker()
+
+	// Simulate two packages owning the same file
+	fc.RegisterPackageFiles("vim", []string{"/usr/bin/vi", "/usr/share/vim/vimrc"})
+	fc.RegisterPackageFiles("neovim", []string{"/usr/bin/vi", "/usr/share/nvim/init.vim"})
+
+	conflicts := fc.CheckConflicts()
+
+	if len(conflicts) != 1 {
+		t.Errorf("Expected 1 file conflict for /usr/bin/vi, got %d", len(conflicts))
+	}
+	if len(conflicts) > 0 && conflicts[0].FilePath != "/usr/bin/vi" {
+		t.Errorf("Expected conflict on /usr/bin/vi, got %s", conflicts[0].FilePath)
+	}
+}
+
+func TestFileConflict_NoConflict(t *testing.T) {
+	fc := resolver.NewFileConflictChecker()
+
+	fc.RegisterPackageFiles("git", []string{"/usr/bin/git"})
+	fc.RegisterPackageFiles("curl", []string{"/usr/bin/curl"})
+
+	conflicts := fc.CheckConflicts()
+
+	if len(conflicts) != 0 {
+		t.Errorf("Expected no file conflicts, got %d", len(conflicts))
+	}
+}
+
+func TestFileConflict_WithOverwrite(t *testing.T) {
+	fc := resolver.NewFileConflictChecker()
+	fc.SetOverwritePattern("/usr/bin/*")
+
+	fc.RegisterPackageFiles("vim", []string{"/usr/bin/vi"})
+	fc.RegisterPackageFiles("neovim", []string{"/usr/bin/vi"})
+
+	conflicts := fc.CheckConflicts()
+
+	// Overwrite pattern should suppress the conflict
+	if len(conflicts) != 0 {
+		t.Errorf("Expected overwrite pattern to suppress conflict, got %d", len(conflicts))
+	}
+}
+
+func TestFileConflict_Type(t *testing.T) {
+	fc := resolver.FileConflict{
+		FilePath: "/usr/bin/vi",
+		Package1: "vim",
+		Package2: "neovim",
+		Type:     resolver.FileConflictOwnership,
+	}
+
+	if fc.Type != resolver.FileConflictOwnership {
+		t.Error("Expected ownership conflict type")
+	}
+}
+
+func TestFileConflict_ExistingFileOnDisk(t *testing.T) {
+	fc := resolver.NewFileConflictChecker()
+
+	// Register an "existing" file (simulates file already on disk)
+	fc.RegisterExistingFile("/etc/config.conf", "")
+
+	// New package wants to install to same path
+	fc.RegisterPackageFiles("myapp", []string{"/etc/config.conf"})
+
+	conflicts := fc.CheckConflicts()
+
+	if len(conflicts) != 1 {
+		t.Errorf("Expected 1 conflict with existing file, got %d", len(conflicts))
+	}
+	if len(conflicts) > 0 && conflicts[0].Type != resolver.FileConflictExisting {
+		t.Errorf("Expected existing file conflict type, got %v", conflicts[0].Type)
+	}
+}
+
 // conflictTestDB for testing
 type conflictTestDB struct {
 	packages map[string]pkgdb.PackageInfo
