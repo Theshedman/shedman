@@ -1,7 +1,9 @@
 package installer
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 
@@ -89,4 +91,74 @@ func (p *PacmanInstaller) InstallMultiple(pkgs []pkgdb.PackageInfo, opts Options
 		return p.executor(cmd)
 	}
 	return nil
+}
+
+// InstallWithProgress installs packages with real-time progress callbacks
+func (p *PacmanInstaller) InstallWithProgress(pkgs []pkgdb.PackageInfo, opts Options, callback ProgressCallback) error {
+	names := make([]string, len(pkgs))
+	for i, pkg := range pkgs {
+		names[i] = pkg.Name
+	}
+	cmdArgs := p.BuildCommand(names, opts)
+
+	if len(cmdArgs) == 0 {
+		return nil
+	}
+
+	// Create progress parser
+	progress := NewPacmanProgress(callback)
+	progress.SetTotalPackages(len(pkgs))
+
+	// Execute with progress parsing
+	return ProgressExecutor(cmdArgs, progress)
+}
+
+// ProgressExecutor runs a command and pipes output through the progress parser
+func ProgressExecutor(cmd []string, progress *PacmanProgress) error {
+	if len(cmd) == 0 {
+		return nil
+	}
+
+	c := exec.Command(cmd[0], cmd[1:]...)
+	c.Stdin = os.Stdin
+
+	// Create pipes for stdout and stderr
+	stdout, err := c.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	stderr, err := c.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	if err := c.Start(); err != nil {
+		return err
+	}
+
+	// Parse stdout in goroutine
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			line := scanner.Text()
+			fmt.Println(line) // Still print to terminal
+			if progress != nil {
+				progress.ParseLine(line)
+			}
+		}
+	}()
+
+	// Parse stderr in goroutine
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			fmt.Fprintln(os.Stderr, line) // Still print to terminal
+			if progress != nil {
+				progress.ParseLine(line)
+			}
+		}
+	}()
+
+	return c.Wait()
 }
