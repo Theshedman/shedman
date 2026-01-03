@@ -23,12 +23,14 @@ type ShedPackage struct {
 	Name          string   `json:"name"`
 	Version       string   `json:"version"`
 	Description   string   `json:"description"`
+	PackageType   string   `json:"package_type"` // "arch" or "shed"
 	Depends       []string `json:"depends"`
 	OptDepends    []string `json:"optdepends"`
 	Provides      []string `json:"provides"`
 	Conflicts     []string `json:"conflicts"`
 	DownloadSize  int64    `json:"download_size"`
 	InstalledSize int64    `json:"installed_size"`
+	DownloadURL   string   `json:"download_url"` // Direct download URL
 	Signature     string   `json:"signature"`
 	Checksum      string   `json:"checksum"`
 	Maintainer    string   `json:"maintainer"`
@@ -150,16 +152,25 @@ func (s *ShedDB) BuildInfoURL(name string) string {
 
 // ShedPackageToPackageInfo converts a ShedOS package to PackageInfo
 func ShedPackageToPackageInfo(pkg ShedPackage) PackageInfo {
+	pkgType := pkg.PackageType
+	if pkgType == "" {
+		pkgType = PackageTypeArch // Default to Arch format
+	}
+
 	return PackageInfo{
 		Name:          pkg.Name,
 		Version:       pkg.Version,
 		Description:   pkg.Description,
 		Source:        SourceShedOS,
+		PackageType:   pkgType,
 		Depends:       pkg.Depends,
 		OptDepends:    pkg.OptDepends,
 		Provides:      pkg.Provides,
 		Conflicts:     pkg.Conflicts,
 		Size:          pkg.DownloadSize,
 		InstalledSize: pkg.InstalledSize,
+		DownloadURL:   pkg.DownloadURL,
+		Checksum:      pkg.Checksum,
+		Signature:     pkg.Signature,
 	}
 }
