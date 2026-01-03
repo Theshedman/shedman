@@ -17,6 +17,7 @@ type PackageInfo struct {
 	OptDepends    []string
 	Provides      []string
 	Conflicts     []string
+	Replaces      []string // Packages this package replaces
 	Size          int64
 	InstalledSize int64
 }
