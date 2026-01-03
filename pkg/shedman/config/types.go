@@ -4,9 +4,10 @@ import "time"
 
 // GeneralConfig holds general settings
 type GeneralConfig struct {
-	Color   bool   `toml:"color"`
-	Confirm bool   `toml:"confirm"`
-	Editor  string `toml:"editor"`
+	Color         bool   `toml:"color"`
+	Confirm       bool   `toml:"confirm"`
+	Editor        string `toml:"editor"`
+	PromptTimeout int    `toml:"prompt_timeout"` // Timeout in seconds for interactive prompts (0 = no timeout)
 }
 
 // NetworkConfig holds network-related settings
