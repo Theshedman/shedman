@@ -38,30 +38,59 @@ func ParseOptionalDep(optDep string) OptionalDep {
 
 // DependencyNode represents a package in the dependency tree
 type DependencyNode struct {
-	Package      pkgdb.PackageInfo
-	Children     []string      // Required dependencies
-	OptionalDeps []OptionalDep // Optional dependencies
-	Depth        int           // Depth in the tree (0 = root)
+	Package          pkgdb.PackageInfo
+	Children         []string      // Required dependencies
+	OptionalDeps     []OptionalDep // Optional dependencies
+	Depth            int           // Depth in the tree (0 = root)
+	AlreadyInstalled bool          // Package is already installed on system
+	Replaces         []string      // Packages this will replace
+}
+
+// DependencyTreeOptions configures dependency resolution behavior
+type DependencyTreeOptions struct {
+	SkipInstalled bool // Skip packages already installed
+	StrictDeps    bool // Error on missing dependencies
+	MaxDepth      int  // Maximum resolution depth (0 = unlimited)
+}
+
+// DefaultDependencyTreeOptions returns sensible defaults
+func DefaultDependencyTreeOptions() DependencyTreeOptions {
+	return DependencyTreeOptions{
+		SkipInstalled: true,
+		StrictDeps:    false,
+		MaxDepth:      100,
+	}
 }
 
 // DependencyTree builds and manages package dependency trees
 type DependencyTree struct {
-	db       pkgdb.PackageDB
-	nodes    map[string]*DependencyNode
-	visiting map[string]bool // For detecting circular dependencies
-	visited  map[string]bool
-	rootPkgs []string
-	depChain []string // Current dependency chain for error messages
+	db          pkgdb.PackageDB
+	installedDB pkgdb.PackageDB // For checking installed packages
+	nodes       map[string]*DependencyNode
+	toRemove    map[string]bool // Packages to be replaced
+	visiting    map[string]bool // For detecting circular dependencies
+	visited     map[string]bool
+	rootPkgs    []string
+	depChain    []string // Current dependency chain for error messages
+	opts        DependencyTreeOptions
 }
 
 // NewDependencyTree creates a new DependencyTree
 func NewDependencyTree(db pkgdb.PackageDB) *DependencyTree {
+	return NewDependencyTreeWithOptions(db, nil, DefaultDependencyTreeOptions())
+}
+
+// NewDependencyTreeWithOptions creates a DependencyTree with custom options
+func NewDependencyTreeWithOptions(db, installedDB pkgdb.PackageDB, opts DependencyTreeOptions) *DependencyTree {
 	return &DependencyTree{
-		db:       db,
-		nodes:    make(map[string]*DependencyNode),
-		visiting: make(map[string]bool),
-		visited:  make(map[string]bool),
-		depChain: make([]string, 0),
+		db:          db,
+		installedDB: installedDB,
+		nodes:       make(map[string]*DependencyNode),
+		toRemove:    make(map[string]bool),
+		visiting:    make(map[string]bool),
+		visited:     make(map[string]bool),
+		depChain:    make([]string, 0),
+		opts:        opts,
 	}
 }
 
@@ -78,9 +107,28 @@ func (dt *DependencyTree) Build(packages []string) error {
 
 // buildNode recursively builds a node and its dependencies
 func (dt *DependencyTree) buildNode(name string, depth int) error {
+	// Check max depth
+	if dt.opts.MaxDepth > 0 && depth > dt.opts.MaxDepth {
+		return fmt.Errorf("dependency resolution exceeded max depth (%d)", dt.opts.MaxDepth)
+	}
+
 	// Parse version constraint from dependency string
 	depReq := parseDependencyString(name)
 	queriedName := depReq.Name
+
+	// Check if already installed on system
+	var isInstalled bool
+	if dt.installedDB != nil {
+		installedInfo, _ := dt.installedDB.GetInfo(queriedName)
+		if installedInfo != nil {
+			isInstalled = true
+			// If skip installed is enabled and it's not a root package, skip
+			if dt.opts.SkipInstalled && depth > 0 {
+				dt.visited[queriedName] = true
+				return nil
+			}
+		}
+	}
 
 	// Look up the package (may return a different package via provides)
 	info, err := dt.db.GetInfo(queriedName)
@@ -88,7 +136,11 @@ func (dt *DependencyTree) buildNode(name string, depth int) error {
 		return err
 	}
 	if info == nil {
-		// Dependency not found - might be provided by another package or already installed
+		// Dependency not found
+		if dt.opts.StrictDeps {
+			return fmt.Errorf("%w: %s", ErrDepNotFound, queriedName)
+		}
+		// Might be provided by another package or already installed
 		return nil
 	}
 
@@ -127,11 +179,22 @@ func (dt *DependencyTree) buildNode(name string, depth int) error {
 		optDeps = append(optDeps, ParseOptionalDep(od))
 	}
 
+	// Handle replaces - mark old packages for removal
+	var replaces []string
+	if len(info.Replaces) > 0 {
+		replaces = info.Replaces
+		for _, oldPkg := range info.Replaces {
+			dt.toRemove[oldPkg] = true
+		}
+	}
+
 	node := &DependencyNode{
-		Package:      *info,
-		Children:     extractDepNames(info.Depends),
-		OptionalDeps: optDeps,
-		Depth:        depth,
+		Package:          *info,
+		Children:         extractDepNames(info.Depends),
+		OptionalDeps:     optDeps,
+		Depth:            depth,
+		AlreadyInstalled: isInstalled,
+		Replaces:         replaces,
 	}
 	dt.nodes[actualName] = node
 
@@ -141,7 +204,6 @@ func (dt *DependencyTree) buildNode(name string, depth int) error {
 			return err
 		}
 	}
-
 	dt.visited[actualName] = true
 	return nil
 }
@@ -254,6 +316,26 @@ func (dt *DependencyTree) GetAllOptionalDeps() map[string][]OptionalDep {
 	for name, node := range dt.nodes {
 		if len(node.OptionalDeps) > 0 {
 			result[name] = node.OptionalDeps
+		}
+	}
+	return result
+}
+
+// GetPackagesToRemove returns packages that will be replaced by new packages
+func (dt *DependencyTree) GetPackagesToRemove() []string {
+	result := make([]string, 0, len(dt.toRemove))
+	for pkg := range dt.toRemove {
+		result = append(result, pkg)
+	}
+	return result
+}
+
+// GetNewPackages returns packages that are not already installed
+func (dt *DependencyTree) GetNewPackages() []pkgdb.PackageInfo {
+	result := make([]pkgdb.PackageInfo, 0)
+	for _, node := range dt.nodes {
+		if !node.AlreadyInstalled {
+			result = append(result, node.Package)
 		}
 	}
 	return result
