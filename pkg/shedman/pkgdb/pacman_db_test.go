@@ -1,10 +1,47 @@
 package pkgdb_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
 )
+
+// MockBackend implements pkgdb.PackageSearcher for testing
+type MockBackend struct {
+	SearchFunc      func(query string) ([]pkgdb.PackageInfo, error)
+	InfoFunc        func(name string) (*pkgdb.PackageInfo, error)
+	IsInstalledFunc func(name string) bool
+	IsAvailableFunc func() bool
+}
+
+func (m *MockBackend) Search(query string) ([]pkgdb.PackageInfo, error) {
+	if m.SearchFunc != nil {
+		return m.SearchFunc(query)
+	}
+	return nil, nil
+}
+
+func (m *MockBackend) Info(name string) (*pkgdb.PackageInfo, error) {
+	if m.InfoFunc != nil {
+		return m.InfoFunc(name)
+	}
+	return nil, errors.New("not found")
+}
+
+func (m *MockBackend) IsInstalled(name string) bool {
+	if m.IsInstalledFunc != nil {
+		return m.IsInstalledFunc(name)
+	}
+	return false
+}
+
+func (m *MockBackend) IsAvailable() bool {
+	if m.IsAvailableFunc != nil {
+		return m.IsAvailableFunc()
+	}
+	return true
+}
 
 func TestPacmanDB_NewPacmanDB(t *testing.T) {
 	db := pkgdb.NewPacmanDB()
@@ -15,52 +52,44 @@ func TestPacmanDB_NewPacmanDB(t *testing.T) {
 
 func TestPacmanDB_ImplementsPackageDB(t *testing.T) {
 	db := pkgdb.NewPacmanDB()
-
-	// Verify it satisfies the PackageDB interface
 	var _ pkgdb.PackageDB = db
 }
 
 func TestPacmanDB_Search(t *testing.T) {
-	db := pkgdb.NewPacmanDB()
-
-	var executedCmd []string
-	db.SetExecutor(func(cmd []string) (string, error) {
-		executedCmd = cmd
-		// Return fake pacman output
-		return "neovim 0.10.0-1\n    Vim fork focused on extensibility and usability\n", nil
-	})
+	mock := &MockBackend{
+		SearchFunc: func(query string) ([]pkgdb.PackageInfo, error) {
+			return []pkgdb.PackageInfo{
+				{Name: "neovim", Version: "0.10.0-1", Description: "Vim fork"},
+			}, nil
+		},
+	}
+	db := pkgdb.NewPacmanDBWithBackend(mock)
 
 	results, err := db.Search("neovim")
 	if err != nil {
 		t.Fatalf("Search failed: %v", err)
 	}
 
-	// Should call pacman -Ss
-	if len(executedCmd) < 2 || executedCmd[0] != "pacman" || executedCmd[1] != "-Ss" {
-		t.Errorf("Expected 'pacman -Ss', got %v", executedCmd)
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(results))
 	}
-
-	if len(results) == 0 {
-		t.Error("Expected at least one result")
+	if results[0].Name != "neovim" {
+		t.Errorf("Expected name 'neovim', got '%s'", results[0].Name)
 	}
 }
 
 func TestPacmanDB_GetInfo(t *testing.T) {
-	db := pkgdb.NewPacmanDB()
-
-	db.SetExecutor(func(cmd []string) (string, error) {
-		// Return fake pacman -Si output
-		return `Name            : neovim
-Version         : 0.10.0-1
-Description     : Vim fork focused on extensibility and usability
-Depends On      : luajit  msgpack-c  unibilium
-Optional Deps   : python-pynvim: for Python plugin support
-Provides        : vim
-Conflicts       : None
-Download Size   : 10.5 MiB
-Installed Size  : 45.2 MiB
-`, nil
-	})
+	mock := &MockBackend{
+		InfoFunc: func(name string) (*pkgdb.PackageInfo, error) {
+			return &pkgdb.PackageInfo{
+				Name:        "neovim",
+				Version:     "0.10.0-1",
+				Description: "Vim fork focused on extensibility",
+				Depends:     []string{"luajit", "msgpack-c"},
+			}, nil
+		},
+	}
+	db := pkgdb.NewPacmanDBWithBackend(mock)
 
 	info, err := db.GetInfo("neovim")
 	if err != nil {
@@ -70,24 +99,24 @@ Installed Size  : 45.2 MiB
 	if info == nil {
 		t.Fatal("Expected package info, got nil")
 	}
-
 	if info.Name != "neovim" {
 		t.Errorf("Expected name 'neovim', got '%s'", info.Name)
 	}
 	if info.Version != "0.10.0-1" {
 		t.Errorf("Expected version '0.10.0-1', got '%s'", info.Version)
 	}
-	if len(info.Depends) == 0 {
-		t.Error("Expected dependencies")
+	if len(info.Depends) != 2 {
+		t.Errorf("Expected 2 dependencies, got %d", len(info.Depends))
 	}
 }
 
 func TestPacmanDB_GetInfo_NotFound(t *testing.T) {
-	db := pkgdb.NewPacmanDB()
-
-	db.SetExecutor(func(cmd []string) (string, error) {
-		return "error: package 'nonexistent' was not found\n", nil
-	})
+	mock := &MockBackend{
+		InfoFunc: func(name string) (*pkgdb.PackageInfo, error) {
+			return nil, nil
+		},
+	}
+	db := pkgdb.NewPacmanDBWithBackend(mock)
 
 	info, err := db.GetInfo("nonexistent")
 	if err != nil {
@@ -100,18 +129,59 @@ func TestPacmanDB_GetInfo_NotFound(t *testing.T) {
 }
 
 func TestPacmanDB_IsInstalled(t *testing.T) {
+	mock := &MockBackend{
+		IsInstalledFunc: func(name string) bool {
+			return name == "neovim"
+		},
+	}
+	db := pkgdb.NewPacmanDBWithBackend(mock)
+
+	if !db.IsInstalled("neovim") {
+		t.Error("Expected neovim to be installed")
+	}
+	if db.IsInstalled("vim") {
+		t.Error("Expected vim to not be installed")
+	}
+}
+
+func TestPacmanDB_IsPacmanAvailable(t *testing.T) {
+	mock := &MockBackend{
+		IsAvailableFunc: func() bool { return true },
+	}
+	db := pkgdb.NewPacmanDBWithBackend(mock)
+
+	if !db.IsPacmanAvailable() {
+		t.Error("Expected pacman to be available")
+	}
+}
+
+func TestPacmanDB_NilBackend(t *testing.T) {
+	db := pkgdb.NewPacmanDBWithBackend(nil)
+
+	if db.IsPacmanAvailable() {
+		t.Error("Expected pacman to not be available with nil backend")
+	}
+
+	_, err := db.Search("test")
+	if err != pkgdb.ErrPacmanNotFound {
+		t.Errorf("Expected ErrPacmanNotFound, got %v", err)
+	}
+}
+
+func TestPacmanDB_SetBackend(t *testing.T) {
 	db := pkgdb.NewPacmanDB()
 
-	db.SetExecutor(func(cmd []string) (string, error) {
-		if cmd[1] == "-Q" {
-			return "neovim 0.10.0-1\n", nil
-		}
-		return "", nil
-	})
+	// Initially nil
+	if db.IsPacmanAvailable() {
+		t.Error("Expected not available initially")
+	}
 
-	installed := db.IsInstalled("neovim")
-	if !installed {
-		t.Error("Expected neovim to be installed")
+	// Set backend
+	mock := &MockBackend{IsAvailableFunc: func() bool { return true }}
+	db.SetBackend(mock)
+
+	if !db.IsPacmanAvailable() {
+		t.Error("Expected available after SetBackend")
 	}
 }
 
@@ -144,13 +214,11 @@ Installed Size  : 35.0 MiB
 		t.Errorf("Expected conflicts [git-core], got %v", info.Conflicts)
 	}
 
-	// Verify size parsing - 8.5 MiB = 8.5 * 1024 * 1024 = 8912896 bytes
 	expectedSize := int64(8912896)
 	if info.Size != expectedSize {
 		t.Errorf("Expected download size %d, got %d", expectedSize, info.Size)
 	}
 
-	// 35.0 MiB = 35 * 1024 * 1024 = 36700160 bytes
 	expectedInstalled := int64(36700160)
 	if info.InstalledSize != expectedInstalled {
 		t.Errorf("Expected installed size %d, got %d", expectedInstalled, info.InstalledSize)
@@ -178,12 +246,4 @@ func TestPacmanDB_ParseSize(t *testing.T) {
 			t.Errorf("ParseSize(%q) = %d, expected %d", tc.input, result, tc.expected)
 		}
 	}
-}
-
-func TestPacmanDB_CommandCheck(t *testing.T) {
-	// PacmanDB should have a way to check if pacman exists
-	db := pkgdb.NewPacmanDB()
-
-	// This just verifies the check method exists and is callable
-	_ = db.IsPacmanAvailable()
 }

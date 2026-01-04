@@ -1,8 +1,8 @@
+// Package pkgdb provides package database querying functionality.
 package pkgdb
 
 import (
 	"errors"
-	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -10,116 +10,74 @@ import (
 // ErrPacmanNotFound is returned when pacman is not available
 var ErrPacmanNotFound = errors.New("pacman is required but not found in PATH")
 
-// CommandExecutor runs commands and returns output
-type CommandExecutor func(cmd []string) (string, error)
-
-// DefaultCommandExecutor runs commands using os/exec
-func DefaultCommandExecutor(cmd []string) (string, error) {
-	if len(cmd) == 0 {
-		return "", nil
-	}
-	c := exec.Command(cmd[0], cmd[1:]...)
-	output, err := c.Output()
-	return string(output), err
+// PackageSearcher can search for packages
+type PackageSearcher interface {
+	Search(query string) ([]PackageInfo, error)
+	Info(name string) (*PackageInfo, error)
+	IsInstalled(name string) bool
+	IsAvailable() bool
 }
 
-// PacmanDB queries the pacman package database
+// PacmanDB queries the pacman package database.
+// It wraps a PackageSearcher backend for PackageDB interface compatibility.
 type PacmanDB struct {
-	executor CommandExecutor
+	backend PackageSearcher
 }
 
-// NewPacmanDB creates a new PacmanDB
+// NewPacmanDBWithBackend creates a PacmanDB with a specific backend
+// The backend must implement PackageSearcher (e.g., backend/pacman.Backend)
+func NewPacmanDBWithBackend(b PackageSearcher) *PacmanDB {
+	return &PacmanDB{backend: b}
+}
+
+// NewPacmanDB creates a new PacmanDB.
+// Note: This returns a PacmanDB with nil backend. Use NewPacmanDBWithBackend
+// and pass a pacman.Backend for full functionality.
+// This exists for backward compatibility but callers should update to use
+// NewPacmanDBWithBackend with an appropriate backend.
 func NewPacmanDB() *PacmanDB {
-	return &PacmanDB{
-		executor: DefaultCommandExecutor,
-	}
+	// Return with nil backend - callers should use NewPacmanDBWithBackend
+	return &PacmanDB{backend: nil}
 }
 
-// SetExecutor sets a custom command executor (for testing)
-func (p *PacmanDB) SetExecutor(exec CommandExecutor) {
-	p.executor = exec
+// SetBackend sets the backend (for lazy initialization)
+func (p *PacmanDB) SetBackend(b PackageSearcher) {
+	p.backend = b
 }
 
-// IsPacmanAvailable checks if pacman command exists
+// IsPacmanAvailable checks if the backend is available
 func (p *PacmanDB) IsPacmanAvailable() bool {
-	_, err := exec.LookPath("pacman")
-	return err == nil
+	return p.backend != nil && p.backend.IsAvailable()
 }
 
 // Search searches for packages matching the query
 func (p *PacmanDB) Search(query string) ([]PackageInfo, error) {
-	cmd := []string{"pacman", "-Ss", query}
-	output, err := p.executor(cmd)
-	if err != nil {
-		return nil, err
+	if p.backend == nil {
+		return nil, ErrPacmanNotFound
 	}
 
-	return parseSearchOutput(output), nil
+	return p.backend.Search(query)
 }
 
 // GetInfo returns detailed info about a package
 func (p *PacmanDB) GetInfo(name string) (*PackageInfo, error) {
-	cmd := []string{"pacman", "-Si", name}
-	output, err := p.executor(cmd)
-	if err != nil {
-		return nil, err
+	if p.backend == nil {
+		return nil, ErrPacmanNotFound
 	}
 
-	if strings.Contains(output, "was not found") {
-		return nil, nil
-	}
-
-	info := ParsePacmanInfo(output)
-	info.Source = SourceOfficial
-	return &info, nil
+	return p.backend.Info(name)
 }
 
 // IsInstalled checks if a package is installed locally
 func (p *PacmanDB) IsInstalled(name string) bool {
-	cmd := []string{"pacman", "-Q", name}
-	output, err := p.executor(cmd)
-	if err != nil {
+	if p.backend == nil {
 		return false
 	}
-	return strings.TrimSpace(output) != ""
-}
-
-// parseSearchOutput parses pacman -Ss output
-func parseSearchOutput(output string) []PackageInfo {
-	var results []PackageInfo
-	lines := strings.Split(output, "\n")
-
-	for i := 0; i < len(lines)-1; i += 2 {
-		line := strings.TrimSpace(lines[i])
-		if line == "" {
-			continue
-		}
-
-		// Format: repo/name version
-		parts := strings.Fields(line)
-		if len(parts) >= 2 {
-			nameParts := strings.Split(parts[0], "/")
-			name := nameParts[len(nameParts)-1]
-
-			info := PackageInfo{
-				Name:    name,
-				Version: parts[1],
-				Source:  SourceOfficial,
-			}
-
-			// Description is on next line
-			if i+1 < len(lines) {
-				info.Description = strings.TrimSpace(lines[i+1])
-			}
-
-			results = append(results, info)
-		}
-	}
-
-	return results
+	return p.backend.IsInstalled(name)
 }
 
 // ParsePacmanInfo parses pacman -Si output into PackageInfo
+// Kept for backward compatibility and testing
 func ParsePacmanInfo(output string) PackageInfo {
 	info := PackageInfo{}
 	lines := strings.Split(output, "\n")
@@ -142,7 +100,6 @@ func ParsePacmanInfo(output string) PackageInfo {
 				}
 			case "Optional Deps":
 				if value != "None" && value != "" {
-					// Parse "pkg: description" format
 					parts := strings.Split(value, ":")
 					if len(parts) > 0 {
 						info.OptDepends = append(info.OptDepends, strings.TrimSpace(parts[0]))
@@ -167,7 +124,7 @@ func ParsePacmanInfo(output string) PackageInfo {
 	return info
 }
 
-// ParseSize converts size strings like "10.5 MiB" to bytes (exported for testing)
+// ParseSize converts size strings like "10.5 MiB" to bytes
 func ParseSize(s string) int64 {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -187,7 +144,6 @@ func ParseSize(s string) int64 {
 		return 0
 	}
 
-	// Convert based on unit
 	var multiplier float64
 	switch unit {
 	case "B":
