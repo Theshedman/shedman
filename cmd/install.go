@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/theshedman/shedman/pkg/shedman/backend"
+	"github.com/theshedman/shedman/pkg/shedman/backend/pacman"
 	"github.com/theshedman/shedman/pkg/shedman/config"
 	"github.com/theshedman/shedman/pkg/shedman/installer"
 	"github.com/theshedman/shedman/pkg/shedman/output"
@@ -46,6 +48,11 @@ Examples:
 
 		// Determine source based on flags
 		source := determineSource()
+
+		// Check AUR availability if AUR is requested
+		if source == pkgdb.SourceAUR && !backend.IsAURAvailable() {
+			return backend.ErrAURNotAvailable
+		}
 
 		// Query packages from appropriate database
 		db := selectDatabase(cfg, source)
@@ -154,13 +161,22 @@ func selectDatabase(cfg *config.Config, source string) pkgdb.PackageDB {
 	case pkgdb.SourceAUR:
 		return pkgdb.NewAURDBWithConfig(cfg)
 	case pkgdb.SourceOfficial:
-		return pkgdb.NewPacmanDB()
+		return createPacmanDB()
 	case pkgdb.SourceShedOS:
 		return pkgdb.NewShedDBWithConfig(cfg)
 	default:
 		// Auto-detect: use MultiSourceResolver to query all sources with priority
 		return buildMultiSourceResolver(cfg)
 	}
+}
+
+// createPacmanDB creates a PacmanDB with the pacman backend properly wired
+func createPacmanDB() *pkgdb.PacmanDB {
+	db := pkgdb.NewPacmanDB()
+	if pacmanBackend, err := pacman.New(); err == nil {
+		db.SetBackend(pacmanBackend)
+	}
+	return db
 }
 
 // buildMultiSourceResolver creates a resolver that queries all sources in priority order
@@ -174,7 +190,7 @@ func buildMultiSourceResolver(cfg *config.Config) *resolver.MultiSourceResolver 
 	}
 
 	// Official repos (always available on Arch-based systems)
-	ms.AddSource(pkgdb.SourceOfficial, pkgdb.NewPacmanDB())
+	ms.AddSource(pkgdb.SourceOfficial, createPacmanDB())
 
 	// AUR (if enabled in config)
 	if cfg.AUR.Enabled {
@@ -202,19 +218,38 @@ func executeInstall(cfg *config.Config, pkgs []pkgdb.PackageInfo, opts installer
 		}
 	}
 
-	// Install official packages with pacman
+	// Install official packages with pacman backend
 	if len(official) > 0 {
-		pi := installer.NewPacmanInstaller()
-		if !pi.IsPacmanAvailable() {
-			return installer.ErrPacmanNotFound
+		pacmanBackend, err := pacman.New()
+		if err != nil {
+			return fmt.Errorf("pacman not available: %w", err)
 		}
-		if err := pi.InstallMultiple(official, opts); err != nil {
+
+		// Convert package names
+		pkgNames := make([]string, len(official))
+		for i, pkg := range official {
+			pkgNames[i] = pkg.Name
+		}
+
+		backendOpts := backend.InstallOptions{
+			Needed:       opts.Needed,
+			AsDeps:       opts.AsDeps,
+			AsExplicit:   opts.AsExplicit,
+			NoConfirm:    opts.NoConfirm,
+			DownloadOnly: opts.DownloadOnly,
+			Overwrite:    opts.Overwrite,
+		}
+
+		if err := pacmanBackend.Install(pkgNames, backendOpts); err != nil {
 			return fmt.Errorf("pacman install failed: %w", err)
 		}
 	}
 
 	// Install AUR packages
 	if len(aur) > 0 {
+		if !backend.IsAURAvailable() {
+			return fmt.Errorf("cannot install AUR packages: %w", backend.ErrAURNotAvailable)
+		}
 		ai := installer.NewAURInstallerWithConfig(cfg)
 		for _, pkg := range aur {
 			output.Info("Building AUR package: %s", pkg.Name)
@@ -257,8 +292,15 @@ func executeInstall(cfg *config.Config, pkgs []pkgdb.PackageInfo, opts installer
 				}
 			} else {
 				// Assume it's a pacman package from ShedOS repo
-				pi := installer.NewPacmanInstaller()
-				if err := pi.Install(pkg, opts); err != nil {
+				pacmanBackend, err := pacman.New()
+				if err != nil {
+					return fmt.Errorf("pacman not available for ShedOS package: %w", err)
+				}
+				backendOpts := backend.InstallOptions{
+					Needed:    opts.Needed,
+					NoConfirm: opts.NoConfirm,
+				}
+				if err := pacmanBackend.Install([]string{pkg.Name}, backendOpts); err != nil {
 					return fmt.Errorf("failed to install %s from ShedOS: %w", pkg.Name, err)
 				}
 			}

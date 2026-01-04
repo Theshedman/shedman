@@ -3,7 +3,10 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/pkg/shedman"
-	"github.com/theshedman/shedman/pkg/shedman/backends"
+	"github.com/theshedman/shedman/pkg/shedman/backend"
+	"github.com/theshedman/shedman/pkg/shedman/backend/aur"
+	"github.com/theshedman/shedman/pkg/shedman/backend/pacman"
+	"github.com/theshedman/shedman/pkg/shedman/backend/shedrepo"
 	"github.com/theshedman/shedman/pkg/shedman/cache"
 	"github.com/theshedman/shedman/pkg/shedman/config"
 	"github.com/theshedman/shedman/pkg/shedman/output"
@@ -40,14 +43,28 @@ By default, syncs all databases. Use flags to sync specific sources:
 		syncAll := !syncOfficial && !syncAUR && !syncShedOS
 
 		if syncAll || syncOfficial {
-			backendList = append(backendList, backends.NewPacmanBackend())
+			pacmanBackend, err := pacman.New()
+			if err == nil {
+				backendList = append(backendList, pacmanBackend)
+			}
 		}
 		if syncAll || syncAUR {
-			backendList = append(backendList, backends.NewAURBackend(c))
+			if !backend.IsAURAvailable() {
+				if syncAUR {
+					// Explicit --aur flag, return error
+					return backend.ErrAURNotAvailable
+				}
+				// syncAll - just skip AUR silently on non-Arch systems
+				if debugFlag {
+					output.Warning("Skipping AUR sync: not on Arch-based system")
+				}
+			} else {
+				backendList = append(backendList, aur.New(c))
+			}
 		}
 		if syncAll || syncShedOS {
 			// Use mirrors from config
-			shedRepo := backends.NewShedRepoBackendWithMirrors(cfg.Mirrors.ShedOS, c)
+			shedRepo := shedrepo.NewWithMirrors(cfg.Mirrors.ShedOS, c)
 			if syncRefresh {
 				shedRepo.SetForceRefresh(true)
 			}
