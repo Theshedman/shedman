@@ -139,3 +139,10 @@ type CloudConfig struct {
 	Region   string `toml:"region"`
 	Endpoint string `toml:"endpoint"`
 }
+
+// BackendConfig holds backend/package manager settings
+type BackendConfig struct {
+	AutoDetect bool   `toml:"auto_detect"` // Auto-detect the system package manager
+	Override   string `toml:"override"`    // Force specific backend: "pacman", "apt", "dnf", "zypper"
+	BinaryPath string `toml:"binary_path"` // Custom path to package manager binary
+}

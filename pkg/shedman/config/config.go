@@ -22,6 +22,7 @@ type Config struct {
 	Logging       LoggingConfig      `toml:"logging"`
 	UI            UIConfig           `toml:"ui"`
 	Cloud         CloudConfig        `toml:"cloud"`
+	Backend       BackendConfig      `toml:"backend"`
 }
 
 // Default returns the default configuration
@@ -82,6 +83,9 @@ func Default() *Config {
 		UI: UIConfig{
 			ProgressBar: true,
 			Spinner:     true,
+		},
+		Backend: BackendConfig{
+			AutoDetect: true, // Auto-detect package manager by default
 		},
 	}
 }

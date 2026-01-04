@@ -1,30 +1,102 @@
+// Package shedman provides the core engine for package management.
 package shedman
 
 import (
-"fmt"
-"strings"
+	"fmt"
+	"strings"
+
+	"github.com/theshedman/shedman/pkg/shedman/backend"
+	"github.com/theshedman/shedman/pkg/shedman/backend/pacman"
+	"github.com/theshedman/shedman/pkg/shedman/config"
 )
 
+// Engine orchestrates package management operations across multiple backends.
 type Engine struct {
-	backends []PackageBackend
+	backends        []PackageBackend
+	officialBackend backend.OfficialBackend
+	config          *config.Config
 }
 
+// NewEngine creates a new Engine with no backends configured.
 func NewEngine() *Engine {
 	return &Engine{
 		backends: []PackageBackend{},
 	}
 }
 
-func (e *Engine) AddBackend(backend PackageBackend) {
-	e.backends = append(e.backends, backend)
+// NewEngineWithConfig creates an Engine with backends auto-detected from config.
+// This is the preferred way to create an Engine for production use.
+func NewEngineWithConfig(cfg *config.Config) (*Engine, error) {
+	e := &Engine{
+		backends: []PackageBackend{},
+		config:   cfg,
+	}
+
+	// Detect and initialize the official backend
+	officialBackend, err := backend.DetectBackendWithConfig(&cfg.Backend)
+	if err == nil && officialBackend != nil {
+		e.officialBackend = officialBackend
+		// Also add to backends list for Sync compatibility
+		e.backends = append(e.backends, officialBackend)
+	}
+
+	return e, nil
 }
 
+// NewEngineWithBackend creates an Engine with a specific official backend.
+// Useful for testing or when you want to provide a pre-configured backend.
+func NewEngineWithBackend(b backend.OfficialBackend) *Engine {
+	e := &Engine{
+		backends:        []PackageBackend{},
+		officialBackend: b,
+	}
+	if b != nil {
+		e.backends = append(e.backends, b)
+	}
+	return e
+}
+
+// AddBackend adds a package backend to the engine.
+func (e *Engine) AddBackend(b PackageBackend) {
+	e.backends = append(e.backends, b)
+}
+
+// GetOfficialBackend returns the detected official package manager backend.
+// Returns nil if no official backend is available (e.g., on unsupported systems).
+func (e *Engine) GetOfficialBackend() backend.OfficialBackend {
+	return e.officialBackend
+}
+
+// SetOfficialBackend sets the official backend.
+// This is useful for late initialization or testing.
+func (e *Engine) SetOfficialBackend(b backend.OfficialBackend) {
+	e.officialBackend = b
+	// Ensure it's in the backends list
+	for _, existing := range e.backends {
+		if existing == b {
+			return
+		}
+	}
+	e.backends = append(e.backends, b)
+}
+
+// GetConfig returns the engine's configuration.
+func (e *Engine) GetConfig() *config.Config {
+	return e.config
+}
+
+// IsOfficialBackendAvailable returns true if an official backend is configured.
+func (e *Engine) IsOfficialBackendAvailable() bool {
+	return e.officialBackend != nil && e.officialBackend.IsAvailable()
+}
+
+// Sync synchronizes all configured backends.
 func (e *Engine) Sync() error {
 	var errors []string
 
-	for _, backend := range e.backends {
-		if err := backend.Sync(); err != nil {
-			errors = append(errors, fmt.Sprintf("%s: %v", backend.Name(), err))
+	for _, b := range e.backends {
+		if err := b.Sync(); err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", b.Name(), err))
 		}
 	}
 
@@ -33,4 +105,56 @@ func (e *Engine) Sync() error {
 	}
 
 	return nil
+}
+
+// Install installs packages using the official backend.
+// Returns an error if no official backend is available.
+func (e *Engine) Install(pkgs []string, opts backend.InstallOptions) error {
+	if e.officialBackend == nil {
+		return backend.ErrBackendNotFound
+	}
+	return e.officialBackend.Install(pkgs, opts)
+}
+
+// Remove removes packages using the official backend.
+func (e *Engine) Remove(pkgs []string, opts backend.RemoveOptions) error {
+	if e.officialBackend == nil {
+		return backend.ErrBackendNotFound
+	}
+	return e.officialBackend.Remove(pkgs, opts)
+}
+
+// Upgrade upgrades packages using the official backend.
+func (e *Engine) Upgrade(pkgs []string, opts backend.UpgradeOptions) error {
+	if e.officialBackend == nil {
+		return backend.ErrBackendNotFound
+	}
+	return e.officialBackend.Upgrade(pkgs, opts)
+}
+
+// IsInstalled checks if a package is installed via the official backend.
+func (e *Engine) IsInstalled(name string) bool {
+	if e.officialBackend == nil {
+		return false
+	}
+	return e.officialBackend.IsInstalled(name)
+}
+
+// DetectBackend auto-detects and returns the appropriate official backend.
+// This is a convenience method that wraps backend.DetectBackendWithConfig.
+func DetectBackend(cfg *config.Config) (backend.OfficialBackend, error) {
+	if cfg == nil {
+		cfg = config.Default()
+	}
+	return backend.DetectBackendWithConfig(&cfg.Backend)
+}
+
+// CreatePacmanBackend creates a pacman backend with optional config.
+// Returns an error if pacman is not available.
+func CreatePacmanBackend(cfg *config.BackendConfig) (backend.OfficialBackend, error) {
+	c := pacman.DefaultConfig()
+	if cfg != nil && cfg.BinaryPath != "" {
+		c.BinaryPath = cfg.BinaryPath
+	}
+	return pacman.NewWithConfig(c)
 }

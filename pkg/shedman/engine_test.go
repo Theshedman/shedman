@@ -1,11 +1,11 @@
 package shedman_test
 
 import (
-"fmt"
-"strings"
-"testing"
+	"fmt"
+	"strings"
+	"testing"
 
-"github.com/theshedman/shedman/pkg/shedman"
+	"github.com/theshedman/shedman/pkg/shedman"
 )
 
 // MockBackend implements PackageBackend for testing
@@ -88,5 +88,35 @@ func TestEngine_Sync_ContinuesAfterError(t *testing.T) {
 	errStr := err.Error()
 	if !strings.Contains(errStr, "failing") {
 		t.Error("error should mention failing backend")
+	}
+}
+
+func TestEngine_GetOfficialBackend_Nil(t *testing.T) {
+	engine := shedman.NewEngine()
+	if engine.GetOfficialBackend() != nil {
+		t.Error("Expected nil official backend for new engine")
+	}
+}
+
+func TestEngine_NewEngineWithBackend(t *testing.T) {
+	mock := &MockBackend{name: "mock", shouldFail: false}
+	// MockBackend doesn't implement OfficialBackend, so we test with nil
+	engine := shedman.NewEngineWithBackend(nil)
+
+	if engine.GetOfficialBackend() != nil {
+		t.Error("Expected nil backend when created with nil")
+	}
+
+	// Add regular backend
+	engine.AddBackend(mock)
+	if err := engine.Sync(); err != nil {
+		t.Errorf("Sync failed: %v", err)
+	}
+}
+
+func TestEngine_IsOfficialBackendAvailable_NoBackend(t *testing.T) {
+	engine := shedman.NewEngine()
+	if engine.IsOfficialBackendAvailable() {
+		t.Error("Expected false when no backend is set")
 	}
 }
