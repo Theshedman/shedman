@@ -63,6 +63,13 @@ func (r *RealExecutor) Output(name string, args ...string) ([]byte, error) {
 // init registers the pacman backend factory
 func init() {
 	backend.RegisterBackend("pacman", func(cfg *config.BackendConfig) (backend.OfficialBackend, error) {
+		// Try AlpmBackend first (native libalpm integration)
+		alpmBackend, err := NewAlpmBackend()
+		if err == nil {
+			return alpmBackend, nil
+		}
+
+		// Fallback to shell-based Backend
 		c := DefaultConfig()
 		if cfg != nil && cfg.BinaryPath != "" {
 			c.BinaryPath = cfg.BinaryPath
