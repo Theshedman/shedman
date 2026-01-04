@@ -114,22 +114,85 @@ graph TD
 
 > **"You should never have to think twice before reformatting your computer."**
 
-shedman aims to become the default package manager for Arch Linux by being:
+shedman is the **primary package manager for ShedOS** — an Arch-based Linux distribution designed to solve the pain points of traditional package management.
 
-1. **100% pacman compatible** — drop-in replacement, all pacman commands work
-2. **Better than pacman** — adds AUR, snapshots, configs, themes, DE switching
-3. **Never lose your data** — cloud + USB snapshots, restore after reinstall
+## Core Principles
+
+1. **ShedOS-Native, Cross-Distro Compatible** — designed for ShedOS, works on any Linux distribution
+2. **Version Freedom** — install any version, rollback anytime (unlike Arch's latest-only model)
+3. **Universal Packages** — install packages meant for one distro on another via `.shed` format
+4. **Never Lose Your Data** — cloud + USB snapshots, restore after reinstall
+5. **Native Implementation** — uses libraries (e.g., `go-alpm`) directly, not binary wrappers
+
+## What Makes shedman Different
+
+| Feature | Traditional (pacman/apt/dnf) | shedman |
+|---------|------------------------------|---------|
+| Version availability | Latest only | **Multiple versions** |
+| Install specific version | ❌ Not supported | ✅ `shedman install pkg@1.2.3` |
+| Rollback | Limited/manual | ✅ `shedman rollback pkg` |
+| Cross-distro packages | ❌ | ✅ via `.shed` format |
+| Implementation | Standalone binary | **Native library integration** |
 
 ---
 
-# Pacman Compatibility
+# Cross-Distribution Support
 
-## Direct Replacement
+## How shedman Works Across Distributions
 
-shedman is designed to be a **100% drop-in replacement** for pacman:
+shedman uses a **pluggable backend architecture** with native library integration:
+
+| Distribution | Backend | Implementation |
+|--------------|---------|----------------|
+| ShedOS | Native | Built-in |
+| Arch Linux | libalpm | Via `go-alpm` library |
+| Debian/Ubuntu | (planned) | Via libapt bindings |
+| Fedora/RHEL | (planned) | Via librpm bindings |
+
+**Key point:** shedman does NOT wrap other package manager binaries. It integrates with their libraries directly for native performance and control.
+
+## Universal Package Format (`.shed`)
+
+The `.shed` format allows packages to be installed on any distribution:
+
+```
+package.shed
+├── manifest.toml       # Package metadata
+├── files/              # Files to install
+│   └── usr/bin/app
+├── hooks/              # Install scripts
+│   ├── pre-install.sh
+│   └── post-install.sh
+└── deps-map.yml        # Abstract → distro-specific deps
+```
+
+### Dependency Mapping
+
+`.shed` packages use abstract dependency names that map to distro-specific packages:
+
+```yaml
+# deps-map/openssl.yml
+abstract: openssl
+packages:
+  arch: openssl
+  debian: libssl3
+  fedora: openssl-libs
+```
+
+This allows a single `.shed` package to install correctly on any supported distribution.
+
+---
+
+# Arch Linux Compatibility
+
+On Arch-based systems (including ShedOS), shedman provides full compatibility with the pacman ecosystem via native `libalpm` integration.
+
+## Pacman Command Compatibility
+
+shedman supports familiar pacman-style commands:
 
 ```bash
-# These work exactly like pacman
+# These work like pacman
 shedman -Syu                    # Update system
 shedman -S neovim               # Install package
 shedman -R firefox              # Remove package
@@ -138,7 +201,7 @@ shedman -Qi neovim              # Query package info
 shedman -Ql neovim              # List package files
 ```
 
-All pacman flags are supported. Users can alias `pacman` to `shedman` seamlessly.
+All pacman flags are supported for users transitioning from pacman.
 
 ## Existing Package Benefits
 
