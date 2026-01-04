@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/theshedman/shedman/pkg/shedman/backend"
+	pacmanBackend "github.com/theshedman/shedman/pkg/shedman/backend/pacman"
 	"github.com/theshedman/shedman/pkg/shedman/config"
 	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
 )
@@ -25,8 +27,8 @@ type ShedOSInstaller struct {
 	httpClient *http.Client
 	timeout    time.Duration
 	retries    int
-	pacman     *PacmanInstaller
 	shed       *ShedInstaller
+	backend    backend.OfficialBackend // Backend for local package installation
 }
 
 // NewShedOSInstaller creates a new ShedOSInstaller with default config
@@ -35,7 +37,19 @@ func NewShedOSInstaller() *ShedOSInstaller {
 }
 
 // NewShedOSInstallerWithConfig creates a new ShedOSInstaller with config
+// This auto-detects the backend; use NewShedOSInstallerWithBackend for explicit injection
 func NewShedOSInstallerWithConfig(cfg *config.Config) *ShedOSInstaller {
+	// Auto-detect backend
+	var b backend.OfficialBackend
+	if pacmanBackend.IsPacmanAvailable() {
+		b, _ = pacmanBackend.New()
+	}
+	return NewShedOSInstallerWithBackend(cfg, b)
+}
+
+// NewShedOSInstallerWithBackend creates a new ShedOSInstaller with explicit backend injection
+// This is the preferred constructor for production use and testing
+func NewShedOSInstallerWithBackend(cfg *config.Config, b backend.OfficialBackend) *ShedOSInstaller {
 	// Set default cache directory
 	home, _ := os.UserHomeDir()
 	cacheDir := filepath.Join(home, ".cache", "shedman", "shedos")
@@ -58,8 +72,8 @@ func NewShedOSInstallerWithConfig(cfg *config.Config) *ShedOSInstaller {
 		httpClient: &http.Client{Timeout: timeout},
 		timeout:    timeout,
 		retries:    retries,
-		pacman:     NewPacmanInstaller(),
 		shed:       NewShedInstaller(),
+		backend:    b,
 	}
 }
 
@@ -312,8 +326,14 @@ func (s *ShedOSInstaller) InstallWithProgress(pkg pkgdb.PackageInfo, opts Option
 	return s.InstallWithPacman(pkgPath, opts)
 }
 
-// InstallWithPacman installs a local package file using pacman -U
+// InstallWithPacman installs a local package file using the backend
 func (s *ShedOSInstaller) InstallWithPacman(pkgPath string, opts Options) error {
+	// Use backend if available for local package installation
+	if s.backend != nil {
+		return s.backend.InstallLocal(pkgPath, ToBackendOptions(opts))
+	}
+
+	// Fallback to direct pacman command
 	cmd := []string{"sudo", "pacman", "-U"}
 
 	if opts.Needed {

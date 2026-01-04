@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/theshedman/shedman/pkg/shedman/backend"
+	pacmanBackend "github.com/theshedman/shedman/pkg/shedman/backend/pacman"
 	"github.com/theshedman/shedman/pkg/shedman/config"
 )
 
@@ -18,6 +20,7 @@ type AURInstaller struct {
 	cacheDir        string
 	sandboxEnabled  bool
 	cleanAfterBuild bool
+	backend         backend.OfficialBackend // Backend for local package installation
 }
 
 // NewAURInstaller creates a new AURInstaller with default config
@@ -27,7 +30,19 @@ func NewAURInstaller() *AURInstaller {
 }
 
 // NewAURInstallerWithConfig creates a new AURInstaller with the given config
+// This auto-detects the backend; use NewAURInstallerWithBackend for explicit injection
 func NewAURInstallerWithConfig(cfg *config.Config) *AURInstaller {
+	// Auto-detect backend
+	var b backend.OfficialBackend
+	if pacmanBackend.IsPacmanAvailable() {
+		b, _ = pacmanBackend.New()
+	}
+	return NewAURInstallerWithBackend(cfg, b)
+}
+
+// NewAURInstallerWithBackend creates a new AURInstaller with explicit backend injection
+// This is the preferred constructor for production use and testing
+func NewAURInstallerWithBackend(cfg *config.Config, b backend.OfficialBackend) *AURInstaller {
 	cacheDir := cfg.AUR.BuildDir
 	if cacheDir == "" {
 		home, _ := os.UserHomeDir()
@@ -39,6 +54,7 @@ func NewAURInstallerWithConfig(cfg *config.Config) *AURInstaller {
 		cacheDir:        cacheDir,
 		sandboxEnabled:  true, // Sandbox enabled by default for security
 		cleanAfterBuild: cfg.AUR.CleanAfterBuild,
+		backend:         b,
 	}
 }
 
@@ -50,6 +66,12 @@ func (a *AURInstaller) GetCacheDir() string {
 // SetExecutor sets a custom command executor (for testing)
 func (a *AURInstaller) SetExecutor(exec Executor) {
 	a.executor = exec
+}
+
+// SetBackend sets the backend for local package installation (for testing)
+// Pass nil to use the fallback executor path
+func (a *AURInstaller) SetBackend(b backend.OfficialBackend) {
+	a.backend = b
 }
 
 // SetCacheDir sets the cache directory (for testing)
@@ -195,7 +217,7 @@ func (a *AURInstaller) buildWithoutSandbox(pkgDir string) error {
 	return a.executor(cmd)
 }
 
-// Install installs the built package using pacman
+// Install installs the built package using the backend
 func (a *AURInstaller) Install(pkgName string) error {
 	pkgDir := filepath.Join(a.cacheDir, pkgName)
 
@@ -205,6 +227,13 @@ func (a *AURInstaller) Install(pkgName string) error {
 		return err
 	}
 
+	// Use backend if available for local package installation
+	if a.backend != nil {
+		opts := backend.InstallOptions{NoConfirm: true}
+		return a.backend.InstallLocal(pkgFile, opts)
+	}
+
+	// Fallback to direct pacman command
 	cmd := []string{"sudo", "pacman", "-U", "--noconfirm", pkgFile}
 	return a.executor(cmd)
 }

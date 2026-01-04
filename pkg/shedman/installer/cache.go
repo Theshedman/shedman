@@ -1,11 +1,12 @@
 package installer
 
 import (
-	"bufio"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/theshedman/shedman/pkg/shedman/backend"
+	pacmanBackend "github.com/theshedman/shedman/pkg/shedman/backend/pacman"
 )
 
 // PackageFileCache provides thread-safe caching of package file ownership
@@ -15,14 +16,28 @@ type PackageFileCache struct {
 	fileOwners map[string]string   // file path -> package name
 	lastUpdate time.Time
 	ttl        time.Duration
+	backend    backend.OfficialBackend // Backend for file queries
 }
 
 // NewPackageFileCache creates a new cache with the specified TTL
+// This auto-detects the backend; use NewPackageFileCacheWithBackend for explicit injection
 func NewPackageFileCache(ttl time.Duration) *PackageFileCache {
+	// Auto-detect backend
+	var b backend.OfficialBackend
+	if pacmanBackend.IsPacmanAvailable() {
+		b, _ = pacmanBackend.New()
+	}
+	return NewPackageFileCacheWithBackend(ttl, b)
+}
+
+// NewPackageFileCacheWithBackend creates a cache with explicit backend injection
+// This is the preferred constructor for production use and testing
+func NewPackageFileCacheWithBackend(ttl time.Duration, b backend.OfficialBackend) *PackageFileCache {
 	return &PackageFileCache{
 		files:      make(map[string][]string),
 		fileOwners: make(map[string]string),
 		ttl:        ttl,
+		backend:    b,
 	}
 }
 
@@ -77,12 +92,14 @@ func (c *PackageFileCache) SetPackageFiles(packageName string, files []string) {
 	c.lastUpdate = time.Now()
 }
 
-// LoadAll loads all installed package files using optimized batch query
+// LoadAll loads all installed package files using the backend
 func (c *PackageFileCache) LoadAll() error {
-	// Use pacman -Qlq for quiet mode (files only) which is faster
-	// Then parse to get package ownership
-	cmd := exec.Command("pacman", "-Ql")
-	output, err := cmd.Output()
+	if c.backend == nil {
+		return backend.ErrBackendNotFound
+	}
+
+	// Get all installed packages
+	packages, err := c.backend.GetInstalledPackages()
 	if err != nil {
 		return err
 	}
@@ -93,34 +110,35 @@ func (c *PackageFileCache) LoadAll() error {
 	c.files = make(map[string][]string)
 	c.fileOwners = make(map[string]string)
 
-	scanner := bufio.NewScanner(strings.NewReader(string(output)))
-	for scanner.Scan() {
-		line := scanner.Text()
-		// Format: "package /path/to/file"
-		parts := strings.SplitN(line, " ", 2)
-		if len(parts) != 2 {
-			continue
+	// Load files for each package
+	for _, pkg := range packages {
+		files, err := c.backend.GetPackageFiles(pkg.Name)
+		if err != nil {
+			continue // Skip packages with errors
 		}
 
-		pkgName := parts[0]
-		filePath := strings.TrimSpace(parts[1])
+		for _, filePath := range files {
+			// Skip directories (end with /)
+			if filePath == "" || strings.HasSuffix(filePath, "/") {
+				continue
+			}
 
-		// Skip directories (end with /)
-		if filePath == "" || strings.HasSuffix(filePath, "/") {
-			continue
+			c.files[pkg.Name] = append(c.files[pkg.Name], filePath)
+			c.fileOwners[filePath] = pkg.Name
 		}
-
-		c.files[pkgName] = append(c.files[pkgName], filePath)
-		c.fileOwners[filePath] = pkgName
 	}
 
 	c.lastUpdate = time.Now()
 	return nil
 }
 
-// LoadPackage loads files for a specific package
+// LoadPackage loads files for a specific package using the backend
 func (c *PackageFileCache) LoadPackage(packageName string) error {
-	files, err := GetPacmanFiles(packageName)
+	if c.backend == nil {
+		return backend.ErrBackendNotFound
+	}
+
+	files, err := c.backend.GetPackageFiles(packageName)
 	if err != nil {
 		return err
 	}
