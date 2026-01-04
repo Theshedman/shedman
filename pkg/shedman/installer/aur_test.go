@@ -235,6 +235,9 @@ func TestAURInstaller_Install(t *testing.T) {
 	tmpDir := t.TempDir()
 	ai.SetCacheDir(tmpDir)
 
+	// Clear backend to use executor fallback (for testing without real pacman)
+	ai.SetBackend(nil)
+
 	// Create fake built package
 	pkgDir := filepath.Join(tmpDir, "test-pkg")
 	os.MkdirAll(pkgDir, 0755)
@@ -251,7 +254,7 @@ func TestAURInstaller_Install(t *testing.T) {
 		t.Fatalf("Install failed: %v", err)
 	}
 
-	// Should run pacman -U
+	// Should run pacman -U via executor fallback
 	cmdStr := strings.Join(executedCmd, " ")
 	if !strings.Contains(cmdStr, "pacman") || !strings.Contains(cmdStr, "-U") {
 		t.Errorf("Expected 'pacman -U' command, got %v", executedCmd)

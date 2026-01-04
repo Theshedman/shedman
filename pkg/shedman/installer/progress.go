@@ -2,12 +2,9 @@ package installer
 
 import (
 	"bufio"
-	"fmt"
 	"io/fs"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -65,129 +62,8 @@ func (pt ProgressType) String() string {
 	}
 }
 
-// PacmanProgress parses pacman output and emits progress events
-type PacmanProgress struct {
-	callback       ProgressCallback
-	downloadRegex  *regexp.Regexp
-	installRegex   *regexp.Regexp
-	upgradeRegex   *regexp.Regexp
-	percentRegex   *regexp.Regexp
-	speedRegex     *regexp.Regexp
-	progressRegex  *regexp.Regexp
-	currentPkg     string
-	totalPackages  int
-	currentPackage int
-}
-
-// NewPacmanProgress creates a new progress parser
-func NewPacmanProgress(callback ProgressCallback) *PacmanProgress {
-	return &PacmanProgress{
-		callback:      callback,
-		downloadRegex: regexp.MustCompile(`(?i)downloading\s+(.+?)\.\.\.`),
-		installRegex:  regexp.MustCompile(`(?i)installing\s+(.+?)\.\.\.`),
-		upgradeRegex:  regexp.MustCompile(`(?i)upgrading\s+(.+?)\.\.\.`),
-		percentRegex:  regexp.MustCompile(`\((\d+)/(\d+)\)\s+(\d+)%`),
-		speedRegex:    regexp.MustCompile(`(\d+\.?\d*)\s*(B|KiB|MiB|GiB)/s`),
-		progressRegex: regexp.MustCompile(`(\d+\.?\d*)\s*(B|KiB|MiB|GiB)\s*/\s*(\d+\.?\d*)\s*(B|KiB|MiB|GiB)`),
-	}
-}
-
-// SetTotalPackages sets the expected total number of packages
-func (pp *PacmanProgress) SetTotalPackages(total int) {
-	pp.totalPackages = total
-}
-
-// ParseLine parses a line of pacman output and emits progress events
-func (pp *PacmanProgress) ParseLine(line string) {
-	if pp.callback == nil {
-		return
-	}
-
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return
-	}
-
-	event := ProgressEvent{
-		Total:   pp.totalPackages,
-		Current: pp.currentPackage,
-	}
-
-	// Parse percentage if present
-	if matches := pp.percentRegex.FindStringSubmatch(line); len(matches) > 3 {
-		event.Current, _ = strconv.Atoi(matches[1])
-		event.Total, _ = strconv.Atoi(matches[2])
-		event.Percentage, _ = strconv.Atoi(matches[3])
-		pp.currentPackage = event.Current
-		pp.totalPackages = event.Total
-	}
-
-	// Parse speed if present
-	if matches := pp.speedRegex.FindStringSubmatch(line); len(matches) > 2 {
-		event.Speed = matches[1] + " " + matches[2] + "/s"
-	}
-
-	// Parse download progress (e.g., "5.2 MiB / 10.4 MiB")
-	if matches := pp.progressRegex.FindStringSubmatch(line); len(matches) > 4 {
-		event.Downloaded = matches[1] + " " + matches[2]
-		event.TotalSize = matches[3] + " " + matches[4]
-	}
-
-	// Check for downloading
-	if matches := pp.downloadRegex.FindStringSubmatch(line); len(matches) > 1 {
-		event.Type = ProgressDownloading
-		event.Package = matches[1]
-		event.Message = fmt.Sprintf("Downloading %s...", matches[1])
-		pp.currentPkg = matches[1]
-		pp.callback(event)
-		return
-	}
-
-	// Check for installing
-	if matches := pp.installRegex.FindStringSubmatch(line); len(matches) > 1 {
-		event.Type = ProgressInstalling
-		event.Package = matches[1]
-		event.Message = fmt.Sprintf("Installing %s...", matches[1])
-		pp.currentPkg = matches[1]
-		pp.callback(event)
-		return
-	}
-
-	// Check for upgrading
-	if matches := pp.upgradeRegex.FindStringSubmatch(line); len(matches) > 1 {
-		event.Type = ProgressUpgrading
-		event.Package = matches[1]
-		event.Message = fmt.Sprintf("Upgrading %s...", matches[1])
-		pp.currentPkg = matches[1]
-		pp.callback(event)
-		return
-	}
-
-	// Check for removing
-	if strings.Contains(strings.ToLower(line), "removing") {
-		event.Type = ProgressRemoving
-		event.Package = pp.currentPkg
-		event.Message = line
-		pp.callback(event)
-		return
-	}
-
-	// Check for resolving dependencies
-	if strings.Contains(strings.ToLower(line), "resolving") {
-		event.Type = ProgressResolving
-		event.Message = line
-		pp.callback(event)
-		return
-	}
-
-	// Check for checking
-	if strings.Contains(strings.ToLower(line), "checking") {
-		event.Type = ProgressChecking
-		event.Message = line
-		pp.callback(event)
-		return
-	}
-}
+// Note: Pacman-specific progress parsing has been moved to backend/pacman/progress.go
+// Use pacman.NewProgress() for parsing pacman output
 
 // FileScanResult contains the results of a filesystem scan
 type FileScanResult struct {

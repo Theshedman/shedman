@@ -3,22 +3,23 @@ package installer_test
 import (
 	"testing"
 
+	"github.com/theshedman/shedman/pkg/shedman/backend/pacman"
 	"github.com/theshedman/shedman/pkg/shedman/installer"
 )
 
 func TestPacmanProgress_ParseDownloading(t *testing.T) {
-	var events []installer.ProgressEvent
-	callback := func(e installer.ProgressEvent) {
+	var events []pacman.ProgressEvent
+	callback := func(e pacman.ProgressEvent) {
 		events = append(events, e)
 	}
 
-	pp := installer.NewPacmanProgress(callback)
+	pp := pacman.NewProgress(callback)
 	pp.ParseLine("downloading neovim...")
 
 	if len(events) != 1 {
 		t.Fatalf("Expected 1 event, got %d", len(events))
 	}
-	if events[0].Type != installer.ProgressDownloading {
+	if events[0].Type != pacman.ProgressDownloading {
 		t.Errorf("Expected ProgressDownloading, got %d", events[0].Type)
 	}
 	if events[0].Package != "neovim" {
@@ -27,18 +28,18 @@ func TestPacmanProgress_ParseDownloading(t *testing.T) {
 }
 
 func TestPacmanProgress_ParseInstalling(t *testing.T) {
-	var events []installer.ProgressEvent
-	callback := func(e installer.ProgressEvent) {
+	var events []pacman.ProgressEvent
+	callback := func(e pacman.ProgressEvent) {
 		events = append(events, e)
 	}
 
-	pp := installer.NewPacmanProgress(callback)
+	pp := pacman.NewProgress(callback)
 	pp.ParseLine("installing git...")
 
 	if len(events) != 1 {
 		t.Fatalf("Expected 1 event, got %d", len(events))
 	}
-	if events[0].Type != installer.ProgressInstalling {
+	if events[0].Type != pacman.ProgressInstalling {
 		t.Errorf("Expected ProgressInstalling, got %d", events[0].Type)
 	}
 }

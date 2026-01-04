@@ -1,12 +1,44 @@
 package installer
 
 import (
+	"errors"
+	"os"
+	"os/exec"
+
+	"github.com/theshedman/shedman/pkg/shedman/backend"
 	"github.com/theshedman/shedman/pkg/shedman/config"
 	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
 )
 
+// ErrPacmanNotFound is returned when pacman is not available
+var ErrPacmanNotFound = errors.New("pacman is required but not found in PATH")
+
 // Executor is a function that executes a command
 type Executor func(cmd []string) error
+
+// DefaultExecutor runs commands using os/exec
+func DefaultExecutor(cmd []string) error {
+	if len(cmd) == 0 {
+		return nil
+	}
+	c := exec.Command(cmd[0], cmd[1:]...)
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	c.Stdin = os.Stdin
+	return c.Run()
+}
+
+// ToBackendOptions converts installer.Options to backend.InstallOptions
+func ToBackendOptions(opts Options) backend.InstallOptions {
+	return backend.InstallOptions{
+		Needed:       opts.Needed,
+		AsDeps:       opts.AsDeps,
+		AsExplicit:   opts.AsExplicit,
+		NoConfirm:    opts.NoConfirm,
+		DownloadOnly: opts.DownloadOnly,
+		Overwrite:    opts.Overwrite,
+	}
+}
 
 // Options holds installation options
 type Options struct {
