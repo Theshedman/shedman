@@ -1,0 +1,67 @@
+package backend
+
+// InstallOptions for package installation
+type InstallOptions struct {
+	Needed       bool   // Skip if already installed
+	AsDeps       bool   // Mark as dependency
+	AsExplicit   bool   // Mark as explicitly installed
+	NoConfirm    bool   // Non-interactive mode
+	DownloadOnly bool   // Download but don't install
+	Overwrite    string // Overwrite glob pattern (pacman-specific)
+}
+
+// RemoveOptions for package removal
+type RemoveOptions struct {
+	Cascade   bool // Remove dependents
+	NoSave    bool // Don't save config files
+	Recursive bool // Remove unused dependencies
+	NoConfirm bool // Non-interactive mode
+}
+
+// UpgradeOptions for package upgrades
+type UpgradeOptions struct {
+	NoConfirm bool // Non-interactive mode
+	Refresh   bool // Refresh database first
+}
+
+// DefaultInstallOptions returns sensible defaults
+func DefaultInstallOptions() InstallOptions {
+	return InstallOptions{
+		Needed:    true,
+		NoConfirm: false,
+	}
+}
+
+// DefaultRemoveOptions returns sensible defaults
+func DefaultRemoveOptions() RemoveOptions {
+	return RemoveOptions{
+		Recursive: true,
+		NoConfirm: false,
+	}
+}
+
+// DefaultUpgradeOptions returns sensible defaults
+func DefaultUpgradeOptions() UpgradeOptions {
+	return UpgradeOptions{
+		Refresh:   true,
+		NoConfirm: false,
+	}
+}
+
+// WithNeeded sets the Needed flag
+func (o InstallOptions) WithNeeded(needed bool) InstallOptions {
+	o.Needed = needed
+	return o
+}
+
+// WithNoConfirm sets the NoConfirm flag
+func (o InstallOptions) WithNoConfirm(noConfirm bool) InstallOptions {
+	o.NoConfirm = noConfirm
+	return o
+}
+
+// WithAsDeps sets the AsDeps flag
+func (o InstallOptions) WithAsDeps(asDeps bool) InstallOptions {
+	o.AsDeps = asDeps
+	return o
+}
