@@ -36,12 +36,37 @@ func CommandExists(cmd string) bool {
 
 // ShedManifest represents the manifest.toml in a .shed package
 type ShedManifest struct {
-	Name        string   `toml:"name"`
-	Version     string   `toml:"version"`
-	Description string   `toml:"description"`
+	// Required fields
+	Name        string `toml:"name"`
+	Version     string `toml:"version"`
+	Description string `toml:"description"`
+
+	// Architecture and platform
+	Arch string `toml:"arch"` // e.g., "x86_64", "any"
+
+	// Package metadata
+	Url       string `toml:"url"`
+	License   string `toml:"license"`
+	Packager  string `toml:"packager"`
+	BuildDate string `toml:"build_date"` // ISO 8601 format
+
+	// Dependencies and relationships
 	Depends     []string `toml:"depends"`
+	OptDepends  []string `toml:"optdepends"`
+	MakeDepends []string `toml:"makedepends"`
 	Provides    []string `toml:"provides"`
 	Conflicts   []string `toml:"conflicts"`
+	Replaces    []string `toml:"replaces"`
+
+	// Size information
+	Size          int64 `toml:"size"`           // Package size in bytes
+	InstalledSize int64 `toml:"installed_size"` // Installed size in bytes
+
+	// Backup files (preserved on upgrade)
+	Backup []string `toml:"backup"`
+
+	// Package groups
+	Groups []string `toml:"groups"`
 }
 
 // InstallShed installs a .shed package using tar extraction
@@ -51,35 +76,44 @@ func InstallShed(shedPath string) error {
 	}
 
 	// Create temp extraction directory
-	home, _ := os.UserHomeDir()
-	extractDir := home + "/.cache/shedman/shed/extracted/" + filepath.Base(shedPath)
-	os.MkdirAll(extractDir, DirPermissions)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+	extractDir := filepath.Join(home, ".cache", "shedman", "shed", "extracted", filepath.Base(shedPath))
+	if err := os.MkdirAll(extractDir, DirPermissions); err != nil {
+		return fmt.Errorf("failed to create extraction directory: %w", err)
+	}
 
 	// Extract package
-	err := DefaultExecutor([]string{"tar", "-xf", shedPath, "-C", extractDir})
-	if err != nil {
+	if err := DefaultExecutor([]string{"tar", "-xf", shedPath, "-C", extractDir}); err != nil {
 		return fmt.Errorf("failed to extract shed package: %w", err)
 	}
 
 	// Run pre-install hook if exists
-	preInstall := extractDir + "/hooks/pre-install.sh"
+	preInstall := filepath.Join(extractDir, "hooks", "pre-install.sh")
 	if _, err := os.Stat(preInstall); err == nil {
-		DefaultExecutor([]string{"sh", preInstall})
+		if err := DefaultExecutor([]string{"sh", preInstall}); err != nil {
+			fmt.Printf("Warning: pre-install hook failed: %v\n", err)
+			// Continue installation despite hook failure
+		}
 	}
 
 	// Install files to root
-	filesDir := extractDir + "/files"
+	filesDir := filepath.Join(extractDir, "files")
 	if _, err := os.Stat(filesDir); err == nil {
-		err = DefaultExecutor([]string{"sudo", "cp", "-r", filesDir + "/.", "/"})
-		if err != nil {
+		if err := DefaultExecutor([]string{"sudo", "cp", "-r", filesDir + "/.", "/"}); err != nil {
 			return fmt.Errorf("failed to install files: %w", err)
 		}
 	}
 
 	// Run post-install hook if exists
-	postInstall := extractDir + "/hooks/post-install.sh"
+	postInstall := filepath.Join(extractDir, "hooks", "post-install.sh")
 	if _, err := os.Stat(postInstall); err == nil {
-		DefaultExecutor([]string{"sh", postInstall})
+		if err := DefaultExecutor([]string{"sh", postInstall}); err != nil {
+			fmt.Printf("Warning: post-install hook failed: %v\n", err)
+			// Warning only, installation is complete
+		}
 	}
 
 	return nil

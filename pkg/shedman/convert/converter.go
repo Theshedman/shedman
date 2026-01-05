@@ -154,12 +154,18 @@ func (c *PackageConverter) ConvertPacmanToShed(pacmanPkg string) (string, error)
 
 	// Create manifest.toml
 	manifest := ShedManifest{
-		Name:        pkgInfo.PkgName,
-		Version:     pkgInfo.PkgVer,
-		Description: pkgInfo.PkgDesc,
-		Depends:     pkgInfo.Depends,
-		Provides:    pkgInfo.Provides,
-		Conflicts:   pkgInfo.Conflicts,
+		Name:          pkgInfo.PkgName,
+		Version:       pkgInfo.PkgVer,
+		Description:   pkgInfo.PkgDesc,
+		Arch:          pkgInfo.Arch,
+		Url:           pkgInfo.Url,
+		Packager:      pkgInfo.Packager,
+		BuildDate:     pkgInfo.BuildDate,
+		Depends:       pkgInfo.Depends,
+		OptDepends:    pkgInfo.OptDepends,
+		Provides:      pkgInfo.Provides,
+		Conflicts:     pkgInfo.Conflicts,
+		InstalledSize: pkgInfo.Size,
 	}
 
 	manifestPath := filepath.Join(shedDir, "manifest.toml")
