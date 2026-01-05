@@ -22,6 +22,7 @@ type RemoveOptions struct {
 type UpgradeOptions struct {
 	NoConfirm bool // Non-interactive mode
 	Refresh   bool // Refresh database first
+	Needed    bool // Skip packages that are already up-to-date
 }
 
 // DefaultInstallOptions returns sensible defaults
@@ -63,5 +64,23 @@ func (o InstallOptions) WithNoConfirm(noConfirm bool) InstallOptions {
 // WithAsDeps sets the AsDeps flag
 func (o InstallOptions) WithAsDeps(asDeps bool) InstallOptions {
 	o.AsDeps = asDeps
+	return o
+}
+
+// WithNeeded sets the Needed flag for UpgradeOptions
+func (o UpgradeOptions) WithNeeded(needed bool) UpgradeOptions {
+	o.Needed = needed
+	return o
+}
+
+// WithNoConfirm sets the NoConfirm flag for UpgradeOptions
+func (o UpgradeOptions) WithNoConfirm(noConfirm bool) UpgradeOptions {
+	o.NoConfirm = noConfirm
+	return o
+}
+
+// WithRefresh sets the Refresh flag for UpgradeOptions
+func (o UpgradeOptions) WithRefresh(refresh bool) UpgradeOptions {
+	o.Refresh = refresh
 	return o
 }
