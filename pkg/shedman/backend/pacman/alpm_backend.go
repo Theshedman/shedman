@@ -48,6 +48,40 @@ func (b *AlpmBackend) Close() error {
 	return nil
 }
 
+// runTransaction executes a libalpm transaction with proper lifecycle management.
+// The addPackages callback should add packages to the transaction and return the count.
+// Returns nil if no packages were added (nothing to do).
+func (b *AlpmBackend) runTransaction(flags alpm.TransFlag, addPackages func() (int, error)) error {
+	// Initialize transaction
+	if err := b.handle.TransInit(flags); err != nil {
+		return fmt.Errorf("failed to init transaction: %w", err)
+	}
+	defer b.handle.TransRelease()
+
+	// Add packages to transaction
+	count, err := addPackages()
+	if err != nil {
+		return err
+	}
+
+	// Nothing to do if no packages added
+	if count == 0 {
+		return nil
+	}
+
+	// Prepare transaction
+	if err := b.handle.TransPrepare(); err != nil {
+		return fmt.Errorf("failed to prepare transaction: %w", err)
+	}
+
+	// Commit transaction
+	if err := b.handle.TransCommit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 // Name returns "pacman".
 func (b *AlpmBackend) Name() string {
 	return "pacman"
@@ -64,8 +98,9 @@ func (b *AlpmBackend) IsAvailable() bool {
 }
 
 // Sync refreshes the package databases.
+// NOTE: go-alpm v2 does not expose alpm_db_update(), so we use pacman binary.
+// This is the only operation that still requires the pacman binary.
 func (b *AlpmBackend) Sync() error {
-	// Use executor for sync as it requires root and database updates
 	return b.executor.Run(b.sudoPath, "pacman", "-Sy")
 }
 
@@ -189,61 +224,55 @@ func (b *AlpmBackend) Install(pkgs []string, opts backend.InstallOptions) error 
 	if opts.AsDeps {
 		flags |= alpm.TransFlagAllDeps
 	}
-	if opts.NoConfirm {
-		flags |= alpm.TransFlag(0)
-	}
 	if opts.DownloadOnly {
 		flags |= alpm.TransFlagDownloadOnly
 	}
 
-	// Initialize transaction
-	if err := b.handle.TransInit(flags); err != nil {
-		return fmt.Errorf("failed to init transaction: %w", err)
-	}
-	defer b.handle.TransRelease()
+	return b.runTransaction(flags, func() (int, error) {
+		syncDbs := b.handle.SyncDbs()
+		if syncDbs == nil {
+			return 0, backend.ErrBackendNotFound
+		}
 
-	// Find and add packages from sync databases
-	syncDbs := b.handle.SyncDbs()
-	if syncDbs == nil {
-		return backend.ErrBackendNotFound
-	}
-
-	for _, pkgName := range pkgs {
-		var found bool
-		syncDbs.ForEach(func(db AlpmDB) error {
-			if found {
-				return nil
+		addedCount := 0
+		for _, pkgName := range pkgs {
+			// Check if package is ignored
+			if b.handle.IsIgnored(pkgName) {
+				fmt.Printf("Warning: %s is in IgnorePkg, skipping\n", pkgName)
+				continue
 			}
-			pkg := db.Pkg(pkgName)
-			if pkg != nil {
-				if opts.Needed && b.IsInstalled(pkgName) {
-					// Skip if already installed and --needed
-					found = true
+
+			var found bool
+			var addErr error
+			syncDbs.ForEach(func(db AlpmDB) error {
+				if found {
 					return nil
 				}
-				if err := b.handle.AddPkg(pkg); err != nil {
-					return err
+				pkg := db.Pkg(pkgName)
+				if pkg != nil {
+					if opts.Needed && b.IsInstalled(pkgName) {
+						// Skip if already installed and --needed
+						found = true
+						return nil
+					}
+					if err := b.handle.AddPkg(pkg); err != nil {
+						addErr = err
+						return err
+					}
+					found = true
+					addedCount++
 				}
-				found = true
+				return nil
+			})
+			if addErr != nil {
+				return addedCount, addErr
 			}
-			return nil
-		})
-		if !found {
-			return fmt.Errorf("%w: %s", backend.ErrPackageNotFound, pkgName)
+			if !found {
+				return addedCount, fmt.Errorf("%w: %s", backend.ErrPackageNotFound, pkgName)
+			}
 		}
-	}
-
-	// Prepare transaction
-	if err := b.handle.TransPrepare(); err != nil {
-		return fmt.Errorf("failed to prepare transaction: %w", err)
-	}
-
-	// Commit transaction
-	if err := b.handle.TransCommit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+		return addedCount, nil
+	})
 }
 
 // Remove removes packages using native libalpm transactions.
@@ -263,52 +292,32 @@ func (b *AlpmBackend) Remove(pkgs []string, opts backend.RemoveOptions) error {
 	if opts.Recursive {
 		flags |= alpm.TransFlagRecurse
 	}
-	if opts.NoConfirm {
-		flags |= alpm.TransFlag(0)
-	}
 
-	// Initialize transaction
-	if err := b.handle.TransInit(flags); err != nil {
-		return fmt.Errorf("failed to init transaction: %w", err)
-	}
-	defer b.handle.TransRelease()
-
-	// Find and add packages from local database
-	localDb := b.handle.LocalDb()
-	if localDb == nil {
-		return backend.ErrBackendNotFound
-	}
-
-	for _, pkgName := range pkgs {
-		pkg := localDb.Pkg(pkgName)
-		if pkg == nil {
-			return fmt.Errorf("%w: %s", backend.ErrPackageNotFound, pkgName)
+	return b.runTransaction(flags, func() (int, error) {
+		localDb := b.handle.LocalDb()
+		if localDb == nil {
+			return 0, backend.ErrBackendNotFound
 		}
-		if err := b.handle.RemovePkg(pkg); err != nil {
-			return fmt.Errorf("failed to add package for removal: %w", err)
+
+		removedCount := 0
+		for _, pkgName := range pkgs {
+			pkg := localDb.Pkg(pkgName)
+			if pkg == nil {
+				return removedCount, fmt.Errorf("%w: %s", backend.ErrPackageNotFound, pkgName)
+			}
+			if err := b.handle.RemovePkg(pkg); err != nil {
+				return removedCount, fmt.Errorf("failed to add package for removal: %w", err)
+			}
+			removedCount++
 		}
-	}
-
-	// Prepare transaction
-	if err := b.handle.TransPrepare(); err != nil {
-		return fmt.Errorf("failed to prepare transaction: %w", err)
-	}
-
-	// Commit transaction
-	if err := b.handle.TransCommit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+		return removedCount, nil
+	})
 }
 
 // Upgrade upgrades packages using native libalpm.
 func (b *AlpmBackend) Upgrade(pkgs []string, opts backend.UpgradeOptions) error {
 	// Build transaction flags
 	flags := alpm.TransFlag(0)
-	if opts.NoConfirm {
-		flags |= alpm.TransFlag(0)
-	}
 
 	// Sync databases if requested
 	if opts.Refresh {
@@ -317,73 +326,106 @@ func (b *AlpmBackend) Upgrade(pkgs []string, opts backend.UpgradeOptions) error 
 		}
 	}
 
-	// Initialize transaction
-	if err := b.handle.TransInit(flags); err != nil {
-		return fmt.Errorf("failed to init transaction: %w", err)
-	}
-	defer b.handle.TransRelease()
+	return b.runTransaction(flags, func() (int, error) {
+		// If specific packages, find their newer versions
+		if len(pkgs) > 0 {
+			return b.addSpecificPackagesToUpgrade(pkgs, opts)
+		}
+		// Full system upgrade
+		return b.addAllPackagesForUpgrade()
+	})
+}
 
-	// If specific packages, find their newer versions
-	if len(pkgs) > 0 {
-		syncDbs := b.handle.SyncDbs()
-		if syncDbs == nil {
-			return backend.ErrBackendNotFound
+// addSpecificPackagesToUpgrade adds specific packages to the upgrade transaction
+func (b *AlpmBackend) addSpecificPackagesToUpgrade(pkgs []string, opts backend.UpgradeOptions) (int, error) {
+	syncDbs := b.handle.SyncDbs()
+	if syncDbs == nil {
+		return 0, backend.ErrBackendNotFound
+	}
+
+	localDb := b.handle.LocalDb()
+	addedCount := 0
+
+	for _, pkgName := range pkgs {
+		// Skip ignored packages
+		if b.handle.IsIgnored(pkgName) {
+			fmt.Printf("Warning: %s is in IgnorePkg, skipping\n", pkgName)
+			continue
 		}
 
-		for _, pkgName := range pkgs {
-			var found bool
-			syncDbs.ForEach(func(db AlpmDB) error {
-				if found {
-					return nil
-				}
-				pkg := db.Pkg(pkgName)
-				if pkg != nil {
-					if err := b.handle.AddPkg(pkg); err != nil {
-						return err
-					}
-					found = true
-				}
+		var found bool
+		var addErr error
+		syncDbs.ForEach(func(db AlpmDB) error {
+			if found {
 				return nil
-			})
-			if !found {
-				return fmt.Errorf("%w: %s", backend.ErrPackageNotFound, pkgName)
 			}
-		}
-	} else {
-		// Full system upgrade - add all installed packages with updates
-		localDb := b.handle.LocalDb()
-		syncDbs := b.handle.SyncDbs()
-		if localDb == nil || syncDbs == nil {
-			return backend.ErrBackendNotFound
-		}
-
-		pkgCache := localDb.PkgCache()
-		if pkgCache != nil {
-			pkgCache.ForEach(func(localPkg AlpmPackage) error {
-				// Check for newer version in sync DBs
-				syncDbs.ForEach(func(db AlpmDB) error {
-					syncPkg := db.Pkg(localPkg.Name())
-					if syncPkg != nil && alpm.VerCmp(syncPkg.Version(), localPkg.Version()) > 0 {
-						b.handle.AddPkg(syncPkg)
+			pkg := db.Pkg(pkgName)
+			if pkg != nil {
+				// Check if --needed and already up-to-date
+				if opts.Needed && localDb != nil {
+					localPkg := localDb.Pkg(pkgName)
+					if localPkg != nil && alpm.VerCmp(pkg.Version(), localPkg.Version()) <= 0 {
+						// Already up-to-date
+						fmt.Printf("%s is already up to date\n", pkgName)
+						found = true
+						return nil
 					}
-					return nil
-				})
+				}
+
+				if err := b.handle.AddPkg(pkg); err != nil {
+					addErr = err
+					return err
+				}
+				found = true
+				addedCount++
+			}
+			return nil
+		})
+		if addErr != nil {
+			return addedCount, addErr
+		}
+		if !found {
+			return addedCount, fmt.Errorf("%w: %s", backend.ErrPackageNotFound, pkgName)
+		}
+	}
+	return addedCount, nil
+}
+
+// addAllPackagesForUpgrade adds all installed packages with updates to the transaction
+func (b *AlpmBackend) addAllPackagesForUpgrade() (int, error) {
+	localDb := b.handle.LocalDb()
+	syncDbs := b.handle.SyncDbs()
+	if localDb == nil || syncDbs == nil {
+		return 0, backend.ErrBackendNotFound
+	}
+
+	upgradeCount := 0
+	pkgCache := localDb.PkgCache()
+	if pkgCache != nil {
+		pkgCache.ForEach(func(localPkg AlpmPackage) error {
+			// Skip ignored packages
+			if b.handle.IsIgnored(localPkg.Name()) {
+				return nil
+			}
+
+			// Check for newer version in sync DBs
+			syncDbs.ForEach(func(db AlpmDB) error {
+				syncPkg := db.Pkg(localPkg.Name())
+				if syncPkg != nil && alpm.VerCmp(syncPkg.Version(), localPkg.Version()) > 0 {
+					if err := b.handle.AddPkg(syncPkg); err != nil {
+						// Log error but continue with other packages
+						fmt.Printf("Warning: failed to add %s to upgrade: %v\n", localPkg.Name(), err)
+					} else {
+						upgradeCount++
+					}
+				}
 				return nil
 			})
-		}
+			return nil
+		})
 	}
 
-	// Prepare transaction
-	if err := b.handle.TransPrepare(); err != nil {
-		return fmt.Errorf("failed to prepare transaction: %w", err)
-	}
-
-	// Commit transaction
-	if err := b.handle.TransCommit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+	return upgradeCount, nil
 }
 
 // InstallLocal installs a local package file by converting to .shed format.
