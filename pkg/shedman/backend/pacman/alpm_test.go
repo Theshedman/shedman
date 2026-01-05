@@ -29,6 +29,7 @@ func (m *MockAlpmHandle) AddPkg(pkg AlpmPackage) error         { return nil }
 func (m *MockAlpmHandle) RemovePkg(pkg AlpmPackage) error      { return nil }
 func (m *MockAlpmHandle) SyncDBsForce() AlpmDBList             { return m.syncDBs }
 func (m *MockAlpmHandle) GetRawHandle() *alpm.Handle           { return nil }
+func (m *MockAlpmHandle) IsIgnored(pkgName string) bool        { return false }
 
 // MockAlpmDB implements AlpmDB for testing.
 type MockAlpmDB struct {

@@ -3,6 +3,7 @@ package pacman
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Jguer/go-alpm/v2"
 	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
@@ -39,6 +40,8 @@ type AlpmHandle interface {
 	SyncDBsForce() AlpmDBList
 	// GetRawHandle returns the underlying alpm.Handle for advanced operations
 	GetRawHandle() *alpm.Handle
+	// IsIgnored returns true if the package is in the IgnorePkg list
+	IsIgnored(pkgName string) bool
 }
 
 // AlpmDB abstracts a libalpm database (local or sync).
@@ -105,21 +108,155 @@ type AlpmDependList interface {
 
 // RealAlpmHandle wraps the actual go-alpm Handle.
 type RealAlpmHandle struct {
-	handle *alpm.Handle
+	handle     *alpm.Handle
+	pacmanConf *PacmanConf
+	ignorePkgs map[string]bool
 }
 
-// NewRealAlpmHandle creates a new libalpm handle with default paths.
+// NewRealAlpmHandle creates a new libalpm handle using /etc/pacman.conf.
 func NewRealAlpmHandle() (*RealAlpmHandle, error) {
-	return NewRealAlpmHandleWithPaths("/", "/var/lib/pacman")
+	return NewRealAlpmHandleWithConfPath(DefaultPacmanConfPath)
 }
 
-// NewRealAlpmHandleWithPaths creates a new libalpm handle with custom paths.
-func NewRealAlpmHandleWithPaths(root, dbPath string) (*RealAlpmHandle, error) {
-	h, err := alpm.Initialize(root, dbPath)
+// NewRealAlpmHandleWithConfPath creates a libalpm handle from a pacman.conf path.
+func NewRealAlpmHandleWithConfPath(confPath string) (*RealAlpmHandle, error) {
+	conf, err := ParsePacmanConf(confPath)
 	if err != nil {
-		return nil, err
+		// Fall back to defaults if parsing fails
+		conf = DefaultPacmanConf()
 	}
-	return &RealAlpmHandle{handle: h}, nil
+	return NewRealAlpmHandleWithConf(conf)
+}
+
+// NewRealAlpmHandleWithConf creates a libalpm handle from a PacmanConf.
+func NewRealAlpmHandleWithConf(conf *PacmanConf) (*RealAlpmHandle, error) {
+	h, err := alpm.Initialize(conf.RootDir, conf.DBPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize libalpm: %w", err)
+	}
+
+	// Build ignore packages map
+	ignorePkgs := make(map[string]bool)
+	for _, pkg := range conf.IgnorePkg {
+		ignorePkgs[pkg] = true
+	}
+
+	handle := &RealAlpmHandle{
+		handle:     h,
+		pacmanConf: conf,
+		ignorePkgs: ignorePkgs,
+	}
+
+	// Register sync databases from pacman.conf
+	if err := handle.registerSyncDatabases(); err != nil {
+		h.Release()
+		return nil, fmt.Errorf("failed to register sync databases: %w", err)
+	}
+
+	return handle, nil
+}
+
+// NewRealAlpmHandleWithPaths creates a new libalpm handle with custom paths (legacy).
+func NewRealAlpmHandleWithPaths(root, dbPath string) (*RealAlpmHandle, error) {
+	conf := &PacmanConf{
+		RootDir:      root,
+		DBPath:       dbPath,
+		SigLevel:     "Required DatabaseOptional",
+		Repositories: DefaultPacmanConf().Repositories,
+	}
+	return NewRealAlpmHandleWithConf(conf)
+}
+
+// registerSyncDatabases registers all repositories from pacman.conf
+func (r *RealAlpmHandle) registerSyncDatabases() error {
+	siglevel := parseSigLevel(r.pacmanConf.SigLevel)
+
+	for _, repo := range r.pacmanConf.Repositories {
+		db, err := r.handle.RegisterSyncDB(repo.Name, siglevel)
+		if err != nil {
+			return fmt.Errorf("failed to register %s: %w", repo.Name, err)
+		}
+
+		// Set mirrors for the database
+		if len(repo.Servers) > 0 {
+			var servers []string
+			for _, server := range repo.Servers {
+				servers = append(servers, r.pacmanConf.ExpandVariables(server, repo.Name))
+			}
+			db.SetServers(servers)
+		}
+	}
+
+	return nil
+}
+
+// parseSigLevel converts a SigLevel string to alpm.SigLevel
+func parseSigLevel(level string) alpm.SigLevel {
+	var sig alpm.SigLevel
+	level = strings.ToLower(level)
+
+	if strings.Contains(level, "required") {
+		sig |= alpm.SigPackage
+		sig |= alpm.SigDatabase
+	}
+	if strings.Contains(level, "optional") {
+		sig |= alpm.SigPackageOptional
+	}
+	if strings.Contains(level, "databaseoptional") {
+		sig |= alpm.SigDatabaseOptional
+	}
+	if strings.Contains(level, "trustall") || strings.Contains(level, "marginalok") {
+		sig |= alpm.SigPackageMarginalOk
+		sig |= alpm.SigDatabaseMarginalOk
+	}
+
+	return sig
+}
+
+// IsIgnored returns true if the package is in the IgnorePkg list
+func (r *RealAlpmHandle) IsIgnored(pkgName string) bool {
+	return r.ignorePkgs[pkgName]
+}
+
+// GetPacmanConf returns the parsed pacman.conf
+func (r *RealAlpmHandle) GetPacmanConf() *PacmanConf {
+	return r.pacmanConf
+}
+
+// SetupCallbacks configures libalpm callbacks for logging and questions.
+// If autoConfirm is true, all questions will be auto-answered with yes.
+func (r *RealAlpmHandle) SetupCallbacks(autoConfirm bool) {
+	// Set question callback for NoConfirm behavior
+	if autoConfirm {
+		r.handle.SetQuestionCallback(func(_ interface{}, q alpm.QuestionAny) {
+			// Auto-answer all questions with "yes"
+			q.SetAnswer(true)
+		}, nil)
+	}
+
+	// Set log callback for transaction progress
+	r.handle.SetLogCallback(func(_ interface{}, lvl alpm.LogLevel, msg string) {
+		if lvl <= alpm.LogWarning {
+			// Only print warnings and errors
+			fmt.Printf("[%s] %s", logLevelString(lvl), msg)
+		}
+	}, nil)
+}
+
+// logLevelString returns a string representation of the log level
+func logLevelString(lvl alpm.LogLevel) string {
+	switch lvl {
+	case alpm.LogError:
+		return "ERROR"
+	case alpm.LogWarning:
+		return "WARN"
+	case alpm.LogDebug:
+		return "DEBUG"
+	case alpm.LogFunction:
+		return "FUNC"
+	default:
+		return "INFO"
+	}
 }
 
 // LocalDb returns the local database.
@@ -345,7 +482,12 @@ func (l *RealAlpmPackageList) Slice() []AlpmPackage {
 
 // Len returns the number of packages.
 func (l *RealAlpmPackageList) Len() int {
-	return len(l.Slice())
+	count := 0
+	l.ForEach(func(pkg AlpmPackage) error {
+		count++
+		return nil
+	})
+	return count
 }
 
 // RealAlpmDependList wraps a real dependency list.
@@ -369,7 +511,7 @@ func PackageToInfo(pkg AlpmPackage) pkgdb.PackageInfo {
 		Name:          pkg.Name(),
 		Version:       pkg.Version(),
 		Description:   pkg.Description(),
-		Source:        pkgdb.SourceOfficial,
+		Source:        determineSource(pkg),
 		Depends:       pkg.Depends().Slice(),
 		OptDepends:    pkg.OptionalDepends().Slice(),
 		Provides:      pkg.Provides().Slice(),
@@ -377,5 +519,47 @@ func PackageToInfo(pkg AlpmPackage) pkgdb.PackageInfo {
 		Size:          pkg.Size(),
 		InstalledSize: pkg.ISize(),
 	}
+	return info
+}
+
+// determineSource determines the package source based on the database name
+func determineSource(pkg AlpmPackage) string {
+	db := pkg.DB()
+	if db == nil {
+		return pkgdb.SourceOfficial
+	}
+
+	dbName := db.Name()
+	switch dbName {
+	case "local":
+		// Local packages - check if they might be from AUR
+		// (AUR packages are typically not in core/extra/multilib)
+		return pkgdb.SourceOfficial // Default for installed packages
+	case "core", "extra", "multilib", "community":
+		return pkgdb.SourceOfficial
+	case "aur":
+		return pkgdb.SourceAUR
+	case "shedos", "shedrepo":
+		return pkgdb.SourceShedOS
+	default:
+		// Unknown repository, assume official
+		return pkgdb.SourceOfficial
+	}
+}
+
+// PackageToInfoWithDB converts an AlpmPackage to pkgdb.PackageInfo with explicit DB name
+func PackageToInfoWithDB(pkg AlpmPackage, dbName string) pkgdb.PackageInfo {
+	info := PackageToInfo(pkg)
+
+	// Override source based on explicit DB name
+	switch dbName {
+	case "aur":
+		info.Source = pkgdb.SourceAUR
+	case "shedos", "shedrepo":
+		info.Source = pkgdb.SourceShedOS
+	case "core", "extra", "multilib", "community":
+		info.Source = pkgdb.SourceOfficial
+	}
+
 	return info
 }
