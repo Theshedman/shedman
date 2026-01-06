@@ -107,3 +107,18 @@ func Load(path string) (*Config, error) {
 
 	return cfg, nil
 }
+
+// DefaultConfigPath returns the default config file path (~/.config/shedman/config.toml)
+func DefaultConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "/etc/shedman/config.toml" // Fallback to system config
+	}
+	return home + "/.config/shedman/config.toml"
+}
+
+// LoadDefault loads config from the default path (~/.config/shedman/config.toml)
+// If the file doesn't exist, returns default configuration.
+func LoadDefault() (*Config, error) {
+	return Load(DefaultConfigPath())
+}
