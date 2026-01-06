@@ -1,9 +1,9 @@
 package cmd
 
 import (
-"bytes"
-"strings"
-"testing"
+	"bytes"
+	"strings"
+	"testing"
 )
 
 func TestSyncCommand(t *testing.T) {
@@ -43,10 +43,32 @@ func TestSyncCommand_Flags(t *testing.T) {
 	output := buf.String()
 
 	// Verify all flags are documented
-	flags := []string{"--official", "--aur", "--shedos"}
+	flags := []string{"--official", "--aur", "--shedos", "--refresh"}
 	for _, flag := range flags {
 		if !strings.Contains(output, flag) {
 			t.Errorf("expected help to contain %s flag", flag)
+		}
+	}
+}
+
+// TestSyncCommand_HasForceFlag verifies --force flag exists as alias for --refresh
+func TestSyncCommand_HasForceFlag(t *testing.T) {
+	if syncCmd.Flags().Lookup("force") == nil {
+		t.Error("expected sync command to have --force flag")
+	}
+}
+
+// Note: The following tests require mock backends which we'll add to the shedman package.
+// For now, these tests verify the command structure.
+
+// TestSyncCommand_RequiresNoArgs verifies sync works with no arguments
+func TestSyncCommand_RequiresNoArgs(t *testing.T) {
+	// sync command should accept zero arguments (syncs all by default)
+	if syncCmd.Args != nil {
+		// If Args is set, it should allow zero args
+		err := syncCmd.Args(syncCmd, []string{})
+		if err != nil {
+			t.Errorf("sync should accept zero arguments, got error: %v", err)
 		}
 	}
 }

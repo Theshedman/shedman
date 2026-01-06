@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/pkg/shedman"
 	"github.com/theshedman/shedman/pkg/shedman/backend"
@@ -44,7 +46,14 @@ By default, syncs all databases. Use flags to sync specific sources:
 
 		if syncAll || syncOfficial {
 			pacmanBackend, err := pacman.New()
-			if err == nil {
+			if err != nil {
+				if syncOfficial {
+					// Explicit --official flag, return error
+					return fmt.Errorf("pacman backend not available: %w", err)
+				}
+				// syncAll - warn and continue
+				output.Warning("Pacman backend not available: %v", err)
+			} else {
 				backendList = append(backendList, pacmanBackend)
 			}
 		}
@@ -122,4 +131,5 @@ func init() {
 	syncCmd.Flags().BoolVar(&syncAUR, "aur", false, "Sync AUR cache only")
 	syncCmd.Flags().BoolVar(&syncShedOS, "shedos", false, "Sync ShedOS repository only")
 	syncCmd.Flags().BoolVar(&syncRefresh, "refresh", false, "Force refresh even if cache exists")
+	syncCmd.Flags().BoolVar(&syncRefresh, "force", false, "Force refresh (alias for --refresh)")
 }
