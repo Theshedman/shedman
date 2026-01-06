@@ -84,3 +84,27 @@ func (o UpgradeOptions) WithRefresh(refresh bool) UpgradeOptions {
 	o.Refresh = refresh
 	return o
 }
+
+// WithCascade sets the Cascade flag for RemoveOptions
+func (o RemoveOptions) WithCascade(cascade bool) RemoveOptions {
+	o.Cascade = cascade
+	return o
+}
+
+// WithNoSave sets the NoSave flag for RemoveOptions
+func (o RemoveOptions) WithNoSave(noSave bool) RemoveOptions {
+	o.NoSave = noSave
+	return o
+}
+
+// WithRecursive sets the Recursive flag for RemoveOptions
+func (o RemoveOptions) WithRecursive(recursive bool) RemoveOptions {
+	o.Recursive = recursive
+	return o
+}
+
+// WithNoConfirm sets the NoConfirm flag for RemoveOptions
+func (o RemoveOptions) WithNoConfirm(noConfirm bool) RemoveOptions {
+	o.NoConfirm = noConfirm
+	return o
+}
