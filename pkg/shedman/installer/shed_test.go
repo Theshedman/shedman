@@ -184,3 +184,74 @@ func TestShedInstaller_Install_FullFlow(t *testing.T) {
 		t.Error("Expected commands to be executed")
 	}
 }
+
+func TestShedInstaller_Remove(t *testing.T) {
+	si := installer.NewShedInstaller()
+	tmpDir := t.TempDir()
+	si.SetCacheDir(tmpDir)
+
+	// Create installed package directory with manifest
+	installedDir := filepath.Join(tmpDir, "installed", "test-pkg")
+	hooksDir := filepath.Join(installedDir, "hooks")
+	os.MkdirAll(hooksDir, 0755)
+
+	// Create manifest with files list
+	manifestContent := `name = "test-pkg"
+version = "1.0.0"
+description = "A test package"
+files = ["/usr/bin/test-app", "/usr/share/test-pkg/data.txt"]
+`
+	os.WriteFile(filepath.Join(installedDir, "manifest.toml"), []byte(manifestContent), 0644)
+
+	// Create pre-remove hook
+	os.WriteFile(filepath.Join(hooksDir, "pre-remove.sh"), []byte("#!/bin/bash\necho pre-remove"), 0755)
+	os.WriteFile(filepath.Join(hooksDir, "post-remove.sh"), []byte("#!/bin/bash\necho post-remove"), 0755)
+
+	var executedCmds [][]string
+	si.SetExecutor(func(cmd []string) error {
+		executedCmds = append(executedCmds, cmd)
+		return nil
+	})
+
+	// Remove should: run pre-remove hook, remove files, run post-remove hook, remove manifest
+	err := si.Remove("test-pkg")
+	if err != nil {
+		t.Fatalf("Remove failed: %v", err)
+	}
+
+	// Should have executed hooks
+	if len(executedCmds) < 2 {
+		t.Errorf("Expected at least 2 commands (pre/post-remove hooks), got %d", len(executedCmds))
+	}
+}
+
+func TestShedInstaller_Remove_NotInstalled(t *testing.T) {
+	si := installer.NewShedInstaller()
+	tmpDir := t.TempDir()
+	si.SetCacheDir(tmpDir)
+
+	// Try to remove package that isn't installed
+	err := si.Remove("nonexistent-pkg")
+	if err == nil {
+		t.Error("Expected error when removing non-installed package")
+	}
+}
+
+func TestShedInstaller_IsInstalled(t *testing.T) {
+	si := installer.NewShedInstaller()
+	tmpDir := t.TempDir()
+	si.SetCacheDir(tmpDir)
+
+	// Create installed package
+	installedDir := filepath.Join(tmpDir, "installed", "test-pkg")
+	os.MkdirAll(installedDir, 0755)
+	os.WriteFile(filepath.Join(installedDir, "manifest.toml"), []byte("name = \"test-pkg\"\nversion = \"1.0.0\""), 0644)
+
+	if !si.IsInstalled("test-pkg") {
+		t.Error("Expected IsInstalled to return true for installed package")
+	}
+
+	if si.IsInstalled("nonexistent-pkg") {
+		t.Error("Expected IsInstalled to return false for non-installed package")
+	}
+}

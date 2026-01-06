@@ -41,6 +41,7 @@ type ShedManifest struct {
 	Depends     []string `toml:"depends"`
 	Provides    []string `toml:"provides"`
 	Conflicts   []string `toml:"conflicts"`
+	Files       []string `toml:"files"` // List of installed files for removal
 }
 
 // ShedInstaller handles .shed package installation
@@ -184,4 +185,94 @@ func (s *ShedInstaller) Install(shedFile string) error {
 	}
 
 	return nil
+}
+
+// GetInstalledDir returns the directory where installed package manifests are stored
+func (s *ShedInstaller) GetInstalledDir() string {
+	return filepath.Join(s.cacheDir, "installed")
+}
+
+// IsInstalled checks if a package is installed
+func (s *ShedInstaller) IsInstalled(pkgName string) bool {
+	manifestPath := filepath.Join(s.GetInstalledDir(), pkgName, "manifest.toml")
+	_, err := os.Stat(manifestPath)
+	return err == nil
+}
+
+// Remove uninstalls a .shed package
+func (s *ShedInstaller) Remove(pkgName string) error {
+	installedDir := filepath.Join(s.GetInstalledDir(), pkgName)
+
+	// Check if package is installed
+	if !s.IsInstalled(pkgName) {
+		return fmt.Errorf("package not installed: %s", pkgName)
+	}
+
+	// Read manifest to get file list
+	manifest, err := s.ReadManifest(installedDir)
+	if err != nil {
+		return fmt.Errorf("failed to read manifest: %w", err)
+	}
+
+	// Run pre-remove hook
+	if err := s.RunHooks(installedDir, "pre-remove"); err != nil {
+		// Log warning but continue with removal
+		fmt.Printf("Warning: pre-remove hook failed: %v\n", err)
+	}
+
+	// Remove installed files
+	if err := s.RemoveFiles(manifest.Files); err != nil {
+		return fmt.Errorf("failed to remove files: %w", err)
+	}
+
+	// Run post-remove hook
+	if err := s.RunHooks(installedDir, "post-remove"); err != nil {
+		// Log warning but continue
+		fmt.Printf("Warning: post-remove hook failed: %v\n", err)
+	}
+
+	// Remove installed package directory
+	if err := os.RemoveAll(installedDir); err != nil {
+		return fmt.Errorf("failed to remove package directory: %w", err)
+	}
+
+	return nil
+}
+
+// RemoveFiles removes the specified files from the filesystem
+func (s *ShedInstaller) RemoveFiles(files []string) error {
+	for _, file := range files {
+		// Use sudo to remove system files
+		cmd := []string{"sudo", "rm", "-f", file}
+		if err := s.executor(cmd); err != nil {
+			// Log warning but continue with other files
+			fmt.Printf("Warning: failed to remove %s: %v\n", file, err)
+		}
+	}
+	return nil
+}
+
+// ListInstalled returns a list of all installed .shed packages
+func (s *ShedInstaller) ListInstalled() ([]string, error) {
+	installedDir := s.GetInstalledDir()
+
+	entries, err := os.ReadDir(installedDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+
+	var packages []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			// Check if it has a manifest
+			if s.IsInstalled(entry.Name()) {
+				packages = append(packages, entry.Name())
+			}
+		}
+	}
+
+	return packages, nil
 }
