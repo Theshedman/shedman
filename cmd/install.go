@@ -206,38 +206,51 @@ func executeInstall(cfg *config.Config, pkgs []pkgdb.PackageInfo, opts installer
 	official := make([]pkgdb.PackageInfo, 0)
 	aur := make([]pkgdb.PackageInfo, 0)
 	shedos := make([]pkgdb.PackageInfo, 0)
+	shedPkgs := make([]pkgdb.PackageInfo, 0) // .shed format packages
 
 	for _, pkg := range pkgs {
 		switch pkg.Source {
 		case pkgdb.SourceAUR:
 			aur = append(aur, pkg)
 		case pkgdb.SourceShedOS:
-			shedos = append(shedos, pkg)
+			// Separate .shed packages from pacman-format ShedOS packages
+			if strings.HasSuffix(pkg.Name, ".shed") {
+				shedPkgs = append(shedPkgs, pkg)
+			} else {
+				shedos = append(shedos, pkg)
+			}
 		default:
 			official = append(official, pkg)
 		}
 	}
 
-	// Install official packages with pacman backend
-	if len(official) > 0 {
-		pacmanBackend, err := pacman.New()
-		if err != nil {
-			return fmt.Errorf("pacman not available: %w", err)
-		}
+	// Determine if we need pacman backend
+	needsPacman := len(official) > 0 || len(shedos) > 0
+	var pacmanBackend backend.OfficialBackend
 
-		// Convert package names
+	if needsPacman {
+		var err error
+		pacmanBackend, err = pacman.New()
+		if err != nil {
+			return fmt.Errorf("pacman backend not available: %w", err)
+		}
+	}
+
+	// Build backend install options
+	backendOpts := backend.InstallOptions{
+		Needed:       opts.Needed,
+		AsDeps:       opts.AsDeps,
+		AsExplicit:   opts.AsExplicit,
+		NoConfirm:    opts.NoConfirm,
+		DownloadOnly: opts.DownloadOnly,
+		Overwrite:    opts.Overwrite,
+	}
+
+	// Install official packages
+	if len(official) > 0 {
 		pkgNames := make([]string, len(official))
 		for i, pkg := range official {
 			pkgNames[i] = pkg.Name
-		}
-
-		backendOpts := backend.InstallOptions{
-			Needed:       opts.Needed,
-			AsDeps:       opts.AsDeps,
-			AsExplicit:   opts.AsExplicit,
-			NoConfirm:    opts.NoConfirm,
-			DownloadOnly: opts.DownloadOnly,
-			Overwrite:    opts.Overwrite,
 		}
 
 		if err := pacmanBackend.Install(pkgNames, backendOpts); err != nil {
@@ -280,29 +293,24 @@ func executeInstall(cfg *config.Config, pkgs []pkgdb.PackageInfo, opts installer
 		}
 	}
 
-	// Install ShedOS packages
+	// Install ShedOS packages that use pacman format
 	if len(shedos) > 0 {
-		// For now, ShedOS packages that are .pkg.tar.zst use pacman
-		// .shed packages would use ShedInstaller
-		for _, pkg := range shedos {
-			if strings.HasSuffix(pkg.Name, ".shed") {
-				si := installer.NewShedInstaller()
-				if err := si.Install(pkg.Name); err != nil {
-					return fmt.Errorf("failed to install shed package %s: %w", pkg.Name, err)
-				}
-			} else {
-				// Assume it's a pacman package from ShedOS repo
-				pacmanBackend, err := pacman.New()
-				if err != nil {
-					return fmt.Errorf("pacman not available for ShedOS package: %w", err)
-				}
-				backendOpts := backend.InstallOptions{
-					Needed:    opts.Needed,
-					NoConfirm: opts.NoConfirm,
-				}
-				if err := pacmanBackend.Install([]string{pkg.Name}, backendOpts); err != nil {
-					return fmt.Errorf("failed to install %s from ShedOS: %w", pkg.Name, err)
-				}
+		pkgNames := make([]string, len(shedos))
+		for i, pkg := range shedos {
+			pkgNames[i] = pkg.Name
+		}
+
+		if err := pacmanBackend.Install(pkgNames, backendOpts); err != nil {
+			return fmt.Errorf("failed to install ShedOS packages: %w", err)
+		}
+	}
+
+	// Install .shed format packages
+	if len(shedPkgs) > 0 {
+		si := installer.NewShedInstaller()
+		for _, pkg := range shedPkgs {
+			if err := si.Install(pkg.Name); err != nil {
+				return fmt.Errorf("failed to install shed package %s: %w", pkg.Name, err)
 			}
 		}
 	}
