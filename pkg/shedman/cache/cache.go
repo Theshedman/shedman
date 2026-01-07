@@ -3,6 +3,7 @@ package cache
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -92,4 +93,85 @@ func (c *FileSystemCache) GetModTime(path string) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return info.ModTime(), nil
+}
+
+// CachedPackage represents a package file found in the cache
+type CachedPackage struct {
+	Name    string
+	Version string
+	Path    string
+	ModTime time.Time
+}
+
+// FindVersions scans a directory for package files matching the given package name.
+// It returns a list of matching packages.
+func (c *FileSystemCache) FindVersions(dir string, pkgName string) ([]CachedPackage, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	var matches []CachedPackage
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		// Simple extension check
+		ext := filepath.Ext(name)
+		if ext != ".zst" && ext != ".xz" && ext != ".shed" {
+			continue
+		}
+
+		// Parse filename
+		// Logic: {pkgname}-{ver}-{rel}-{arch}.{ext}
+		// 1. Remove known extensions
+		base := name
+		if strings.HasSuffix(base, ".pkg.tar.zst") {
+			base = strings.TrimSuffix(base, ".pkg.tar.zst")
+		} else if strings.HasSuffix(base, ".pkg.tar.xz") {
+			base = strings.TrimSuffix(base, ".pkg.tar.xz")
+		} else if strings.HasSuffix(base, ".shed") {
+			base = strings.TrimSuffix(base, ".shed")
+		} else {
+			// Fallback: strip last extension only if it's a known compression format
+			// to avoid stripping version numbers like .1
+			ext := filepath.Ext(base)
+			if ext == ".zst" || ext == ".xz" || ext == ".gz" {
+				base = strings.TrimSuffix(base, ext)
+			}
+		}
+
+		// 2. Split by '-' from right
+		parts := strings.Split(base, "-")
+		if len(parts) < 4 {
+			continue // Invalid format
+		}
+
+		// arch := parts[len(parts)-1]
+		// rel := parts[len(parts)-2]
+		ver := parts[len(parts)-3]
+		pName := strings.Join(parts[:len(parts)-3], "-")
+
+		if pName != pkgName {
+			continue
+		}
+
+		fullVer := ver + "-" + parts[len(parts)-2] // ver-rel
+
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		matches = append(matches, CachedPackage{
+			Name:    pName,
+			Version: fullVer,
+			Path:    filepath.Join(dir, name),
+			ModTime: info.ModTime(),
+		})
+	}
+
+	return matches, nil
 }

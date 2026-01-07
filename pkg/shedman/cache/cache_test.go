@@ -204,3 +204,62 @@ func TestCache_GetModTime_ErrorsWhenNotExists(t *testing.T) {
 		t.Error("GetModTime should error for non-existent file")
 	}
 }
+
+func TestFileSystemCache_FindVersions(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "shedman-cache-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	c := cache.NewFileSystemCacheWithDir(tmpDir)
+
+	// Setup dummy package files
+	// neovim-0.9.0-1-x86_64.pkg.tar.zst
+	// neovim-0.8.0-1-x86_64.pkg.tar.zst
+	// other-1.0.0-1-x86_64.pkg.tar.zst
+	files := []string{
+		"neovim-0.9.0-1-x86_64.pkg.tar.zst",
+		"neovim-0.8.0-1-x86_64.pkg.tar.zst",
+		"other-1.0.0-1-x86_64.pkg.tar.zst",
+	}
+
+	for _, f := range files {
+		path := filepath.Join(tmpDir, f)
+		if err := os.WriteFile(path, []byte("dummy"), 0644); err != nil {
+			t.Fatalf("Failed to create dummy file %s: %v", f, err)
+		}
+	}
+
+	// Test finding versions
+	matches, err := c.FindVersions(tmpDir, "neovim")
+	if err != nil {
+		t.Fatalf("FindVersions failed: %v", err)
+	}
+
+	if len(matches) != 2 {
+		t.Errorf("Expected 2 matches, got %d", len(matches))
+	}
+
+	// Verify content
+	found090 := false
+	found080 := false
+
+	for _, m := range matches {
+		if m.Name != "neovim" {
+			t.Errorf("Expected name neovim, got %s", m.Name)
+		}
+		if m.Version == "0.9.0-1" {
+			found090 = true
+		} else if m.Version == "0.8.0-1" {
+			found080 = true
+		}
+	}
+
+	if !found090 {
+		t.Error("Did not find version 0.9.0-1")
+	}
+	if !found080 {
+		t.Error("Did not find version 0.8.0-1")
+	}
+}

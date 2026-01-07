@@ -129,6 +129,14 @@ func (e *Engine) Install(pkgs []string, opts backend.InstallOptions) error {
 	return e.officialBackend.Install(pkgs, opts)
 }
 
+// InstallFile installs a local package file (wraps InstallLocal).
+func (e *Engine) InstallFile(path string, opts backend.InstallOptions) error {
+	if e.officialBackend == nil {
+		return backend.ErrBackendNotFound
+	}
+	return e.officialBackend.InstallLocal(path, opts)
+}
+
 // Remove removes packages using the official backend.
 func (e *Engine) Remove(pkgs []string, opts backend.RemoveOptions) error {
 	if e.officialBackend == nil {
