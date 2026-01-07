@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/pkg/shedman/backend"
@@ -130,7 +131,11 @@ Examples:
 
 		// Search ShedOS repository
 		if searchAll || searchShedOS {
-			shedBackend := shedrepo.New(cacheDir)
+			timeout := 30 * time.Second
+			if cfg.Network.Timeout > 0 {
+				timeout = time.Duration(cfg.Network.Timeout) * time.Second
+			}
+			shedBackend := shedrepo.New(cacheDir, timeout)
 			shedInstaller := installer.NewShedInstaller()
 			pkgs, err := shedBackend.Search(query)
 			if err != nil {

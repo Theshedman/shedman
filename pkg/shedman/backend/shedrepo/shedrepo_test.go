@@ -10,7 +10,7 @@ import (
 
 func TestShedRepoBackend_Name(t *testing.T) {
 	c := cache.NewFileSystemCacheWithDir(t.TempDir())
-	b := New(c)
+	b := New(c, 0)
 	if b.Name() != "shedrepo" {
 		t.Errorf("Expected name 'shedrepo', got '%s'", b.Name())
 	}
@@ -18,7 +18,7 @@ func TestShedRepoBackend_Name(t *testing.T) {
 
 func TestShedRepoBackend_SetForceRefresh(t *testing.T) {
 	c := cache.NewFileSystemCacheWithDir(t.TempDir())
-	b := New(c)
+	b := New(c, 0)
 	b.SetForceRefresh(true)
 
 	if !b.forceRefresh {
@@ -28,7 +28,7 @@ func TestShedRepoBackend_SetForceRefresh(t *testing.T) {
 
 func TestShedRepoBackend_Sync_CacheHit(t *testing.T) {
 	c := cache.NewFileSystemCacheWithDir(t.TempDir())
-	b := New(c)
+	b := New(c, 0)
 
 	// Pre-populate cache so sync skips download
 	dbPath := c.GetFilePath("shedrepo", "shedos.db")
@@ -50,7 +50,7 @@ func TestShedRepoBackend_Sync_WithServer(t *testing.T) {
 	defer server.Close()
 
 	c := cache.NewFileSystemCacheWithDir(t.TempDir())
-	b := NewWithURL(server.URL, c)
+	b := NewWithURL(server.URL, c, 0)
 	b.SetForceRefresh(true) // Force download
 
 	err := b.Sync()

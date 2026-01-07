@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/pkg/shedman"
@@ -73,7 +74,11 @@ By default, syncs all databases. Use flags to sync specific sources:
 		}
 		if syncAll || syncShedOS {
 			// Use mirrors from config
-			shedRepo := shedrepo.NewWithMirrors(cfg.Mirrors.ShedOS, c)
+			timeout := 30 * time.Second
+			if cfg.Network.Timeout > 0 {
+				timeout = time.Duration(cfg.Network.Timeout) * time.Second
+			}
+			shedRepo := shedrepo.NewWithMirrors(cfg.Mirrors.ShedOS, c, timeout)
 			if syncRefresh {
 				shedRepo.SetForceRefresh(true)
 			}

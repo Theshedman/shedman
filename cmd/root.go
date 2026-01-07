@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/pkg/shedman/output"
+	"github.com/theshedman/shedman/pkg/shedman/signals"
 )
 
 // Version information - set at build time
@@ -40,6 +41,9 @@ Features:
   • Snapshots — backup and restore your entire system state
   • Cloud sync — never lose your packages, configs, or themes`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Initialize signal handling for cleanup
+		signals.SetupSignalHandler()
+
 		// Handle noconfirm as alias for yes
 		if noconfirmFlag {
 			yesFlag = true

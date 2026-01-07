@@ -1,25 +1,25 @@
 package http_test
 
 import (
-"net/http"
-"net/http/httptest"
-"sync/atomic"
-"testing"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
+	"testing"
 
-shedhttp "github.com/theshedman/shedman/pkg/shedman/http"
+	shedhttp "github.com/theshedman/shedman/pkg/shedman/http"
 )
 
 func TestRetryClient_UsesFirstMirror_WhenSucceeds(t *testing.T) {
 	var callCount int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-atomic.AddInt32(&callCount, 1)
+		atomic.AddInt32(&callCount, 1)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success"))
 	}))
 	defer server.Close()
 
-	client := shedhttp.NewRetryClient([]string{server.URL})
+	client := shedhttp.NewRetryClient([]string{server.URL}, 0)
 
 	resp, err := client.Get("/test")
 	if err != nil {
@@ -41,20 +41,20 @@ func TestRetryClient_FailsOver_WhenFirstFails(t *testing.T) {
 
 	// First server always fails
 	first := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-atomic.AddInt32(&firstCalls, 1)
+		atomic.AddInt32(&firstCalls, 1)
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer first.Close()
 
 	// Second server succeeds
 	second := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-atomic.AddInt32(&secondCalls, 1)
+		atomic.AddInt32(&secondCalls, 1)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success from second"))
 	}))
 	defer second.Close()
 
-	client := shedhttp.NewRetryClient([]string{first.URL, second.URL})
+	client := shedhttp.NewRetryClient([]string{first.URL, second.URL}, 0)
 
 	resp, err := client.Get("/test")
 	if err != nil {
@@ -72,16 +72,16 @@ atomic.AddInt32(&secondCalls, 1)
 
 func TestRetryClient_ReturnsError_WhenAllFail(t *testing.T) {
 	first := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.WriteHeader(http.StatusInternalServerError)
-}))
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
 	defer first.Close()
 
 	second := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-w.WriteHeader(http.StatusInternalServerError)
-}))
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
 	defer second.Close()
 
-	client := shedhttp.NewRetryClient([]string{first.URL, second.URL})
+	client := shedhttp.NewRetryClient([]string{first.URL, second.URL}, 0)
 
 	_, err := client.Get("/test")
 	if err == nil {

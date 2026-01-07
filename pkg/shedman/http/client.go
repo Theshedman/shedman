@@ -1,14 +1,14 @@
 package http
 
 import (
-"fmt"
-"net/http"
-"strings"
-"time"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
 )
 
 const (
-DefaultTimeout = 30 * time.Second
+	DefaultTimeout = 30 * time.Second
 )
 
 // RetryClient is an HTTP client that tries multiple mirrors in order
@@ -17,11 +17,14 @@ type RetryClient struct {
 	client  *http.Client
 }
 
-// NewRetryClient creates a new RetryClient with the given mirror URLs
-func NewRetryClient(mirrors []string) *RetryClient {
+// NewRetryClient creates a new RetryClient with the given mirror URLs and timeout
+func NewRetryClient(mirrors []string, timeout time.Duration) *RetryClient {
+	if timeout <= 0 {
+		timeout = DefaultTimeout
+	}
 	return &RetryClient{
 		mirrors: mirrors,
-		client:  &http.Client{Timeout: DefaultTimeout},
+		client:  &http.Client{Timeout: timeout},
 	}
 }
 

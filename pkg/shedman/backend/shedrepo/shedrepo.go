@@ -54,19 +54,19 @@ type Backend struct {
 }
 
 // New creates a new ShedRepo backend with default settings
-func New(c cache.Cache) *Backend {
-	return NewWithMirrors(DefaultMirrors, c)
+func New(c cache.Cache, timeout time.Duration) *Backend {
+	return NewWithMirrors(DefaultMirrors, c, timeout)
 }
 
 // NewWithURL creates a new ShedRepo backend with a custom base URL
-func NewWithURL(baseURL string, c cache.Cache) *Backend {
-	return NewWithMirrors([]string{baseURL}, c)
+func NewWithURL(baseURL string, c cache.Cache, timeout time.Duration) *Backend {
+	return NewWithMirrors([]string{baseURL}, c, timeout)
 }
 
 // NewWithMirrors creates a new ShedRepo backend with custom mirrors
-func NewWithMirrors(mirrors []string, c cache.Cache) *Backend {
+func NewWithMirrors(mirrors []string, c cache.Cache, timeout time.Duration) *Backend {
 	return &Backend{
-		client:       shedhttp.NewRetryClient(mirrors),
+		client:       shedhttp.NewRetryClient(mirrors, timeout),
 		cache:        c,
 		forceRefresh: false,
 	}
