@@ -25,7 +25,7 @@ func TestShedInstaller_Extract(t *testing.T) {
 	os.WriteFile(shedFile, []byte("fake shed content"), 0644)
 
 	var executedCmd []string
-	si.SetExecutor(func(cmd []string) error {
+	si.SetExecutor(func(dir string, cmd []string) error {
 		executedCmd = cmd
 		return nil
 	})
@@ -81,7 +81,7 @@ func TestShedInstaller_VerifySignature(t *testing.T) {
 	os.WriteFile(sigFile, []byte("fake signature"), 0644)
 
 	var executedCmd []string
-	si.SetExecutor(func(cmd []string) error {
+	si.SetExecutor(func(dir string, cmd []string) error {
 		executedCmd = cmd
 		return nil
 	})
@@ -109,7 +109,7 @@ func TestShedInstaller_InstallFiles(t *testing.T) {
 	os.WriteFile(filepath.Join(filesDir, "usr", "bin", "test-app"), []byte("#!/bin/bash\necho hello"), 0755)
 
 	var executedCmds [][]string
-	si.SetExecutor(func(cmd []string) error {
+	si.SetExecutor(func(dir string, cmd []string) error {
 		executedCmds = append(executedCmds, cmd)
 		return nil
 	})
@@ -143,7 +143,7 @@ func TestShedInstaller_RunHooks(t *testing.T) {
 	os.WriteFile(filepath.Join(hooksDir, "post-install.sh"), []byte("#!/bin/bash\necho installed"), 0755)
 
 	var executedCmd []string
-	si.SetExecutor(func(cmd []string) error {
+	si.SetExecutor(func(dir string, cmd []string) error {
 		executedCmd = cmd
 		return nil
 	})
@@ -169,7 +169,7 @@ func TestShedInstaller_Install_FullFlow(t *testing.T) {
 	os.WriteFile(shedFile, []byte("fake"), 0644)
 
 	var executedCmds [][]string
-	si.SetExecutor(func(cmd []string) error {
+	si.SetExecutor(func(dir string, cmd []string) error {
 		executedCmds = append(executedCmds, cmd)
 		return nil
 	})
@@ -208,7 +208,7 @@ files = ["/usr/bin/test-app", "/usr/share/test-pkg/data.txt"]
 	os.WriteFile(filepath.Join(hooksDir, "post-remove.sh"), []byte("#!/bin/bash\necho post-remove"), 0755)
 
 	var executedCmds [][]string
-	si.SetExecutor(func(cmd []string) error {
+	si.SetExecutor(func(dir string, cmd []string) error {
 		executedCmds = append(executedCmds, cmd)
 		return nil
 	})

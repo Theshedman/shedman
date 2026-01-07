@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/theshedman/shedman/pkg/shedman/backend"
@@ -22,13 +23,14 @@ type DownloadProgressCallback func(downloaded, total int64, speed float64)
 
 // ShedOSInstaller handles downloading and installing ShedOS packages
 type ShedOSInstaller struct {
-	executor   Executor
-	cacheDir   string
-	httpClient *http.Client
-	timeout    time.Duration
-	retries    int
-	shed       *ShedInstaller
-	backend    backend.OfficialBackend // Backend for local package installation
+	executor          Executor
+	cacheDir          string
+	httpClient        *http.Client
+	timeout           time.Duration
+	retries           int
+	parallelDownloads int // Default parallel downloads
+	shed              *ShedInstaller
+	backend           backend.OfficialBackend // Backend for local package installation
 }
 
 // NewShedOSInstaller creates a new ShedOSInstaller with default config
@@ -66,14 +68,20 @@ func NewShedOSInstallerWithBackend(cfg *config.Config, b backend.OfficialBackend
 		retries = 3
 	}
 
+	parallel := cfg.Network.ParallelDownloads
+	if parallel <= 0 {
+		parallel = 5
+	}
+
 	return &ShedOSInstaller{
-		executor:   DefaultExecutor,
-		cacheDir:   cacheDir,
-		httpClient: &http.Client{Timeout: timeout},
-		timeout:    timeout,
-		retries:    retries,
-		shed:       NewShedInstaller(),
-		backend:    b,
+		executor:          DefaultExecutor,
+		cacheDir:          cacheDir,
+		httpClient:        &http.Client{Timeout: timeout},
+		timeout:           timeout,
+		retries:           retries,
+		parallelDownloads: parallel,
+		shed:              NewShedInstaller(),
+		backend:           b,
 	}
 }
 
@@ -130,6 +138,83 @@ func (s *ShedOSInstaller) DownloadWithProgress(pkg pkgdb.PackageInfo, callback D
 	return "", fmt.Errorf("download failed after %d attempts: %w", s.retries, lastErr)
 }
 
+// DownloadResult contains paths for downloaded files
+type DownloadResult struct {
+	PkgPath string
+	SigPath string
+}
+
+// DownloadMultiple downloads multiple packages in parallel
+func (s *ShedOSInstaller) DownloadMultiple(pkgs []pkgdb.PackageInfo, callback DownloadProgressCallback) (map[string]DownloadResult, error) {
+	if len(pkgs) == 0 {
+		return nil, nil
+	}
+
+	results := make(map[string]DownloadResult)
+	errors := make(chan error, len(pkgs))
+	resultsChan := make(chan struct {
+		name string
+		res  DownloadResult
+	}, len(pkgs))
+
+	// Create semaphore to control concurrency
+	concurrency := s.parallelDownloads
+	if concurrency > len(pkgs) {
+		concurrency = len(pkgs)
+	}
+	sem := make(chan struct{}, concurrency)
+
+	var wg sync.WaitGroup
+
+	for _, pkg := range pkgs {
+		wg.Add(1)
+		go func(p pkgdb.PackageInfo) {
+			defer wg.Done()
+
+			sem <- struct{}{}        // Acquire token
+			defer func() { <-sem }() // Release token
+
+			pkgPath, err := s.DownloadWithProgress(p, callback)
+			if err != nil {
+				errors <- fmt.Errorf("failed to download %s: %w", p.Name, err)
+				return
+			}
+
+			// Download signature (best effort)
+			sigPath, err := s.DownloadSignature(p)
+			if err != nil {
+				// Ignore error for signature download as it's optional/best-effort here
+			}
+
+			resultsChan <- struct {
+				name string
+				res  DownloadResult
+			}{p.Name, DownloadResult{PkgPath: pkgPath, SigPath: sigPath}}
+		}(pkg)
+	}
+
+	// Wait for all downloads to finish
+	wg.Wait()
+	close(errors)
+	close(resultsChan)
+
+	// Collect errors
+	if len(errors) > 0 {
+		var errMsgs []string
+		for err := range errors {
+			errMsgs = append(errMsgs, err.Error())
+		}
+		return nil, fmt.Errorf("multiple download errors: %s", strings.Join(errMsgs, "; "))
+	}
+
+	// Collect results
+	for res := range resultsChan {
+		results[res.name] = res.res
+	}
+
+	return results, nil
+}
+
 // downloadFile performs the actual file download with progress
 func (s *ShedOSInstaller) downloadFile(url, destPath string, expectedSize int64, callback DownloadProgressCallback) error {
 	resp, err := s.httpClient.Get(url)
@@ -170,8 +255,10 @@ func (s *ShedOSInstaller) downloadFile(url, destPath string, expectedSize int64,
 
 			if callback != nil {
 				elapsed := time.Since(startTime).Seconds()
-				speed := float64(downloaded) / elapsed / 1024 // KB/s
-				callback(downloaded, totalSize, speed)
+				if elapsed > 0 {
+					speed := float64(downloaded) / elapsed / 1024 // KB/s
+					callback(downloaded, totalSize, speed)
+				}
 			}
 		}
 		if err == io.EOF {
@@ -282,7 +369,7 @@ func (s *ShedOSInstaller) VerifyGPGSignature(filePath, sigPath string) error {
 	}
 
 	cmd := []string{"gpg", "--verify", sigPath, filePath}
-	return s.executor(cmd)
+	return s.executor("", cmd)
 }
 
 // Install installs a package from ShedOS repository
@@ -350,14 +437,47 @@ func (s *ShedOSInstaller) InstallWithPacman(pkgPath string, opts Options) error 
 	}
 
 	cmd = append(cmd, pkgPath)
-	return s.executor(cmd)
+	return s.executor("", cmd)
 }
 
 // InstallMultiple installs multiple packages from ShedOS
 func (s *ShedOSInstaller) InstallMultiple(pkgs []pkgdb.PackageInfo, opts Options) error {
+	// 1. Download all packages in parallel first
+	downloadedMap, err := s.DownloadMultiple(pkgs, nil)
+	if err != nil {
+		return err
+	}
+
+	// 2. Install each package using the downloaded files
 	for _, pkg := range pkgs {
-		if err := s.Install(pkg, opts); err != nil {
-			return fmt.Errorf("failed to install %s: %w", pkg.Name, err)
+		result, ok := downloadedMap[pkg.Name]
+		if !ok {
+			return fmt.Errorf("download result not found for %s", pkg.Name)
+		}
+		pkgPath := result.PkgPath
+		sigPath := result.SigPath
+
+		// Verify Checksum
+		if err := s.VerifyChecksum(pkgPath, pkg.Checksum); err != nil {
+			return fmt.Errorf("checksum verification failed for %s: %w", pkg.Name, err)
+		}
+
+		// Verify GPG
+		if sigPath != "" {
+			if err := s.VerifyGPGSignature(pkgPath, sigPath); err != nil {
+				return fmt.Errorf("GPG verification for %s failed: %w", pkg.Name, err)
+			}
+		}
+
+		// Install
+		if pkg.IsShedFormat() {
+			if err := s.shed.Install(pkgPath); err != nil {
+				return err
+			}
+		} else {
+			if err := s.InstallWithPacman(pkgPath, opts); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

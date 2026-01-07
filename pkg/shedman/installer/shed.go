@@ -97,7 +97,7 @@ func (s *ShedInstaller) Extract(shedFile, destDir string) error {
 	}
 
 	cmd := []string{"tar", "-xf", shedFile, "-C", destDir}
-	return s.executor(cmd)
+	return s.executor("", cmd)
 }
 
 // ReadManifest reads and parses the manifest.toml from an extracted package
@@ -128,7 +128,7 @@ func (s *ShedInstaller) VerifySignature(shedFile, sigFile string) error {
 	}
 
 	cmd := []string{"gpg", "--verify", sigFile, shedFile}
-	return s.executor(cmd)
+	return s.executor("", cmd)
 }
 
 // InstallFiles copies package files to the system
@@ -142,7 +142,7 @@ func (s *ShedInstaller) InstallFiles(pkgDir, destRoot string) error {
 
 	// Use rsync or cp to install files
 	cmd := []string{"sudo", "cp", "-r", filesDir + "/.", destRoot}
-	return s.executor(cmd)
+	return s.executor("", cmd)
 }
 
 // RunHooks executes package hooks (pre-install, post-install, etc.)
@@ -155,7 +155,7 @@ func (s *ShedInstaller) RunHooks(pkgDir, hookName string) error {
 	}
 
 	cmd := []string{"sh", hookPath}
-	return s.executor(cmd)
+	return s.executor("", cmd)
 }
 
 // Install performs a full .shed package installation
@@ -244,7 +244,7 @@ func (s *ShedInstaller) RemoveFiles(files []string) error {
 	for _, file := range files {
 		// Use sudo to remove system files
 		cmd := []string{"sudo", "rm", "-f", file}
-		if err := s.executor(cmd); err != nil {
+		if err := s.executor("", cmd); err != nil {
 			// Log warning but continue with other files
 			fmt.Printf("Warning: failed to remove %s: %v\n", file, err)
 		}

@@ -14,6 +14,10 @@ import (
 	"github.com/theshedman/shedman/pkg/shedman/config"
 )
 
+const (
+	DefaultAURURL = "https://aur.archlinux.org"
+)
+
 // AURInstaller handles AUR package builds with full security features
 type AURInstaller struct {
 	executor        Executor
@@ -21,6 +25,7 @@ type AURInstaller struct {
 	sandboxEnabled  bool
 	cleanAfterBuild bool
 	backend         backend.OfficialBackend // Backend for local package installation
+	aurURL          string                  // Configured AUR base URL
 }
 
 // NewAURInstaller creates a new AURInstaller with default config
@@ -55,6 +60,7 @@ func NewAURInstallerWithBackend(cfg *config.Config, b backend.OfficialBackend) *
 		sandboxEnabled:  true, // Sandbox enabled by default for security
 		cleanAfterBuild: cfg.AUR.CleanAfterBuild,
 		backend:         b,
+		aurURL:          cfg.Mirrors.AUR,
 	}
 }
 
@@ -101,22 +107,30 @@ func (a *AURInstaller) Clone(pkgName string) error {
 
 	if a.IsFirstTime(pkgName) {
 		// First time: git clone
-		aurURL := fmt.Sprintf("https://aur.archlinux.org/%s.git", pkgName)
+		baseURL := a.aurURL
+		if baseURL == "" {
+			baseURL = DefaultAURURL
+		}
+		// Ensure simplified or full URL format is handled, typically <url>/<pkg>.git
+		// If base URL ends with /rpc or similar, we might need adjustments,
+		// but standard AUR mirror config implies base web URL.
+		aurUrl := fmt.Sprintf("%s/%s.git", strings.TrimRight(baseURL, "/"), pkgName)
+
 		if err := os.MkdirAll(a.cacheDir, DirPermissions); err != nil {
 			return fmt.Errorf("failed to create cache directory: %w", err)
 		}
-		cmd := []string{"git", "clone", aurURL, destDir}
-		return a.executor(cmd)
+		cmd := []string{"git", "clone", aurUrl, destDir}
+		return a.executor("", cmd)
 	}
 
 	// Update: git fetch and reset
 	fetchCmd := []string{"git", "-C", destDir, "fetch", "origin"}
-	if err := a.executor(fetchCmd); err != nil {
+	if err := a.executor("", fetchCmd); err != nil {
 		return err
 	}
 
 	resetCmd := []string{"git", "-C", destDir, "reset", "--hard", "origin/master"}
-	return a.executor(resetCmd)
+	return a.executor("", resetCmd)
 }
 
 // GetPKGBUILD returns the PKGBUILD content for a package
@@ -161,8 +175,15 @@ func (a *AURInstaller) VerifyChecksums(pkgName string) error {
 	}
 
 	pkgDir := filepath.Join(a.cacheDir, pkgName)
-	cmd := []string{"sh", "-c", fmt.Sprintf("cd %s && makepkg --verifysource", pkgDir)}
-	return a.executor(cmd)
+
+	// Execute makepkg directly in the directory
+	// Use executor with dir parameter
+	cmd := []string{"makepkg", "--verifysource"}
+
+	if err := a.executor(pkgDir, cmd); err != nil {
+		return fmt.Errorf("makepkg --verifysource failed: %w", err)
+	}
+	return nil
 }
 
 // Build builds the AUR package using makepkg
@@ -208,13 +229,17 @@ func (a *AURInstaller) buildWithSandbox(pkgDir string) error {
 		"--",
 		"makepkg", "-s", "--noconfirm",
 	}
-	return a.executor(cmd)
+	return a.executor(pkgDir, cmd)
 }
 
 // buildWithoutSandbox builds directly without isolation
 func (a *AURInstaller) buildWithoutSandbox(pkgDir string) error {
-	cmd := []string{"sh", "-c", fmt.Sprintf("cd %s && makepkg -s --noconfirm", pkgDir)}
-	return a.executor(cmd)
+	cmd := []string{"makepkg", "-s", "--noconfirm"}
+
+	if err := a.executor(pkgDir, cmd); err != nil {
+		return fmt.Errorf("makepkg build failed: %w", err)
+	}
+	return nil
 }
 
 // Install installs the built package using the backend
@@ -235,7 +260,7 @@ func (a *AURInstaller) Install(pkgName string) error {
 
 	// Fallback to direct pacman command
 	cmd := []string{"sudo", "pacman", "-U", "--noconfirm", pkgFile}
-	return a.executor(cmd)
+	return a.executor("", cmd)
 }
 
 // findBuiltPackage finds the .pkg.tar.zst file in the build directory
@@ -434,10 +459,10 @@ func (a *AURInstaller) FetchPGPKeys(pkgName string) error {
 	// Fetch each key from keyserver
 	for _, key := range keys {
 		cmd := []string{"gpg", "--keyserver", "keyserver.ubuntu.com", "--recv-keys", key}
-		if err := a.executor(cmd); err != nil {
+		if err := a.executor("", cmd); err != nil {
 			// Try another keyserver
 			cmd = []string{"gpg", "--keyserver", "keys.openpgp.org", "--recv-keys", key}
-			if err := a.executor(cmd); err != nil {
+			if err := a.executor("", cmd); err != nil {
 				return fmt.Errorf("failed to fetch PGP key %s: %w", key, err)
 			}
 		}

@@ -14,14 +14,15 @@ import (
 var ErrPacmanNotFound = errors.New("pacman is required but not found in PATH")
 
 // Executor is a function that executes a command
-type Executor func(cmd []string) error
+type Executor func(dir string, cmd []string) error
 
 // DefaultExecutor runs commands using os/exec
-func DefaultExecutor(cmd []string) error {
+func DefaultExecutor(dir string, cmd []string) error {
 	if len(cmd) == 0 {
 		return nil
 	}
 	c := exec.Command(cmd[0], cmd[1:]...)
+	c.Dir = dir
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin

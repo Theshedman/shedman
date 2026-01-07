@@ -48,7 +48,7 @@ func TestAURInstaller_Clone_FirstTime(t *testing.T) {
 	ai := installer.NewAURInstaller()
 
 	var executedCmds [][]string
-	ai.SetExecutor(func(cmd []string) error {
+	ai.SetExecutor(func(dir string, cmd []string) error {
 		executedCmds = append(executedCmds, cmd)
 		return nil
 	})
@@ -79,7 +79,7 @@ func TestAURInstaller_Clone_Update(t *testing.T) {
 	os.WriteFile(filepath.Join(gitDir, "config"), []byte(""), 0644)
 
 	var executedCmds [][]string
-	ai.SetExecutor(func(cmd []string) error {
+	ai.SetExecutor(func(dir string, cmd []string) error {
 		executedCmds = append(executedCmds, cmd)
 		return nil
 	})
@@ -166,7 +166,7 @@ func TestAURInstaller_VerifyChecksums(t *testing.T) {
 	ai := installer.NewAURInstaller()
 
 	var executedCmd []string
-	ai.SetExecutor(func(cmd []string) error {
+	ai.SetExecutor(func(dir string, cmd []string) error {
 		executedCmd = cmd
 		return nil
 	})
@@ -188,7 +188,7 @@ func TestAURInstaller_Build_WithSandbox(t *testing.T) {
 	ai.SetSandboxEnabled(true)
 
 	var executedCmd []string
-	ai.SetExecutor(func(cmd []string) error {
+	ai.SetExecutor(func(dir string, cmd []string) error {
 		executedCmd = cmd
 		return nil
 	})
@@ -210,7 +210,7 @@ func TestAURInstaller_Build_WithoutSandbox(t *testing.T) {
 	ai.SetSandboxEnabled(false)
 
 	var executedCmd []string
-	ai.SetExecutor(func(cmd []string) error {
+	ai.SetExecutor(func(dir string, cmd []string) error {
 		executedCmd = cmd
 		return nil
 	})
@@ -244,7 +244,7 @@ func TestAURInstaller_Install(t *testing.T) {
 	os.WriteFile(filepath.Join(pkgDir, "test-pkg-1.0-1-x86_64.pkg.tar.zst"), []byte("fake"), 0644)
 
 	var executedCmd []string
-	ai.SetExecutor(func(cmd []string) error {
+	ai.SetExecutor(func(dir string, cmd []string) error {
 		executedCmd = cmd
 		return nil
 	})
