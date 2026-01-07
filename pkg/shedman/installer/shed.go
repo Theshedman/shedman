@@ -276,3 +276,49 @@ func (s *ShedInstaller) ListInstalled() ([]string, error) {
 
 	return packages, nil
 }
+
+// InstalledPackageInfo holds info about an installed .shed package
+type InstalledPackageInfo struct {
+	Name        string
+	Version     string
+	Description string
+}
+
+// GetInstalledInfo returns detailed info about an installed .shed package
+func (s *ShedInstaller) GetInstalledInfo(pkgName string) (*InstalledPackageInfo, error) {
+	if !s.IsInstalled(pkgName) {
+		return nil, fmt.Errorf("package not installed: %s", pkgName)
+	}
+
+	installedDir := filepath.Join(s.GetInstalledDir(), pkgName)
+	manifest, err := s.ReadManifest(installedDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read manifest: %w", err)
+	}
+
+	return &InstalledPackageInfo{
+		Name:        manifest.Name,
+		Version:     manifest.Version,
+		Description: manifest.Description,
+	}, nil
+}
+
+// ListInstalledWithInfo returns all installed .shed packages with full info
+func (s *ShedInstaller) ListInstalledWithInfo() ([]InstalledPackageInfo, error) {
+	pkgNames, err := s.ListInstalled()
+	if err != nil {
+		return nil, err
+	}
+
+	var packages []InstalledPackageInfo
+	for _, name := range pkgNames {
+		info, err := s.GetInstalledInfo(name)
+		if err != nil {
+			// Skip packages with missing/invalid manifests
+			continue
+		}
+		packages = append(packages, *info)
+	}
+
+	return packages, nil
+}
