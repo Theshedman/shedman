@@ -114,7 +114,8 @@ func TestShedInstaller_InstallFiles(t *testing.T) {
 		return nil
 	})
 
-	err := si.InstallFiles(pkgDir, "/")
+	tx, _ := installer.NewTransaction(nil)
+	err := si.InstallFiles(pkgDir, "/", tx)
 	if err != nil {
 		t.Fatalf("InstallFiles failed: %v", err)
 	}

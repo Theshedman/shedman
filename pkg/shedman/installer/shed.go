@@ -131,18 +131,67 @@ func (s *ShedInstaller) VerifySignature(shedFile, sigFile string) error {
 	return s.executor("", cmd)
 }
 
-// InstallFiles copies package files to the system
-func (s *ShedInstaller) InstallFiles(pkgDir, destRoot string) error {
+// InstallFiles copies package files to the system with transaction support
+func (s *ShedInstaller) InstallFiles(pkgDir, destRoot string, tx *Transaction) error {
 	filesDir := filepath.Join(pkgDir, "files")
 
 	// Check if files directory exists
-	if _, err := os.Stat(filesDir); os.IsNotExist(err) {
+	info, err := os.Stat(filesDir)
+	if os.IsNotExist(err) {
 		return nil // No files to install
 	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("files path is not a directory: %s", filesDir)
+	}
 
-	// Use rsync or cp to install files
-	cmd := []string{"sudo", "cp", "-r", filesDir + "/.", destRoot}
-	return s.executor("", cmd)
+	// Walk the files directory and install each file/dir
+	return filepath.Walk(filesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Calculate relative path to determine destination
+		relPath, err := filepath.Rel(filesDir, path)
+		if err != nil {
+			return err
+		}
+		if relPath == "." {
+			return nil
+		}
+
+		destPath := filepath.Join(destRoot, relPath)
+
+		if info.IsDir() {
+			// Track directory creation intent
+			// Check if exists
+			if _, err := os.Stat(destPath); os.IsNotExist(err) {
+				tx.TrackDirectoryCreate(destPath)
+				// Create directory
+				cmd := []string{"sudo", "mkdir", "-p", destPath}
+				if err := s.executor("", cmd); err != nil {
+					return fmt.Errorf("failed to create directory %s: %w", destPath, err)
+				}
+			}
+			return nil
+		}
+
+		// Handle file
+		// 1. Track overwrite/create
+		if err := tx.TrackOverwrite(destPath); err != nil {
+			return fmt.Errorf("failed to track transaction for %s: %w", destPath, err)
+		}
+
+		// 2. Install file (copy)
+		cmd := []string{"sudo", "cp", path, destPath}
+		if err := s.executor("", cmd); err != nil {
+			return fmt.Errorf("failed to install file %s: %w", destPath, err)
+		}
+
+		return nil
+	})
 }
 
 // RunHooks executes package hooks (pre-install, post-install, etc.)
@@ -160,6 +209,23 @@ func (s *ShedInstaller) RunHooks(pkgDir, hookName string) error {
 
 // Install performs a full .shed package installation
 func (s *ShedInstaller) Install(shedFile string) error {
+	// Start transaction
+	tx, err := NewTransaction(s.executor)
+	if err != nil {
+		return fmt.Errorf("failed to initialize transaction: %w", err)
+	}
+	defer func() {
+		if tx.active {
+			fmt.Println("Installation failed, rolling back changes...")
+			if err := tx.Rollback(); err != nil {
+				fmt.Printf("Rollback failed: %v\n", err)
+			}
+		} else {
+			// Clean up backups on success
+			tx.Commit()
+		}
+	}()
+
 	// Create extraction directory
 	pkgName := filepath.Base(shedFile)
 	extractDir := filepath.Join(s.cacheDir, "extracted", pkgName)
@@ -174,14 +240,19 @@ func (s *ShedInstaller) Install(shedFile string) error {
 		return fmt.Errorf("pre-install hook failed: %w", err)
 	}
 
-	// Install files to system root
-	if err := s.InstallFiles(extractDir, "/"); err != nil {
+	// Install files to system root with transaction
+	if err := s.InstallFiles(extractDir, "/", tx); err != nil {
 		return fmt.Errorf("file installation failed: %w", err)
 	}
 
 	// Run post-install hook
 	if err := s.RunHooks(extractDir, "post-install"); err != nil {
 		return fmt.Errorf("post-install hook failed: %w", err)
+	}
+
+	// Success - commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("transaction commit failed: %w", err)
 	}
 
 	return nil
