@@ -9,6 +9,7 @@ import (
 	"github.com/theshedman/shedman/pkg/shedman/backend"
 	"github.com/theshedman/shedman/pkg/shedman/backend/pacman"
 	"github.com/theshedman/shedman/pkg/shedman/config"
+	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
 )
 
 // Engine orchestrates package management operations across multiple backends.
@@ -136,12 +137,55 @@ func (e *Engine) Remove(pkgs []string, opts backend.RemoveOptions) error {
 	return e.officialBackend.Remove(pkgs, opts)
 }
 
-// Upgrade upgrades packages using the official backend.
+// Upgrade upgrades packages across all supported backends.
 func (e *Engine) Upgrade(pkgs []string, opts backend.UpgradeOptions) error {
-	if e.officialBackend == nil {
-		return backend.ErrBackendNotFound
+	var errors []string
+
+	// Track whether we found any backend capable of upgrading
+	upgradableFound := false
+
+	// Iterate all backends
+	for _, b := range e.backends {
+		// Check if backend is targeted
+		if len(opts.TargetBackends) > 0 {
+			targeted := false
+			for _, target := range opts.TargetBackends {
+				if strings.EqualFold(b.Name(), target) {
+					targeted = true
+					break
+				}
+			}
+			if !targeted {
+				continue
+			}
+		}
+
+		// Check if backend supports Upgrading via interface assertion
+		type Upgrader interface {
+			Upgrade(pkgs []string, opts backend.UpgradeOptions) error
+		}
+
+		if upgrader, ok := b.(Upgrader); ok {
+			upgradableFound = true
+			if err := upgrader.Upgrade(pkgs, opts); err != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", b.Name(), err))
+			}
+		}
 	}
-	return e.officialBackend.Upgrade(pkgs, opts)
+
+	if !upgradableFound {
+		if e.officialBackend == nil {
+			return backend.ErrBackendNotFound
+		}
+		// Fallback to official backend if no generic Upgrader found (though official usually implements it)
+		return e.officialBackend.Upgrade(pkgs, opts)
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("upgrade failed for backends: %s", strings.Join(errors, "; "))
+	}
+
+	return nil
 }
 
 // IsInstalled checks if a package is installed via the official backend.
@@ -150,6 +194,35 @@ func (e *Engine) IsInstalled(name string) bool {
 		return false
 	}
 	return e.officialBackend.IsInstalled(name)
+}
+
+// Info returns detailed information about a package from available backends.
+func (e *Engine) Info(pkgName string) (*pkgdb.PackageInfo, error) {
+	// 1. Try official backend first (local + sync)
+	if e.officialBackend != nil {
+		if info, err := e.officialBackend.Info(pkgName); err == nil {
+			return info, nil
+		}
+	}
+
+	// 2. Iterate other backends (e.g. AUR, ShedRepo)
+	for _, b := range e.backends {
+		if b == e.officialBackend {
+			continue // Already checked
+		}
+
+		type Informer interface {
+			Info(pkgName string) (*pkgdb.PackageInfo, error)
+		}
+
+		if informer, ok := b.(Informer); ok {
+			if info, err := informer.Info(pkgName); err == nil {
+				return info, nil
+			}
+		}
+	}
+
+	return nil, backend.ErrPackageNotFound
 }
 
 // DetectBackend auto-detects and returns the appropriate official backend.

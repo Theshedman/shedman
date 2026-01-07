@@ -20,9 +20,12 @@ type RemoveOptions struct {
 
 // UpgradeOptions for package upgrades
 type UpgradeOptions struct {
-	NoConfirm bool // Non-interactive mode
-	Refresh   bool // Refresh database first
-	Needed    bool // Skip packages that are already up-to-date
+	NoConfirm      bool     // Non-interactive mode
+	Refresh        bool     // Refresh database first
+	Needed         bool     // Skip packages that are already up-to-date
+	IgnorePkgs     []string // Packages to ignore during upgrade
+	IgnoreGroups   []string // Groups to ignore during upgrade
+	TargetBackends []string // Specific backends to target (empty = all)
 }
 
 // DefaultInstallOptions returns sensible defaults
