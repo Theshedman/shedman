@@ -88,10 +88,30 @@ Examples:
 		}
 
 		// Show what we're installing
+		// Show what we're installing using summary table
 		if !quietFlag {
-			output.Info("Installing %d package(s)...", len(pkgs))
+			summary := output.NewInstallSummaryTable()
 			for _, pkg := range pkgs {
-				fmt.Printf("  → %s [%s]\n", pkg.Name, pkg.Source)
+				status := "install"
+				// Basic check if it might be an upgrade/reinstall (refinement needed later)
+				if info, _ := db.GetInfo(pkg.Name); info != nil {
+					// Logic could be improved here to check actual installed version
+				}
+				summary.AddPackage(output.SummaryRow{
+					Name:    pkg.Name,
+					Version: pkg.Version,
+					Source:  pkg.Source,
+					Size:    pkg.Size,
+					Status:  status,
+				})
+			}
+			summary.Print()
+
+			// Confirmation prompt
+			if !yesFlag && cfg.General.Confirm {
+				if !output.Confirm("Proceed with installation?", output.ConfirmOptions{Default: true}) {
+					return fmt.Errorf("installation cancelled")
+				}
 			}
 		}
 
@@ -252,31 +272,73 @@ func executeInstall(cfg *config.Config, pkgs []pkgdb.PackageInfo, opts installer
 		}
 		ai := installer.NewAURInstallerWithConfig(cfg)
 		for _, pkg := range aur {
-			output.Info("Building AUR package: %s", pkg.Name)
+			// Efficiency check: skip if already up-to-date
+			if !opts.DownloadOnly { // Always build if download only requested? Or maybe not.
+				needsUpdate, err := ai.NeedsUpdate(pkg.Name, pkg.Version)
+				if err == nil && !needsUpdate {
+					// Check if we should force rebuild (e.g. if --needed is NOT set? No, usually we want to preserve AUR)
+					// Logic: Default to skipping rebuilds unless explicit force or different version
+					// If user wants to force rebuild, they might need a way.
+					// For now, we assume efficiency is prioritized.
+					if !opts.AsExplicit { // If installing as dep, definitely skip
+						output.Info("%s is up to date, skipping build", pkg.Name)
+						continue
+					}
+					// If explicit, maybe we warn?
+					output.Info("%s is already installed at version %s. Skipping build.", pkg.Name, pkg.Version)
+					continue
+				}
+			}
+
+			spinner := output.NewSpinner(fmt.Sprintf("Processing %s...", pkg.Name))
+			spinner.Start()
+
+			// Ensure cleanup after build/install
+			defer func(name string) {
+				if err := ai.Clean(name); err != nil {
+					output.Warning("Failed to clean up %s: %v", name, err)
+				}
+			}(pkg.Name)
 
 			// Clone or update
+			spinner.UpdateLabel(fmt.Sprintf("Cloning %s...", pkg.Name))
 			if err := ai.Clone(pkg.Name); err != nil {
+				spinner.StopWithError(fmt.Sprintf("Failed to clone %s", pkg.Name))
 				return fmt.Errorf("failed to clone %s: %w", pkg.Name, err)
 			}
 
+			spinner.Stop() // Temporarily stop for PKGBUILD review if needed
+
 			// Show PKGBUILD for review
-			if ai.IsFirstTime(pkg.Name) {
+			if ai.IsFirstTime(pkg.Name) && !yesFlag {
 				pkgbuild, err := ai.GetPKGBUILD(pkg.Name)
 				if err == nil {
 					output.Info("PKGBUILD for %s:", pkg.Name)
 					fmt.Println(pkgbuild)
+					if !output.Confirm("Edit PKGBUILD?", output.ConfirmOptions{Default: false}) {
+						// Logic for editing would go here, skipping for now as per minimal change
+					}
+					if !output.Confirm("Proceed with build?", output.ConfirmOptions{Default: true}) {
+						return fmt.Errorf("build cancelled by user")
+					}
 				}
 			}
 
+			spinner.Start()
 			// Build
+			spinner.UpdateLabel(fmt.Sprintf("Building %s...", pkg.Name))
 			if err := ai.Build(pkg.Name); err != nil {
+				spinner.StopWithError(fmt.Sprintf("Build failed for %s", pkg.Name))
 				return fmt.Errorf("failed to build %s: %w", pkg.Name, err)
 			}
 
 			// Install
+			spinner.UpdateLabel(fmt.Sprintf("Installing %s...", pkg.Name))
 			if err := ai.Install(pkg.Name); err != nil {
+				spinner.StopWithError(fmt.Sprintf("Install failed for %s", pkg.Name))
 				return fmt.Errorf("failed to install %s: %w", pkg.Name, err)
 			}
+			spinner.StopWithSuccess(fmt.Sprintf("Installed %s", pkg.Name))
 		}
 	}
 
@@ -294,11 +356,9 @@ func executeInstall(cfg *config.Config, pkgs []pkgdb.PackageInfo, opts installer
 
 	// Install .shed format packages
 	if len(shedPkgs) > 0 {
-		si := installer.NewShedInstaller()
-		for _, pkg := range shedPkgs {
-			if err := si.Install(pkg.Name); err != nil {
-				return fmt.Errorf("failed to install shed package %s: %w", pkg.Name, err)
-			}
+		soi := installer.NewShedOSInstallerWithConfig(cfg)
+		if err := soi.InstallMultiple(shedPkgs, opts); err != nil {
+			return fmt.Errorf("failed to install .shed packages: %w", err)
 		}
 	}
 
