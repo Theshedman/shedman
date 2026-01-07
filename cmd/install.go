@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -40,7 +38,7 @@ Examples:
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Load configuration
-		cfg, err := loadConfig()
+		cfg, err := config.LoadDefault()
 		if err != nil {
 			output.Warning("Failed to load config, using defaults: %v", err)
 			cfg = config.Default()
@@ -128,17 +126,6 @@ Examples:
 
 		return nil
 	},
-}
-
-// loadConfig loads the shedman configuration file
-func loadConfig() (*config.Config, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	configPath := filepath.Join(home, ".config", "shedman", "config.toml")
-	return config.Load(configPath)
 }
 
 // determineSource returns the forced source based on flags, or empty for auto
