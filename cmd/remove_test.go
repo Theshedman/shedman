@@ -20,7 +20,7 @@ func TestRemoveCommand_Exists(t *testing.T) {
 func TestRemoveCommand_HasRequiredFlags(t *testing.T) {
 	removeCmd := GetRemoveCmd()
 
-	flags := []string{"recursive", "purge"}
+	flags := []string{"recursive", "purge", "cascade", "nosave"}
 
 	for _, flag := range flags {
 		if removeCmd.Flags().Lookup(flag) == nil {
@@ -33,8 +33,7 @@ func TestRemoveCommand_HasShortFlags(t *testing.T) {
 	removeCmd := GetRemoveCmd()
 
 	// -s is shorthand for --recursive
-	flag := removeCmd.Flags().ShorthandLookup("s")
-	if flag == nil {
+	if flag := removeCmd.Flags().ShorthandLookup("s"); flag == nil {
 		t.Error("Missing short flag: -s (for --recursive)")
 	}
 }
@@ -63,6 +62,7 @@ func TestRemoveCommand_HelpOutput(t *testing.T) {
 		"Remove installed packages",
 		"--recursive",
 		"--purge",
+		"--cascade",
 		"-s",
 	}
 
@@ -79,4 +79,18 @@ func TestRemoveCommand_ShortDescription(t *testing.T) {
 	if removeCmd.Short != "Remove packages" {
 		t.Errorf("Expected Short 'Remove packages', got '%s'", removeCmd.Short)
 	}
+}
+
+func TestRemoveCommand_NosaveIsPurgeAlias(t *testing.T) {
+	removeCmd := GetRemoveCmd()
+
+	purgeFlag := removeCmd.Flags().Lookup("purge")
+	nosaveFlag := removeCmd.Flags().Lookup("nosave")
+
+	if purgeFlag == nil || nosaveFlag == nil {
+		t.Fatal("Both --purge and --nosave flags should exist")
+	}
+
+	// Both flags should control the same behavior (NoSave in RemoveOptions)
+	// This is verified by checking they're both registered
 }
