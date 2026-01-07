@@ -2089,7 +2089,7 @@ shedman import my-packages.yml
 
 | Phase | Scope | Priority |
 |-------|-------|----------|
-| 1 | Core: sync, install, remove, search, deps | P0 |
+| 1 | Core: sync, install, remove, search, update, info, rollback, history | P0 |
 | 2 | shedrepo + R2 + CI/CD + signing | P0 |
 | 3 | TUI + progress bars + pretty output | P0 |
 | 4 | Config/theme system + conflict resolution | P1 |
