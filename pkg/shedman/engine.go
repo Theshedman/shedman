@@ -4,6 +4,7 @@ package shedman
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/theshedman/shedman/pkg/shedman/backend"
 	"github.com/theshedman/shedman/pkg/shedman/backend/pacman"
@@ -91,14 +92,25 @@ func (e *Engine) IsOfficialBackendAvailable() bool {
 }
 
 // Sync synchronizes all configured backends.
+// Sync synchronizes all configured backends in parallel.
 func (e *Engine) Sync() error {
 	var errors []string
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
 	for _, b := range e.backends {
-		if err := b.Sync(); err != nil {
-			errors = append(errors, fmt.Sprintf("%s: %v", b.Name(), err))
-		}
+		wg.Add(1)
+		go func(backend PackageBackend) {
+			defer wg.Done()
+			if err := backend.Sync(); err != nil {
+				mu.Lock()
+				errors = append(errors, fmt.Sprintf("%s: %v", backend.Name(), err))
+				mu.Unlock()
+			}
+		}(b)
 	}
+
+	wg.Wait()
 
 	if len(errors) > 0 {
 		return fmt.Errorf("sync failed for backends: %s", strings.Join(errors, "; "))
