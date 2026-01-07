@@ -11,6 +11,7 @@ import (
 	"github.com/theshedman/shedman/pkg/shedman/config"
 	"github.com/theshedman/shedman/pkg/shedman/installer"
 	"github.com/theshedman/shedman/pkg/shedman/output"
+	"github.com/theshedman/shedman/pkg/shedman/resolver"
 )
 
 var (
@@ -19,6 +20,31 @@ var (
 	removeCascade   bool
 	removeNosave    bool
 )
+
+// ShedInstalledProvider adapts ShedInstaller to resolver.InstalledProvider
+type ShedInstalledProvider struct {
+	installer *installer.ShedInstaller
+}
+
+func (s ShedInstalledProvider) GetInstalledPackages() []resolver.InstalledPackage {
+	var result []resolver.InstalledPackage
+
+	names, _ := s.installer.ListInstalled()
+	for _, name := range names {
+		// Manually read manifest to get dependencies
+		installedDir := fmt.Sprintf("%s/%s", s.installer.GetInstalledDir(), name)
+		manifest, err := s.installer.ReadManifest(installedDir)
+		if err != nil {
+			continue
+		}
+
+		result = append(result, resolver.InstalledPackage{
+			Name:    manifest.Name,
+			Depends: manifest.Depends,
+		})
+	}
+	return result
+}
 
 var removeCmd = &cobra.Command{
 	Use:   "remove [packages...]",
@@ -70,6 +96,33 @@ Examples:
 		// Report not found packages
 		for _, pkg := range notFound {
 			output.Warning("Package not installed: %s", pkg)
+		}
+
+		// Handle Recursive Removal for .shed packages
+		if removeRecursive && len(shedPkgs) > 0 {
+			shedInstaller := installer.NewShedInstaller()
+			provider := ShedInstalledProvider{installer: shedInstaller}
+
+			// Calculate removal list including orphans
+			expandedList := resolver.CalculateRecursiveRemoval(shedPkgs, provider)
+
+			// Identify newly added packages for user info
+			originalSet := make(map[string]bool)
+			for _, p := range shedPkgs {
+				originalSet[p] = true
+			}
+
+			var added []string
+			for _, p := range expandedList {
+				if !originalSet[p] {
+					added = append(added, p)
+				}
+			}
+
+			if len(added) > 0 {
+				output.Info("Recursive removal added: %s", strings.Join(added, ", "))
+				shedPkgs = expandedList
+			}
 		}
 
 		totalToRemove := len(officialPkgs) + len(shedPkgs)
