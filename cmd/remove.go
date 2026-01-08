@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -148,7 +146,8 @@ Examples:
 
 		// Confirmation prompt (unless --yes or config.General.Confirm is false)
 		if !yesFlag && cfg.General.Confirm {
-			if !confirmRemoval(totalToRemove) {
+			prompt := fmt.Sprintf("Remove %d package(s)?", totalToRemove)
+			if !output.Confirm(prompt, output.ConfirmOptions{Default: false}) {
 				output.Info("Removal cancelled.")
 				return nil
 			}
@@ -272,18 +271,6 @@ func handleRemoveDryRun(cmd *cobra.Command, args []string, cfg *config.Config) e
 		cmd.Println("  (with --purge/--nosave: would also delete configuration files)")
 	}
 	return nil
-}
-
-// confirmRemoval prompts user for confirmation
-func confirmRemoval(count int) bool {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Do you want to remove %d package(s)? [y/N] ", count)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return false
-	}
-	response = strings.TrimSpace(strings.ToLower(response))
-	return response == "y" || response == "yes"
 }
 
 // GetRemoveCmd returns the remove command for testing
