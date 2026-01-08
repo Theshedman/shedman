@@ -32,7 +32,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "shedman",
 	Short: "A universal package manager for ShedOS and beyond",
-	Long: `A modern package manager designed for ShedOS with pluggable backend architecture for seamless package management across other Linux distributions.`,
+	Long:  `A modern package manager designed for ShedOS with pluggable backend architecture for seamless package management across other Linux distributions.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Initialize signal handling for cleanup
 		signals.SetupSignalHandler()
@@ -60,7 +60,6 @@ func init() {
 
 	// Add subcommands here
 	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(syncCmd)
 
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip all confirmations")

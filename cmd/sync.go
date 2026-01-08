@@ -137,4 +137,6 @@ func init() {
 	syncCmd.Flags().BoolVar(&syncShedOS, "shedos", false, "Sync ShedOS repository only")
 	syncCmd.Flags().BoolVar(&syncRefresh, "refresh", false, "Force refresh even if cache exists")
 	syncCmd.Flags().BoolVar(&syncRefresh, "force", false, "Force refresh (alias for --refresh)")
+
+	rootCmd.AddCommand(syncCmd)
 }
