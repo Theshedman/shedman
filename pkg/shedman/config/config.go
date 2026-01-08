@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -114,7 +115,7 @@ func DefaultConfigPath() string {
 	if err != nil {
 		return "/etc/shedman/config.toml" // Fallback to system config
 	}
-	return home + "/.config/shedman/config.toml"
+	return filepath.Join(home, ".config", "shedman", "config.toml")
 }
 
 // LoadDefault loads config from the default path (~/.config/shedman/config.toml)

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/theshedman/shedman/pkg/shedman/output"
 )
 
 // Common errors
@@ -216,9 +217,9 @@ func (s *ShedInstaller) Install(shedFile string) error {
 	}
 	defer func() {
 		if tx.active {
-			fmt.Println("Installation failed, rolling back changes...")
+			output.Warning("Installation failed, rolling back changes...")
 			if err := tx.Rollback(); err != nil {
-				fmt.Printf("Rollback failed: %v\n", err)
+				output.Error("Rollback failed: %v", err)
 			}
 		} else {
 			// Clean up backups on success
