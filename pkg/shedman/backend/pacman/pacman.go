@@ -3,6 +3,7 @@ package pacman
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -63,18 +64,12 @@ func (r *RealExecutor) Output(name string, args ...string) ([]byte, error) {
 // init registers the pacman backend factory
 func init() {
 	backend.RegisterBackend("pacman", func(cfg *config.BackendConfig) (backend.OfficialBackend, error) {
-		// Try AlpmBackend first (native libalpm integration)
+		// AlpmBackend is required - uses libalpm directly without shelling out to pacman
 		alpmBackend, err := NewAlpmBackend()
-		if err == nil {
-			return alpmBackend, nil
+		if err != nil {
+			return nil, fmt.Errorf("libalpm backend required but not available: %w", err)
 		}
-
-		// Fallback to shell-based Backend
-		c := DefaultConfig()
-		if cfg != nil && cfg.BinaryPath != "" {
-			c.BinaryPath = cfg.BinaryPath
-		}
-		return NewWithConfig(c)
+		return alpmBackend, nil
 	})
 }
 

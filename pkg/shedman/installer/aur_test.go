@@ -6,8 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/theshedman/shedman/pkg/shedman/backend"
 	"github.com/theshedman/shedman/pkg/shedman/config"
 	"github.com/theshedman/shedman/pkg/shedman/installer"
+	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
 )
 
 func TestAURInstaller_NewAURInstaller(t *testing.T) {
@@ -235,28 +237,63 @@ func TestAURInstaller_Install(t *testing.T) {
 	tmpDir := t.TempDir()
 	ai.SetCacheDir(tmpDir)
 
-	// Clear backend to use executor fallback (for testing without real pacman)
-	ai.SetBackend(nil)
-
 	// Create fake built package
 	pkgDir := filepath.Join(tmpDir, "test-pkg")
 	os.MkdirAll(pkgDir, 0755)
-	os.WriteFile(filepath.Join(pkgDir, "test-pkg-1.0-1-x86_64.pkg.tar.zst"), []byte("fake"), 0644)
+	pkgFile := filepath.Join(pkgDir, "test-pkg-1.0-1-x86_64.pkg.tar.zst")
+	os.WriteFile(pkgFile, []byte("fake"), 0644)
 
-	var executedCmd []string
-	ai.SetExecutor(func(dir string, cmd []string) error {
-		executedCmd = cmd
-		return nil
-	})
+	// Use mock backend for testing
+	mockBackend := &mockInstallBackend{
+		installLocalFunc: func(path string, opts interface{}) error {
+			// Verify we received the correct package file
+			if !strings.Contains(path, "test-pkg-1.0-1-x86_64.pkg.tar.zst") {
+				t.Errorf("Expected package file path, got %s", path)
+			}
+			return nil
+		},
+	}
+	ai.SetBackend(mockBackend)
 
 	err := ai.Install("test-pkg")
 	if err != nil {
 		t.Fatalf("Install failed: %v", err)
 	}
 
-	// Should run pacman -U via executor fallback
-	cmdStr := strings.Join(executedCmd, " ")
-	if !strings.Contains(cmdStr, "pacman") || !strings.Contains(cmdStr, "-U") {
-		t.Errorf("Expected 'pacman -U' command, got %v", executedCmd)
+	if !mockBackend.installCalled {
+		t.Error("Expected InstallLocal to be called")
 	}
+}
+
+// mockInstallBackend implements backend.OfficialBackend for testing
+type mockInstallBackend struct {
+	installCalled    bool
+	installLocalFunc func(path string, opts interface{}) error
+}
+
+func (m *mockInstallBackend) Name() string         { return "mock" }
+func (m *mockInstallBackend) DistroFamily() string { return "mock" }
+func (m *mockInstallBackend) IsAvailable() bool    { return true }
+func (m *mockInstallBackend) Sync() error          { return nil }
+
+func (m *mockInstallBackend) Install(pkgs []string, opts backend.InstallOptions) error {
+	return nil
+}
+func (m *mockInstallBackend) Remove(pkgs []string, opts backend.RemoveOptions) error { return nil }
+func (m *mockInstallBackend) Upgrade(pkgs []string, opts backend.UpgradeOptions) error {
+	return nil
+}
+func (m *mockInstallBackend) Search(query string) ([]pkgdb.PackageInfo, error) { return nil, nil }
+func (m *mockInstallBackend) Info(name string) (*pkgdb.PackageInfo, error)     { return nil, nil }
+func (m *mockInstallBackend) IsInstalled(name string) bool                     { return false }
+func (m *mockInstallBackend) GetInstalledPackages() ([]pkgdb.PackageInfo, error) {
+	return nil, nil
+}
+func (m *mockInstallBackend) GetPackageFiles(name string) ([]string, error) { return nil, nil }
+func (m *mockInstallBackend) InstallLocal(path string, opts backend.InstallOptions) error {
+	m.installCalled = true
+	if m.installLocalFunc != nil {
+		return m.installLocalFunc(path, opts)
+	}
+	return nil
 }

@@ -2,7 +2,6 @@
 package pacman
 
 import (
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -188,8 +187,20 @@ func ParseSize(s string) int64 {
 	return int64(value * multiplier)
 }
 
-// IsPacmanAvailable checks if pacman command exists
-func IsPacmanAvailable() bool {
-	_, err := exec.LookPath("pacman")
-	return err == nil
+// alpmAvailable caches the result of libalpm availability check
+var (
+	alpmChecked   bool
+	alpmAvailable bool
+)
+
+// IsAlpmAvailable checks if libalpm can be initialized
+func IsAlpmAvailable() bool {
+	if alpmChecked {
+		return alpmAvailable
+	}
+	// Try to create an AlpmBackend - if it succeeds, libalpm is available
+	_, err := NewAlpmBackend()
+	alpmAvailable = err == nil
+	alpmChecked = true
+	return alpmAvailable
 }

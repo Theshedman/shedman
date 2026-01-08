@@ -45,8 +45,8 @@ func (p *PacmanDB) SetBackend(b PackageSearcher) {
 	p.backend = b
 }
 
-// IsPacmanAvailable checks if the backend is available
-func (p *PacmanDB) IsPacmanAvailable() bool {
+// IsAlpmAvailable checks if the backend is available
+func (p *PacmanDB) IsAlpmAvailable() bool {
 	return p.backend != nil && p.backend.IsAvailable()
 }
 

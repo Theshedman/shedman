@@ -1,11 +1,11 @@
 package installer
 
 import (
-	"bufio"
 	"io/fs"
-	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/theshedman/shedman/pkg/shedman/backend"
 )
 
 // ProgressCallback is called with progress updates during download/install
@@ -199,53 +199,35 @@ func (fsc *FilesystemScanner) ScanPaths(paths []string) (*FileScanResult, error)
 	return combined, nil
 }
 
-// GetPacmanFiles gets the list of files owned by a package using pacman -Ql
-func GetPacmanFiles(packageName string) ([]string, error) {
-	cmd := exec.Command("pacman", "-Ql", packageName)
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, err
+// GetPackageFilesWithBackend gets the list of files owned by a package using the backend
+func GetPackageFilesWithBackend(b backend.OfficialBackend, packageName string) ([]string, error) {
+	if b == nil {
+		return nil, nil
 	}
-
-	files := make([]string, 0)
-	scanner := bufio.NewScanner(strings.NewReader(string(output)))
-	for scanner.Scan() {
-		line := scanner.Text()
-		// Format: "package /path/to/file"
-		parts := strings.SplitN(line, " ", 2)
-		if len(parts) == 2 {
-			path := strings.TrimSpace(parts[1])
-			if path != "" && !strings.HasSuffix(path, "/") {
-				files = append(files, path)
-			}
-		}
-	}
-
-	return files, nil
+	return b.GetPackageFiles(packageName)
 }
 
-// GetInstalledPackageFiles gets file lists for all installed packages
-func GetInstalledPackageFiles() (map[string][]string, error) {
+// GetInstalledPackageFilesWithBackend gets file lists for all installed packages using the backend
+func GetInstalledPackageFilesWithBackend(b backend.OfficialBackend) (map[string][]string, error) {
 	result := make(map[string][]string)
 
+	if b == nil {
+		return result, nil
+	}
+
 	// Get list of installed packages
-	cmd := exec.Command("pacman", "-Q")
-	output, err := cmd.Output()
+	packages, err := b.GetInstalledPackages()
 	if err != nil {
 		return nil, err
 	}
 
-	scanner := bufio.NewScanner(strings.NewReader(string(output)))
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Fields(line)
-		if len(parts) >= 1 {
-			pkgName := parts[0]
-			files, err := GetPacmanFiles(pkgName)
-			if err == nil {
-				result[pkgName] = files
-			}
+	for _, pkg := range packages {
+		files, err := b.GetPackageFiles(pkg.Name)
+		if err != nil {
+			// Log but continue - some packages may not have file lists
+			continue
 		}
+		result[pkg.Name] = files
 	}
 
 	return result, nil

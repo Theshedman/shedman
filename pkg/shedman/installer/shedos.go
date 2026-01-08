@@ -43,7 +43,7 @@ func NewShedOSInstaller() *ShedOSInstaller {
 func NewShedOSInstallerWithConfig(cfg *config.Config) *ShedOSInstaller {
 	// Auto-detect backend
 	var b backend.OfficialBackend
-	if pacmanBackend.IsPacmanAvailable() {
+	if pacmanBackend.IsAlpmAvailable() {
 		b, _ = pacmanBackend.New()
 	}
 	return NewShedOSInstallerWithBackend(cfg, b)
@@ -198,18 +198,20 @@ func (s *ShedOSInstaller) DownloadMultiple(pkgs []pkgdb.PackageInfo, callback Do
 	close(errors)
 	close(resultsChan)
 
-	// Collect errors
-	if len(errors) > 0 {
-		var errMsgs []string
-		for err := range errors {
-			errMsgs = append(errMsgs, err.Error())
-		}
-		return nil, fmt.Errorf("multiple download errors: %s", strings.Join(errMsgs, "; "))
+	// Collect errors first
+	var errMsgs []string
+	for err := range errors {
+		errMsgs = append(errMsgs, err.Error())
 	}
 
 	// Collect results
 	for res := range resultsChan {
 		results[res.name] = res.res
+	}
+
+	// Check if any errors occurred
+	if len(errMsgs) > 0 {
+		return nil, fmt.Errorf("multiple download errors: %s", strings.Join(errMsgs, "; "))
 	}
 
 	return results, nil
@@ -415,29 +417,11 @@ func (s *ShedOSInstaller) InstallWithProgress(pkg pkgdb.PackageInfo, opts Option
 
 // InstallWithPacman installs a local package file using the backend
 func (s *ShedOSInstaller) InstallWithPacman(pkgPath string, opts Options) error {
-	// Use backend if available for local package installation
-	if s.backend != nil {
-		return s.backend.InstallLocal(pkgPath, ToBackendOptions(opts))
+	// Backend is required - no fallback to pacman binary
+	if s.backend == nil {
+		return fmt.Errorf("no backend available for package installation")
 	}
-
-	// Fallback to direct pacman command
-	cmd := []string{"sudo", "pacman", "-U"}
-
-	if opts.Needed {
-		cmd = append(cmd, "--needed")
-	}
-	if opts.AsDeps {
-		cmd = append(cmd, "--asdeps")
-	}
-	if opts.AsExplicit {
-		cmd = append(cmd, "--asexplicit")
-	}
-	if opts.NoConfirm {
-		cmd = append(cmd, "--noconfirm")
-	}
-
-	cmd = append(cmd, pkgPath)
-	return s.executor("", cmd)
+	return s.backend.InstallLocal(pkgPath, ToBackendOptions(opts))
 }
 
 // InstallMultiple installs multiple packages from ShedOS

@@ -164,49 +164,7 @@ func IsAURAvailable() bool {
 
 // DetectBackend auto-detects and returns the appropriate OfficialBackend
 func DetectBackend() (OfficialBackend, error) {
-	info := DetectDistro()
-
-	switch info.Family {
-	case "arch":
-		// Import pacman backend
-		if hasBinary("pacman") {
-			// Return pacman backend - will be wired up after import
-			return nil, nil // Placeholder - will be implemented with proper import
-		}
-	case "debian":
-		if hasBinary("apt") {
-			return nil, ErrBackendNotFound // APT stub not yet implemented
-		}
-	case "fedora":
-		if hasBinary("dnf") {
-			return nil, ErrBackendNotFound // DNF stub not yet implemented
-		}
-	case "suse":
-		if hasBinary("zypper") {
-			return nil, ErrBackendNotFound // Zypper stub not yet implemented
-		}
-	}
-
-	// Fallback to binary detection
-	return detectByBinary()
-}
-
-// detectByBinary attempts to detect backend by available binaries
-func detectByBinary() (OfficialBackend, error) {
-	if hasBinary("pacman") {
-		return nil, nil // Placeholder for pacman backend
-	}
-	if hasBinary("apt") {
-		return nil, ErrBackendNotFound // APT not yet implemented
-	}
-	if hasBinary("dnf") {
-		return nil, ErrBackendNotFound // DNF not yet implemented
-	}
-	if hasBinary("zypper") {
-		return nil, ErrBackendNotFound // Zypper not yet implemented
-	}
-
-	return nil, ErrBackendNotFound
+	return DetectBackendWithConfig(nil)
 }
 
 // hasBinary checks if a binary is available in PATH

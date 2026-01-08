@@ -24,7 +24,7 @@ type PackageFileCache struct {
 func NewPackageFileCache(ttl time.Duration) *PackageFileCache {
 	// Auto-detect backend
 	var b backend.OfficialBackend
-	if pacmanBackend.IsPacmanAvailable() {
+	if pacmanBackend.IsAlpmAvailable() {
 		b, _ = pacmanBackend.New()
 	}
 	return NewPackageFileCacheWithBackend(ttl, b)

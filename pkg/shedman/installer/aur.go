@@ -39,7 +39,7 @@ func NewAURInstaller() *AURInstaller {
 func NewAURInstallerWithConfig(cfg *config.Config) *AURInstaller {
 	// Auto-detect backend
 	var b backend.OfficialBackend
-	if pacmanBackend.IsPacmanAvailable() {
+	if pacmanBackend.IsAlpmAvailable() {
 		b, _ = pacmanBackend.New()
 	}
 	return NewAURInstallerWithBackend(cfg, b)
@@ -212,24 +212,46 @@ func (a *AURInstaller) buildWithSandbox(pkgDir string) error {
 	// - Only build directory is writable
 	cmd := []string{
 		"bwrap",
-		"--unshare-net",             // No network during build
-		"--ro-bind", "/usr", "/usr", // Read-only /usr
-		"--ro-bind", "/etc", "/etc", // Read-only /etc
-		"--ro-bind", "/bin", "/bin", // Read-only /bin
-		"--ro-bind", "/lib", "/lib", // Read-only /lib
-		"--ro-bind", "/lib64", "/lib64", // Read-only /lib64
-		"--ro-bind", "/sbin", "/sbin", // Read-only /sbin (for ldconfig etc)
-		"--ro-bind", "/var/cache/pacman", "/var/cache/pacman", // Package cache
-		"--dev", "/dev", // Device nodes
-		"--proc", "/proc", // Proc filesystem
-		"--tmpfs", "/tmp", // Temp directory
-		"--tmpfs", "/home", // Isolated home
-		"--bind", pkgDir, pkgDir, // Writable build directory
-		"--chdir", pkgDir, // Change to build directory
+		"--unshare-net", // No network during build
+	}
+
+	// Add read-only binds for directories that exist
+	// On merged-usr systems, /bin /sbin /lib are symlinks to /usr counterparts
+	optionalBinds := []string{
+		"/usr",
+		"/etc",
+		"/bin",
+		"/lib",
+		"/lib64",
+		"/sbin",
+		"/var/cache/pacman",
+	}
+
+	for _, path := range optionalBinds {
+		if sandboxPathExists(path) {
+			cmd = append(cmd, "--ro-bind", path, path)
+		}
+	}
+
+	// Required virtual filesystems
+	cmd = append(cmd,
+		"--dev", "/dev",
+		"--proc", "/proc",
+		"--tmpfs", "/tmp",
+		"--tmpfs", "/home",
+		"--bind", pkgDir, pkgDir,
+		"--chdir", pkgDir,
 		"--",
 		"makepkg", "-s", "--noconfirm",
-	}
+	)
+
 	return a.executor(pkgDir, cmd)
+}
+
+// sandboxPathExists checks if a path exists for sandbox binding
+func sandboxPathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // buildWithoutSandbox builds directly without isolation
@@ -252,15 +274,13 @@ func (a *AURInstaller) Install(pkgName string) error {
 		return err
 	}
 
-	// Use backend if available for local package installation
-	if a.backend != nil {
-		opts := backend.InstallOptions{NoConfirm: true}
-		return a.backend.InstallLocal(pkgFile, opts)
+	// Backend is required - no fallback to pacman binary
+	if a.backend == nil {
+		return fmt.Errorf("no backend available for package installation")
 	}
 
-	// Fallback to direct pacman command
-	cmd := []string{"sudo", "pacman", "-U", "--noconfirm", pkgFile}
-	return a.executor("", cmd)
+	opts := backend.InstallOptions{NoConfirm: true}
+	return a.backend.InstallLocal(pkgFile, opts)
 }
 
 // findBuiltPackage finds the .pkg.tar.zst file in the build directory
@@ -379,18 +399,28 @@ func AUROptionsFromConfig(cfg *config.Config) AUROptions {
 }
 
 // GetInstalledVersion returns the currently installed version of a package
+// Returns empty string if not installed, error if backend fails
 func (a *AURInstaller) GetInstalledVersion(pkgName string) (string, error) {
-	cmd := exec.Command("pacman", "-Q", pkgName)
-	output, err := cmd.Output()
-	if err != nil {
+	if a.backend == nil {
+		return "", fmt.Errorf("no backend available")
+	}
+
+	// Check if installed via backend
+	if !a.backend.IsInstalled(pkgName) {
 		return "", nil // Not installed
 	}
 
-	parts := strings.Fields(string(output))
-	if len(parts) >= 2 {
-		return parts[1], nil
+	// Get package info to retrieve version
+	info, err := a.backend.Info(pkgName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get package info: %w", err)
 	}
-	return "", nil
+
+	if info == nil {
+		return "", nil
+	}
+
+	return info.Version, nil
 }
 
 // NeedsUpdate checks if a package needs updating

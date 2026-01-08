@@ -144,22 +144,22 @@ func TestPacmanDB_IsInstalled(t *testing.T) {
 	}
 }
 
-func TestPacmanDB_IsPacmanAvailable(t *testing.T) {
+func TestPacmanDB_IsAlpmAvailable(t *testing.T) {
 	mock := &MockBackend{
 		IsAvailableFunc: func() bool { return true },
 	}
 	db := pkgdb.NewPacmanDBWithBackend(mock)
 
-	if !db.IsPacmanAvailable() {
-		t.Error("Expected pacman to be available")
+	if !db.IsAlpmAvailable() {
+		t.Error("Expected alpm to be available")
 	}
 }
 
 func TestPacmanDB_NilBackend(t *testing.T) {
 	db := pkgdb.NewPacmanDBWithBackend(nil)
 
-	if db.IsPacmanAvailable() {
-		t.Error("Expected pacman to not be available with nil backend")
+	if db.IsAlpmAvailable() {
+		t.Error("Expected alpm to not be available with nil backend")
 	}
 
 	_, err := db.Search("test")
@@ -172,7 +172,7 @@ func TestPacmanDB_SetBackend(t *testing.T) {
 	db := pkgdb.NewPacmanDB()
 
 	// Initially nil
-	if db.IsPacmanAvailable() {
+	if db.IsAlpmAvailable() {
 		t.Error("Expected not available initially")
 	}
 
@@ -180,7 +180,7 @@ func TestPacmanDB_SetBackend(t *testing.T) {
 	mock := &MockBackend{IsAvailableFunc: func() bool { return true }}
 	db.SetBackend(mock)
 
-	if !db.IsPacmanAvailable() {
+	if !db.IsAlpmAvailable() {
 		t.Error("Expected available after SetBackend")
 	}
 }
