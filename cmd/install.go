@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/pkg/shedman/backend"
@@ -221,7 +220,7 @@ func executeInstall(cfg *config.Config, pkgs []pkgdb.PackageInfo, opts installer
 			aur = append(aur, pkg)
 		case pkgdb.SourceShedOS:
 			// Separate .shed packages from pacman-format ShedOS packages
-			if strings.HasSuffix(pkg.Name, ".shed") {
+			if pkg.IsShedFormat() {
 				shedPkgs = append(shedPkgs, pkg)
 			} else {
 				shedos = append(shedos, pkg)
