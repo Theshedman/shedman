@@ -55,7 +55,8 @@ func (m *MultiSourceResolver) FindPackage(name string, forceSource string) (*pkg
 
 		info, err := db.GetInfo(name)
 		if err != nil {
-			return nil, err
+			// Continue to next source on error (e.g. network failure)
+			continue
 		}
 		if info != nil {
 			return info, nil
