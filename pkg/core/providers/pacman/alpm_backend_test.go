@@ -8,6 +8,18 @@ import (
 	"github.com/theshedman/shedman/pkg/core"
 )
 
+// Compile-time interface checks to ensure AlpmBackend implements all required capabilities
+var (
+	_ core.Backend         = (*AlpmBackend)(nil)
+	_ core.PackageManager  = (*AlpmBackend)(nil)
+	_ core.Searchable      = (*AlpmBackend)(nil)
+	_ core.Informer        = (*AlpmBackend)(nil)
+	_ core.Upgradable      = (*AlpmBackend)(nil)
+	_ core.LocalInstaller  = (*AlpmBackend)(nil)
+	_ core.FileProvider    = (*AlpmBackend)(nil)
+	_ core.OfficialBackend = (*AlpmBackend)(nil)
+)
+
 func TestAlpmBackend_Search(t *testing.T) {
 	vimPkg := &alpm.MockAlpmPackage{NameVal: "vim", VersionVal: "9.0.0", DescriptionVal: "Vi Improved"}
 	neovimPkg := &alpm.MockAlpmPackage{NameVal: "neovim", VersionVal: "0.10.0", DescriptionVal: "Fork of Vim"}
@@ -186,5 +198,54 @@ func TestAlpmBackend_GetPackageFiles_NotFound(t *testing.T) {
 
 	if err != core.ErrPackageNotFound {
 		t.Errorf("Expected ErrPackageNotFound, got %v", err)
+	}
+}
+
+
+func TestAlpmBackend_InstallLocal(t *testing.T) {
+	mockExecutor := &MockExecutor{}
+	b := &AlpmBackend{
+		executor: mockExecutor,
+		sudoPath: "sudo",
+	}
+
+	err := b.InstallLocal("test-pkg.pkg.tar.zst", core.InstallOptions{NoConfirm: true})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(mockExecutor.RunCalls) != 1 {
+		t.Fatalf("Expected 1 call, got %d", len(mockExecutor.RunCalls))
+	}
+
+	call := mockExecutor.RunCalls[0]
+
+	// Call format: [sudo, pacman, -U, pkg, --noconfirm]
+	if len(call) < 3 {
+		t.Fatalf("Call too short: %v", call)
+	}
+
+	if call[0] != "sudo" {
+		t.Errorf("Expected command 'sudo', got '%s'", call[0])
+	}
+	if call[1] != "pacman" {
+		t.Errorf("Expected 'pacman' as second arg, got '%s'", call[1])
+	}
+
+	// Verify flags/args are present
+	expectedArgs := []string{"-U", "test-pkg.pkg.tar.zst", "--noconfirm"}
+	pacmanArgs := call[2:] // args passed to pacman
+
+	for _, expected := range expectedArgs {
+		found := false
+		for _, actual := range pacmanArgs {
+			if actual == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected arg '%s' not found in %v", expected, pacmanArgs)
+		}
 	}
 }

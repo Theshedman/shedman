@@ -202,9 +202,26 @@ func (b *AlpmBackend) GetPackageFiles(pkgName string) ([]string, error) {
 	return result, nil
 }
 
-// InstallLocal installs a local package file from disk
+// InstallLocal installs a local package file from disk using pacman -U
 func (b *AlpmBackend) InstallLocal(path string, opts core.InstallOptions) error {
-	return fmt.Errorf("InstallLocal not implemented for AlpmBackend")
+	args := []string{"-U", path}
+
+	// Add options
+	if opts.NoConfirm {
+		args = append(args, "--noconfirm")
+	}
+	if opts.AsDeps {
+		args = append(args, "--asdeps")
+	}
+	if opts.Needed {
+		args = append(args, "--needed")
+	}
+	if opts.Overwrite != "" {
+		args = append(args, "--overwrite", "*")
+	}
+
+	execArgs := append([]string{"pacman"}, args...)
+	return b.executor.Run(b.sudoPath, execArgs...)
 }
 
 // IsInstalled checks if a package is installed.
