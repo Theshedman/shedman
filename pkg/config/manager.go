@@ -1,6 +1,10 @@
 package config
 
-import "github.com/theshedman/shedman/pkg/core"
+import (
+	"strings"
+
+	"github.com/theshedman/shedman/pkg/core"
+)
 
 // Manager handles configuration package operations
 type Manager struct {
@@ -21,12 +25,49 @@ type ConfigPackage struct {
 	Version     string
 }
 
-// Install installs a configuration package
-func (m *Manager) Install(name string) error {
-	return nil
+// Apply applies a configuration package (installs it)
+// name can be short (e.g. "hypr") or full ("shedos-configs-hypr")
+func (m *Manager) Apply(name string) error {
+	pkgName := name
+	if !strings.HasPrefix(name, "shedos-configs-") {
+		pkgName = "shedos-configs-" + name
+	}
+
+	// Use generic install options
+	opts := core.InstallOptions{
+		Needed:    true,
+		NoConfirm: false, // Let core/CLI handle confirmation
+	}
+
+	return m.core.Install([]string{pkgName}, opts)
 }
 
-// List returns available configuration packages
+// List returns available configuration packages matching "shedos-configs-*"
 func (m *Manager) List() ([]ConfigPackage, error) {
-	return nil, nil
+	// Search for all packages starting with shedos-configs-
+	// Engine.Search usually takes a query. Using "shedos-configs-" might work if backend supports partial match.
+	// For now, we assume searching "shedos-configs" returns relevant results.
+	results, err := m.core.Search("shedos-configs-")
+	if err != nil {
+		return nil, err
+	}
+
+	var configs []ConfigPackage
+	seen := make(map[string]bool)
+
+	for _, p := range results {
+		if strings.HasPrefix(p.Name, "shedos-configs-") {
+			if seen[p.Name] {
+				continue
+			}
+			seen[p.Name] = true
+			configs = append(configs, ConfigPackage{
+				Name:        p.Name,
+				Description: p.Description,
+				Version:     p.Version,
+			})
+		}
+	}
+
+	return configs, nil
 }

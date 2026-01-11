@@ -232,3 +232,37 @@ func (e *Engine) Info(pkgName string) (*PackageInfo, error) {
 
 	return nil, ErrPackageNotFound
 }
+
+// Search searches for packages across all available backends.
+func (e *Engine) Search(query string) ([]PackageInfo, error) {
+	var allResults []PackageInfo
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, b := range e.backends {
+		wg.Add(1)
+		go func(backend PackageBackend) {
+			defer wg.Done()
+
+			// Check if backend supports searching
+			searchable, ok := backend.(Searchable)
+			if !ok {
+				return
+			}
+
+			results, err := searchable.Search(query)
+			if err != nil {
+				// Log error but continue
+				return
+			}
+
+			mu.Lock()
+			// Append source to backend if not already set (impl specific, but good practice here if needed)
+			allResults = append(allResults, results...)
+			mu.Unlock()
+		}(b)
+	}
+
+	wg.Wait()
+	return allResults, nil
+}
