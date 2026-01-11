@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/pkg/backend"
 	pacmanBackend "github.com/theshedman/shedman/pkg/backend/pacman"
-	"github.com/theshedman/shedman/internal/config"
 )
 
 const (
@@ -269,7 +269,7 @@ func (a *AURInstaller) Install(pkgName string) error {
 	pkgDir := filepath.Join(a.cacheDir, pkgName)
 
 	// Find the built package file
-	pkgFile, err := a.findBuiltPackage(pkgDir)
+	_, err := a.findBuiltPackage(pkgDir)
 	if err != nil {
 		return err
 	}
