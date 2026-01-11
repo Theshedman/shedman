@@ -78,16 +78,9 @@ func autoDetectBackend(cfg *config.BackendConfig) (OfficialBackend, error) {
 
 	// Map family to backend name
 	var backendName string
-	switch info.Family {
-	case "arch":
+	if info.Family == "arch" {
 		backendName = "pacman"
-	case "debian":
-		backendName = "apt"
-	case "fedora":
-		backendName = "dnf"
-	case "suse":
-		backendName = "zypper"
-	default:
+	} else {
 		// Fallback to binary detection
 		return detectByBinaryWithConfig(cfg)
 	}
@@ -104,7 +97,7 @@ func autoDetectBackend(cfg *config.BackendConfig) (OfficialBackend, error) {
 // detectByBinaryWithConfig attempts to detect backend by available binaries
 func detectByBinaryWithConfig(cfg *config.BackendConfig) (OfficialBackend, error) {
 	// Check binaries in priority order
-	candidates := []string{"pacman", "apt", "dnf", "zypper"}
+	candidates := []string{"pacman"}
 
 	for _, name := range candidates {
 		if hasBinary(name) {

@@ -41,9 +41,6 @@ type MirrorConfig struct {
 	ShedOS []string `toml:"shedos"`
 	Arch   []string `toml:"arch"`
 	AUR    string   `toml:"aur"`
-	Apt    []string `toml:"apt"`
-	Dnf    []string `toml:"dnf"`
-	Zypper []string `toml:"zypper"`
 }
 
 // PackageConfig holds package management settings
@@ -143,6 +140,6 @@ type CloudConfig struct {
 // BackendConfig holds backend/package manager settings
 type BackendConfig struct {
 	AutoDetect bool   `toml:"auto_detect"` // Auto-detect the system package manager
-	Override   string `toml:"override"`    // Force specific backend: "pacman", "apt", "dnf", "zypper"
+	Override   string `toml:"override"`    // Force specific backend: "pacman"
 	BinaryPath string `toml:"binary_path"` // Custom path to package manager binary
 }

@@ -82,29 +82,11 @@ func determineFamily(id string, idLike []string) string {
 	if isArchID(id) {
 		return "arch"
 	}
-	if isDebianID(id) {
-		return "debian"
-	}
-	if isFedoraID(id) {
-		return "fedora"
-	}
-	if isSuseID(id) {
-		return "suse"
-	}
 
 	// Check ID_LIKE
 	for _, parent := range idLike {
 		if isArchID(parent) {
 			return "arch"
-		}
-		if isDebianID(parent) {
-			return "debian"
-		}
-		if isFedoraID(parent) {
-			return "fedora"
-		}
-		if isSuseID(parent) {
-			return "suse"
 		}
 	}
 
@@ -113,36 +95,6 @@ func determineFamily(id string, idLike []string) string {
 
 func isArchID(id string) bool {
 	for _, d := range archDistros {
-		if id == d {
-			return true
-		}
-	}
-	return false
-}
-
-func isDebianID(id string) bool {
-	debianDistros := []string{"debian", "ubuntu", "mint", "pop", "elementary", "zorin", "kali", "raspbian"}
-	for _, d := range debianDistros {
-		if id == d {
-			return true
-		}
-	}
-	return false
-}
-
-func isFedoraID(id string) bool {
-	fedoraDistros := []string{"fedora", "centos", "rhel", "rocky", "alma", "nobara"}
-	for _, d := range fedoraDistros {
-		if id == d {
-			return true
-		}
-	}
-	return false
-}
-
-func isSuseID(id string) bool {
-	suseDistros := []string{"opensuse", "suse", "opensuse-leap", "opensuse-tumbleweed"}
-	for _, d := range suseDistros {
 		if id == d {
 			return true
 		}
@@ -171,17 +123,8 @@ func hasBinary(name string) bool {
 // GetBackendName returns the name of the detected backend
 func GetBackendName() string {
 	info := DetectDistro()
-
-	switch info.Family {
-	case "arch":
+	if info.Family == "arch" {
 		return "pacman"
-	case "debian":
-		return "apt"
-	case "fedora":
-		return "dnf"
-	case "suse":
-		return "zypper"
-	default:
-		return "unknown"
 	}
+	return "unknown"
 }

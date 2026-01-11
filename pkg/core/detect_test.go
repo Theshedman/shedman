@@ -74,39 +74,6 @@ PRETTY_NAME="CachyOS"
 	}
 }
 
-func TestDetectDistro_Ubuntu(t *testing.T) {
-	content := `NAME="Ubuntu"
-ID=ubuntu
-ID_LIKE=debian
-PRETTY_NAME="Ubuntu 22.04 LTS"
-VERSION_ID="22.04"
-`
-	info := testWithOsRelease(t, content)
-
-	if info.ID != "ubuntu" {
-		t.Errorf("Expected ID 'ubuntu', got '%s'", info.ID)
-	}
-	if info.Family != "debian" {
-		t.Errorf("Expected Family 'debian', got '%s'", info.Family)
-	}
-}
-
-func TestDetectDistro_Fedora(t *testing.T) {
-	content := `NAME="Fedora Linux"
-ID=fedora
-PRETTY_NAME="Fedora Linux 39"
-VERSION_ID="39"
-`
-	info := testWithOsRelease(t, content)
-
-	if info.ID != "fedora" {
-		t.Errorf("Expected ID 'fedora', got '%s'", info.ID)
-	}
-	if info.Family != "fedora" {
-		t.Errorf("Expected Family 'fedora', got '%s'", info.Family)
-	}
-}
-
 func TestIsArchBased(t *testing.T) {
 	// This test depends on the actual system
 	// We just verify the function doesn't panic
