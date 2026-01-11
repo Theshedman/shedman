@@ -104,7 +104,12 @@ func (e *Engine) Install(pkgs []string, opts InstallOptions) error {
 	if e.officialBackend == nil {
 		return ErrBackendNotFound
 	}
-	return e.officialBackend.Install(pkgs, opts)
+	// Check if backend supports package management
+	pm, ok := e.officialBackend.(PackageManager)
+	if !ok {
+		return fmt.Errorf("backend %s does not support package management", e.officialBackend.Name())
+	}
+	return pm.Install(pkgs, opts)
 }
 
 // InstallFile installs a local package file (wraps InstallLocal).
@@ -112,7 +117,14 @@ func (e *Engine) InstallFile(path string, opts InstallOptions) error {
 	if e.officialBackend == nil {
 		return ErrBackendNotFound
 	}
-	return fmt.Errorf("local package installation not yet implemented")
+
+	// Check if backend supports local package installation
+	installer, ok := e.officialBackend.(LocalInstaller)
+	if !ok {
+		return fmt.Errorf("backend %s does not support local package installation", e.officialBackend.Name())
+	}
+
+	return installer.InstallLocal(path, opts)
 }
 
 // Remove removes packages using the official backend.
@@ -120,7 +132,12 @@ func (e *Engine) Remove(pkgs []string, opts RemoveOptions) error {
 	if e.officialBackend == nil {
 		return ErrBackendNotFound
 	}
-	return e.officialBackend.Remove(pkgs, opts)
+	// Check if backend supports package removal
+	pm, ok := e.officialBackend.(PackageManager)
+	if !ok {
+		return fmt.Errorf("backend %s does not support package removal", e.officialBackend.Name())
+	}
+	return pm.Remove(pkgs, opts)
 }
 
 // Upgrade upgrades packages across all supported backends.
@@ -179,7 +196,12 @@ func (e *Engine) IsInstalled(name string) bool {
 	if e.officialBackend == nil {
 		return false
 	}
-	return e.officialBackend.IsInstalled(name)
+	// Check if backend supports package checking
+	pm, ok := e.officialBackend.(PackageManager)
+	if !ok {
+		return false
+	}
+	return pm.IsInstalled(name)
 }
 
 // Info returns detailed information about a package from available backends.
