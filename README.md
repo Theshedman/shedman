@@ -1,40 +1,69 @@
 <p align="center">
   <h1 align="center">shedman</h1>
   <p align="center">
-    <strong>A next-generation universal package manager for ShedOS and beyond</strong>
+    <strong>The next-generation modular package manager for Arch Linux and ShedOS</strong>
   </p>
   <p align="center">
     <a href="#features">Features</a> •
     <a href="#installation">Installation</a> •
     <a href="#usage">Usage</a> •
+    <a href="#architecture">Architecture</a> •
     <a href="#documentation">Documentation</a> •
-    <a href="#contributing">Contributing</a> •
-    <a href="#license">License</a>
+    <a href="#contributing">Contributing</a>
   </p>
 </p>
 
 ---
 
-## Overview
+## Vision
 
-**shedman** is a modern package manager designed to be a drop-in replacement for pacman on Arch-based systems, while also providing cross-distribution package management capabilities. It aims to solve Linux's packaging fragmentation by providing a unified interface that works everywhere.
+> **"You should never have to think twice before reformatting your computer."**
 
-> *"You should never have to think twice before reformatting your computer."*
+**shedman** is a modern, modular package manager designed specifically for **Arch-based Linux distributions** (ShedOS, Arch Linux, Manjaro, EndeavourOS).
+
+It goes beyond traditional package management by integrating system snapshots, configuration management, and desktop environment switching into a single, cohesive tool.
+
+### Core Principles
+
+1. **Arch-Native**: Built on `go-alpm` and designed exclusively for the Arch ecosystem.
+2. **Modular Design**: Composed of distinct, swappable modules (core, snapshot, config, etc.).
+3. **100% Pacman Compatible**: A drop-in replacement for all `pacman` commands and configuration.
+4. **Resilient**: Integrated system snapshots ensure you can always roll back.
+5. **Declarative**: Manage your entire system state (packages, configs, themes) as code.
+
+---
 
 ## Features
 
-- **100% Pacman Compatible** — Drop-in replacement for all pacman commands and flags
-- **AUR Integration** — Seamless access to the Arch User Repository with sandboxed builds
-- **Universal `.shed` Packages** — Install packages from any Linux distribution
-- **System Snapshots** — Backup and restore your entire system state (packages, configs, themes)
-- **Cloud Sync** — Push snapshots to Google Drive, Cloudflare R2, AWS S3, or USB drives
-- **Desktop Environment Switching** — Switch between Hyprland, GNOME, KDE, COSMIC with one command
-- **Configuration Management** — Apply, diff, and rollback application configurations
-- **Security First** — Ed25519 signing, TUF metadata, CVE checking, sandboxed AUR builds
+### 📦 Modular Architecture
+
+Unlike monolithic package managers, shedman is built from 12 specialized modules:
+
+| Module | Responsibility | Key Commands |
+| :--- | :--- | :--- |
+| **core** | Package management | `install`, `remove`, `update`, `search`, `info` |
+| **snapshot** | System backups | `snapshot create`, `restore`, `push` |
+| **config** | Config packages | `config install`, `update` |
+| **de** | Desktop environments | `de switch`, `list` |
+| **theme** | Theming | `theme apply` |
+| **svc** | Service management | `svc enable`, `start`, `status` |
+| **boot** | Kernel/Bootloader | `boot set-default` |
+| **security** | Vulnerability scanning | `security check` |
+
+### 🚀 Key Capabilities
+
+- **Pacman Compatibility**: Use `shedman -Syu`, `shedman -Rns`, etc. just like pacman.
+- **Intelligent Snapshots**: Automatically snapshot before updates or risky operations.
+- **Cloud Sync**: Push snapshots to R2, S3, or Google Drive for off-site backup.
+- **Desktop Switching**: Switch between GNOME, KDE, Hyprland, and COSMIC with one command.
+- **AUR Integration**: Transparently handle AUR packages (sandboxed builds).
+- **Service Wrapper**: Manage systemd services with a simpler syntax (`shedman svc`).
+
+---
 
 ## Installation
 
-### From Source (Recommended for Development)
+### From Source
 
 ```bash
 # Clone the repository
@@ -42,188 +71,166 @@ git clone https://github.com/theshedman/shedman.git
 cd shedman
 
 # Build
-go build -o shedman .
+go build -o shedman ./cmd/shedman
 
-# Run
-./shedman --help
+# Install
+sudo mv shedman /usr/bin/
 ```
-
-### On ShedOS
-
-shedman comes pre-installed on ShedOS.
 
 ### From Go
 
 ```bash
-go install github.com/theshedman/shedman@latest
+go install github.com/theshedman/shedman/cmd/shedman@latest
 ```
+
+---
 
 ## Usage
 
-### Basic Commands
+### Core Package Management
+
+shedman supports all standard pacman syntax:
 
 ```bash
-# Sync package databases
+# Sync and update system
 shedman sync
+# OR
+shedman -Syu
 
-# Install a package
-shedman install neovim
+# Install packages (official or AUR)
+shedman install neovim firefox
+# OR
+shedman -S neovim firefox
 
-# Install from AUR
-shedman install neovim-nightly --aur
-
-# Remove a package
+# Remove packages
 shedman remove firefox
+# OR
+shedman -Rns firefox
 
-# Search for packages
-shedman search vim
-
-# Update all packages
-shedman update
-```
-
-### Pacman Compatibility
-
-All pacman commands work exactly the same:
-
-```bash
-shedman -Syu                    # Update system
-shedman -S neovim               # Install package
-shedman -R firefox              # Remove package
-shedman -Ss vim                 # Search packages
-shedman -Qi neovim              # Query package info
+# Search
+shedman search "vim"
+# OR
+shedman -Ss "vim"
 ```
 
 ### Snapshots
 
+Manage Btrfs/ZFS/Rsync snapshots directly:
+
 ```bash
-# Create a snapshot
-shedman snapshot create --name "before-update"
+# Create a named snapshot
+shedman snapshot create --name "pre-update"
 
 # List snapshots
 shedman snapshot list
 
-# Restore a snapshot
-shedman snapshot restore 5
+# Restore from a snapshot
+shedman snapshot restore <snapshot-id>
 
-# Push to cloud
-shedman snapshot push 5 --remote gdrive
+# Push to cloud storage
+shedman snapshot push <snapshot-id> --remote s3
+```
+
+### Service Management (svc)
+
+Simplified systemd wrapper:
+
+```bash
+# Enable and start a service
+shedman svc enable docker --now
+
+# Check status
+shedman svc status docker
+
+# List all running services
+shedman svc list
 ```
 
 ### Desktop Environment Switching
 
+Seamlessly switch entire desktop environments:
+
 ```bash
-# List available DEs
+# List available environments
 shedman de list
 
-# Switch to GNOME
-shedman de switch gnome
+# Switch to Hyprland
+shedman de switch hyprland
 ```
 
-## Documentation
+### Building Packages
 
-For comprehensive documentation, see:
+Build packages from PKGBUILDs (Arch native):
 
-- **[Implementation Plan](docs/README.md)** — Complete architecture and CLI reference
-- **[Contributing Guide](CONTRIBUTING.md)** — How to contribute (coming soon)
+```bash
+# Build package in current directory
+shedman build .
 
-## Project Status
-
-shedman is currently in early development. See the [implementation phases](docs/README.md#part-3-implementation-phases) for the roadmap.
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Core Commands | 🚧 In Progress | sync, install, remove, search |
-| Repository | 📋 Planned | shedrepo, R2 integration, CI/CD |
-| TUI | 📋 Planned | Interactive terminal UI |
-| Snapshots | 📋 Planned | Local and cloud backups |
-
-## Requirements
-
-- **Go** 1.21 or later
-- **Linux** (Arch-based recommended, cross-distro support planned)
-
-## Contributing
-
-We welcome contributions! Here's how you can help:
-
-### Getting Started
-
-1. **Fork** the repository
-2. **Clone** your fork:
-
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/shedman.git
-   ```
-
-3. **Create a branch** for your feature:
-
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-4. **Make your changes** following our coding standards
-5. **Write tests** (we follow TDD — tests first!)
-6. **Run tests**:
-
-   ```bash
-   go test ./... -v
-   ```
-
-7. **Commit** with a descriptive message:
-
-   ```bash
-   git commit -m "feat: add support for X"
-   ```
-
-8. **Push** and create a Pull Request
-
-### Development Guidelines
-
-- **Test-Driven Development (TDD)**: Write failing tests first, then implement
-- **Go Idioms**: Follow [Effective Go](https://go.dev/doc/effective_go) guidelines
-- **Commit Messages**: Use [Conventional Commits](https://www.conventionalcommits.org/) format
-  - `feat:` for new features
-  - `fix:` for bug fixes
-  - `docs:` for documentation
-  - `test:` for tests
-  - `refactor:` for refactoring
-
-### Code of Conduct
-
-Please be respectful and inclusive. We follow the [Contributor Covenant](https://www.contributor-covenant.org/).
-
-### Reporting Issues
-
-- Use GitHub Issues for bug reports and feature requests
-- Include reproduction steps for bugs
-- Check existing issues before creating new ones
-
-## Architecture
-
+# Build and install
+shedman build . --install
 ```
-shedman/
-├── cmd/                    # CLI commands (Cobra)
-├── pkg/                    # Public packages (library API)
-│   ├── backend/            # Package backends (pacman, aur, shedrepo)
-│   ├── config/             # Configuration management
-│   └── snapshot/           # Snapshot functionality
-├── internal/               # Private packages
-├── docs/                   # Documentation
-└── main.go                 # Entry point
-```
-
-## Related Projects
-
-- **[ShedOS](https://github.com/theshedman/shedos)** — The Arch-based Linux distribution
-- **[shedrepo](https://github.com/theshedman/shedrepo)** — Package repository and build scripts
-
-## License
-
-This project is licensed under the **GNU General Public License v3.0** — see the [LICENSE](LICENSE) file for details.
 
 ---
 
+## Architecture
+
+shedman uses a **capability-based modular architecture**. Each module exposes specific interfaces that the core runner consumes.
+
+```mermaid
+graph TD
+    CLI[CLI Runner] --> Core[Core Module]
+    CLI --> Snapshot[Snapshot Module]
+    CLI --> Config[Config Module]
+    CLI --> DE[DE Module]
+    
+    Core --> Backend[Official Backend]
+    Backend -->|Implements| Interfaces[Capability Interfaces]
+    
+    subgraph "Capabilities"
+    Interfaces --> Pkg[PackageManager]
+    Interfaces --> Search[Searchable]
+    Interfaces --> Install[LocalInstaller]
+    end
+```
+
+For detailed architectural documentation, see:
+
+- [**Modular Architecture**](docs/modular_architecture.md): Detailed breakdown of modules.
+- [**Capability Interfaces**](docs/capability_interfaces.md): Go interface definitions.
+- [**Architecture Decisions**](docs/architecture_decision_records.md): History of key design choices.
+- [**Shed Format Spec**](docs/shed_format_specification.md): (Future) Specification for ShedOS universal packages.
+
+## shedrepo
+
+Shedman packages are hosted on **repo.shedos.org**, backed by Cloudflare R2.
+Resolution priority: **ShedOS Repo** → **Arch Official** → **AUR**.
+
+---
+
+## Contributing
+
+We welcome contributions! Please follow the [Standard Go Project Layout](https://github.com/golang-standards/project-layout).
+
+1. **Fork** the repository.
+2. **Create a branch** for your feature (`git checkout -b feature/amazing-feature`).
+3. **Commit** your changes (`git commit -m 'feat: Add amazing feature'`).
+4. **Push** to the branch (`git push origin feature/amazing-feature`).
+5. **Open a Pull Request**.
+
+### Testing
+
+Run the full test suite:
+
+```bash
+go test ./... -v
+```
+
+---
+
+## License
+
+Distributed under the **GNU General Public License v3.0**. See `LICENSE` for more information.
+
 <p align="center">
-  Made with ❤️ for the Linux community
+  Made with ❤️ for the Arch Linux community
 </p>
