@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/config"
@@ -17,45 +16,13 @@ var (
 	removeNosave    bool
 )
 
-// ShedInstalledProvider adapts ShedInstaller to core.InstalledProvider
-type ShedInstalledProvider struct {
-	installer *core.ShedInstaller
-}
-
-func (s ShedInstalledProvider) GetInstalledPackages() []core.InstalledPackage {
-	var result []core.InstalledPackage
-
-	names, _ := s.installer.ListInstalled()
-	for _, name := range names {
-		// Manually read manifest to get dependencies
-		installedDir := fmt.Sprintf("%s/%s", s.installer.GetInstalledDir(), name)
-		manifest, err := s.installer.ReadManifest(installedDir)
-		if err != nil {
-			continue
-		}
-
-		result = append(result, core.InstalledPackage{
-			Name:    manifest.Name,
-			Depends: manifest.Depends,
-		})
-	}
-	return result
-}
-
 var RemoveCmd = &cobra.Command{
 	Use:   "remove [packages...]",
 	Short: "Remove packages",
 	Long: `Remove installed packages.
-
-Supports multiple package sources across different Linux distributions:
-  - Official packages (via distro's native package manager)
-  - .shed packages (native shedman format)
-
-The appropriate backend is auto-detected based on your distribution:
-  - Arch/Manjaro/EndeavourOS → pacman
-  - Debian/Ubuntu/Mint → apt
-  - Fedora/CentOS/RHEL → dnf
-  - openSUSE → zypper
+	
+Supports:
+  - Official packages (via pacman)
 
 Examples:
   shedman remove neovim           # Remove package
@@ -77,15 +44,15 @@ Examples:
 			return handleRemoveDryRun(cmd, args, cfg)
 		}
 
-		// Get the appropriate official backend for this distro
+		// Get the appropriate official backend
 		officialBackend, err := DetectBackendWithConfig(&cfg.Backend)
 		if err != nil {
 			output.Warning("Official backend not available: %v", err)
 			officialBackend = nil
 		}
 
-		// Group packages by backend (official vs .shed)
-		officialPkgs, shedPkgs, notFound, err := categorizePackagesForRemoval(args, cfg, officialBackend)
+		// Group packages
+		officialPkgs, notFound, err := categorizePackagesForRemoval(args, cfg, officialBackend)
 		if err != nil {
 			return err
 		}
@@ -95,34 +62,7 @@ Examples:
 			output.Warning("Package not installed: %s", pkg)
 		}
 
-		// Handle Recursive Removal for .shed packages
-		if removeRecursive && len(shedPkgs) > 0 {
-			shedInstaller := core.NewShedInstaller()
-			provider := ShedInstalledProvider{installer: shedInstaller}
-
-			// Calculate removal list including orphans
-			expandedList := core.CalculateRecursiveRemoval(shedPkgs, provider)
-
-			// Identify newly added packages for user info
-			originalSet := make(map[string]bool)
-			for _, p := range shedPkgs {
-				originalSet[p] = true
-			}
-
-			var added []string
-			for _, p := range expandedList {
-				if !originalSet[p] {
-					added = append(added, p)
-				}
-			}
-
-			if len(added) > 0 {
-				output.Info("Recursive removal added: %s", strings.Join(added, ", "))
-				shedPkgs = expandedList
-			}
-		}
-
-		totalToRemove := len(officialPkgs) + len(shedPkgs)
+		totalToRemove := len(officialPkgs)
 		if totalToRemove == 0 {
 			return fmt.Errorf("no packages to remove")
 		}
@@ -130,21 +70,14 @@ Examples:
 		// Show what we're removing
 		quiet, _ := cmd.Flags().GetBool("quiet")
 		if !quiet {
-			backendName := "unknown"
-			if officialBackend != nil {
-				backendName = officialBackend.Name()
-			}
 			output.Info("Packages to remove (%d):", totalToRemove)
 			for _, pkg := range officialPkgs {
-				fmt.Printf("  → %s [%s]\n", pkg, backendName)
-			}
-			for _, pkg := range shedPkgs {
-				fmt.Printf("  → %s [shed]\n", pkg)
+				fmt.Printf("  → %s [pacman]\n", pkg)
 			}
 			fmt.Println()
 		}
 
-		// Confirmation prompt (unless --yes or config.General.Confirm is false)
+		// Confirmation prompt
 		yes, _ := cmd.Flags().GetBool("yes")
 		if !yes && cfg.General.Confirm {
 			prompt := fmt.Sprintf("Remove %d package(s)?", totalToRemove)
@@ -154,9 +87,9 @@ Examples:
 			}
 		}
 
-		// Execute removal for each backend
+		// Execute removal
 		verbose, _ := cmd.Flags().GetBool("verbose")
-		if err := executeRemoval(officialBackend, officialPkgs, shedPkgs, cfg, quiet, yes, verbose); err != nil {
+		if err := executeRemoval(officialBackend, officialPkgs, nil, cfg, quiet, yes, verbose); err != nil {
 			return err
 		}
 
@@ -168,41 +101,28 @@ Examples:
 	},
 }
 
-// categorizePackagesForRemoval groups packages by their backend (official vs shed)
-func categorizePackagesForRemoval(args []string, cfg *config.Config, officialBackend core.OfficialBackend) (officialPkgs, shedPkgs, notFound []string, err error) {
-	// Build ignore set from config
+// categorizePackagesForRemoval groups packages
+func categorizePackagesForRemoval(args []string, cfg *config.Config, officialBackend core.OfficialBackend) (officialPkgs, notFound []string, err error) {
 	ignoreSet := make(map[string]bool)
 	for _, pkg := range cfg.Packages.IgnorePkg {
 		ignoreSet[pkg] = true
 	}
 
-	// Initialize ShedInstaller to check for .shed packages
-	shedInstaller := core.NewShedInstaller()
-
 	for _, pkg := range args {
-		// Check if package is ignored
 		if ignoreSet[pkg] {
 			output.Warning("Package %s is in IgnorePkg list, skipping", pkg)
 			continue
 		}
 
-		// Check if it's a .shed package first (takes priority)
-		if shedInstaller.IsInstalled(pkg) {
-			shedPkgs = append(shedPkgs, pkg)
-			continue
-		}
-
-		// Check if it's installed via official backend
 		if officialBackend != nil && officialBackend.IsInstalled(pkg) {
 			officialPkgs = append(officialPkgs, pkg)
 			continue
 		}
 
-		// Package not found in any backend
 		notFound = append(notFound, pkg)
 	}
 
-	return officialPkgs, shedPkgs, notFound, nil
+	return officialPkgs, notFound, nil
 }
 
 // executeRemoval removes packages using the appropriate backend
@@ -229,24 +149,6 @@ func executeRemoval(officialBackend core.OfficialBackend, officialPkgs, shedPkgs
 
 		if err := officialBackend.Remove(officialPkgs, opts); err != nil {
 			return fmt.Errorf("%s removal failed: %w", officialBackend.Name(), err)
-		}
-	}
-
-	// Remove .shed packages
-	if len(shedPkgs) > 0 {
-		shedInstaller := core.NewShedInstaller()
-
-		if !quiet {
-			output.Info("Removing %d .shed package(s)...", len(shedPkgs))
-		}
-
-		for _, pkg := range shedPkgs {
-			if verbose {
-				output.Info("Removing .shed package: %s", pkg)
-			}
-			if err := shedInstaller.Remove(pkg); err != nil {
-				return fmt.Errorf("failed to remove .shed package %s: %w", pkg, err)
-			}
 		}
 	}
 

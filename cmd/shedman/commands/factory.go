@@ -58,10 +58,3 @@ func CreateAURInstaller(cfg *config.Config) *core.AURInstaller {
 	backend, _ := DetectBackendWithConfig(&cfg.Backend)
 	return core.NewAURInstallerWithBackend(cfg, backend)
 }
-
-// CreateShedOSInstaller creates a ShedOS installer with backend.
-func CreateShedOSInstaller(cfg *config.Config) *core.ShedOSInstaller {
-	// Detect backend
-	backend, _ := DetectBackendWithConfig(&cfg.Backend)
-	return core.NewShedOSInstallerWithBackend(cfg, backend)
-}

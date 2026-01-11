@@ -11,7 +11,6 @@ import (
 	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/pkg/core/providers/aur"
-	shedrepo "github.com/theshedman/shedman/pkg/core/providers/shed"
 )
 
 var (
@@ -66,8 +65,6 @@ Examples:
 
 		var results []SearchResult
 		var searchErrors []string
-		// Create file system cache for downloads
-		fsCache := core.NewFileSystemCache()
 
 		// Get official backend
 		officialBackend, err := DetectBackendWithConfig(&cfg.Backend)
@@ -128,30 +125,6 @@ Examples:
 			}
 		}
 
-		// Search ShedOS repository
-		if searchAll || searchShedOS {
-			timeout := 30 * time.Second
-			if cfg.Network.Timeout > 0 {
-				timeout = time.Duration(cfg.Network.Timeout) * time.Second
-			}
-			shedBackend := shedrepo.New(fsCache, timeout)
-			shedInstaller := core.NewShedInstaller()
-			pkgs, err := shedBackend.Search(query)
-			if err != nil {
-				searchErrors = append(searchErrors, fmt.Sprintf("shedos: %v", err))
-			} else {
-				for _, pkg := range limitResults(pkgs, searchLimit) {
-					results = append(results, SearchResult{
-						Name:        pkg.Name,
-						Version:     pkg.Version,
-						Description: pkg.Description,
-						Source:      "shedos",
-						Installed:   shedInstaller.IsInstalled(pkg.Name),
-					})
-				}
-			}
-		}
-
 		// Search installed packages (both official backend AND .shed packages)
 		if searchAll || searchInstalled {
 			filtered := make([]SearchResult, 0)
@@ -173,26 +146,6 @@ Examples:
 								Installed:   true,
 							})
 						}
-					}
-				}
-			}
-
-			// Search .shed installed packages (with full info)
-			shedInstaller := core.NewShedInstaller()
-			shedPkgs, err := shedInstaller.ListInstalledWithInfo()
-			if err != nil {
-				searchErrors = append(searchErrors, fmt.Sprintf("installed/shed: %v", err))
-			} else {
-				for _, pkg := range shedPkgs {
-					if strings.Contains(strings.ToLower(pkg.Name), strings.ToLower(query)) ||
-						strings.Contains(strings.ToLower(pkg.Description), strings.ToLower(query)) {
-						filtered = append(filtered, SearchResult{
-							Name:        pkg.Name,
-							Version:     pkg.Version,
-							Description: pkg.Description,
-							Source:      "installed/shed",
-							Installed:   true,
-						})
 					}
 				}
 			}

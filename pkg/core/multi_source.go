@@ -1,9 +1,5 @@
 package core
 
-import (
-)
-
-// Source priority order (highest to lowest)
 var defaultSourcePriority = []string{
 	SourceShedOS,
 	SourceOfficial,

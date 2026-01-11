@@ -177,18 +177,11 @@ func executeInstall(cfg *config.Config, pkgs []core.PackageInfo, opts core.Insta
 	var official []core.PackageInfo
 	var aur []core.PackageInfo
 	var shedos []core.PackageInfo
-	var shedPkgs []core.PackageInfo
 
 	for _, pkg := range pkgs {
 		switch pkg.Source {
 		case core.SourceAUR:
 			aur = append(aur, pkg)
-		case core.SourceShedOS:
-			if pkg.IsShedFormat() {
-				shedPkgs = append(shedPkgs, pkg)
-			} else {
-				shedos = append(shedos, pkg)
-			}
 		default:
 			official = append(official, pkg)
 		}
@@ -228,17 +221,6 @@ func executeInstall(cfg *config.Config, pkgs []core.PackageInfo, opts core.Insta
 		}
 	}
 
-	// Install ShedOS (pacman format) packages
-	if len(shedos) > 0 {
-		var pkgNames []string
-		for _, pkg := range shedos {
-			pkgNames = append(pkgNames, pkg.Name)
-		}
-		if err := pacmanBackend.Install(pkgNames, backendOpts); err != nil {
-			return fmt.Errorf("shedos install failed: %w", err)
-		}
-	}
-
 	// Install AUR packages
 	if len(aur) > 0 {
 		// Use factory
@@ -258,45 +240,6 @@ func executeInstall(cfg *config.Config, pkgs []core.PackageInfo, opts core.Insta
 			if err := ai.Install(pkg.Name); err != nil {
 				return fmt.Errorf("AUR install failed for %s: %w", pkg.Name, err)
 			}
-		}
-	}
-
-	// Install .shed format packages
-	if len(shedPkgs) > 0 {
-		soi := CreateShedOSInstaller(cfg)
-		// ShedOSInstaller InstallMultiple wants `[]PackageInfo` and `Options`.
-		// Assuming `Options` matches `core.InstallOptions`.
-		// Need to verify if `core.InstallOptions` (from pkg/core/installer) is what `ShedOSInstaller` expects.
-		// `ShedOSInstaller` is in `pkg/core`. `installer` is `pkg/core/installer`.
-		// If `ShedOSInstaller` uses `Options` from `core` (e.g. `InstallOptions`), we might need conversion.
-		// But in `install.go` `soi.InstallMultiple` is called with `opts` (type `core.InstallOptions`).
-		// If `ShedOSInstaller` takes `core.Options`?
-		// core/shedos.go line 426: `func (s *ShedOSInstaller) InstallMultiple(pkgs []PackageInfo, opts Options) error`
-		// `type Options` in `shedos.go` implies local type or `core.Options`?
-		// `shedos.go` is in `package core`. So `core.Options`.
-		// `installer` package has `Options`.
-		// If they differ, I need conversion.
-		// Assume for now `core.InstallOptions` is alias or compatible.
-		// Wait, imports at top of `install.go`: `github.com/theshedman/shedman/pkg/core/installer`.
-		// `opts` is `core.InstallOptions`.
-		// `ShedOSInstaller.InstallMultiple` takes `core.Options`.
-		// If `installer` package was merged into `core`?
-		// Or `core.InstallOptions` != `core.Options`.
-		// I should check `installer` package.
-		// If compilation fails, I'll fix types.
-
-		// Map core.InstallOptions to core.Options
-		legacyOpts := core.Options{
-			Needed:       opts.Needed,
-			AsDeps:       opts.AsDeps,
-			AsExplicit:   opts.AsExplicit,
-			NoConfirm:    opts.NoConfirm,
-			DownloadOnly: opts.DownloadOnly,
-			Overwrite:    opts.Overwrite,
-		}
-
-		if err := soi.InstallMultiple(shedPkgs, legacyOpts); err != nil {
-			return fmt.Errorf("failed to install .shed packages: %w", err)
 		}
 	}
 

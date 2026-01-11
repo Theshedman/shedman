@@ -7,10 +7,9 @@ const (
 	SourceShedOS   = "shedos"
 )
 
-// Package type constants for ShedOS dual-format support
+// Package type constants
 const (
-	PackageTypeArch = "arch" // Native Arch .pkg.tar.zst (install via pacman -U)
-	PackageTypeShed = "shed" // Universal .shed format (install via ShedInstaller)
+	PackageTypeArch = "arch" // Native Arch .pkg.tar.zst
 )
 
 // PackageInfo holds metadata about a package
@@ -35,11 +34,6 @@ type PackageInfo struct {
 // IsNativeArch returns true if this is a native Arch package
 func (p *PackageInfo) IsNativeArch() bool {
 	return p.PackageType == PackageTypeArch || p.PackageType == ""
-}
-
-// IsShedFormat returns true if this is a .shed universal package
-func (p *PackageInfo) IsShedFormat() bool {
-	return p.PackageType == PackageTypeShed
 }
 
 // PackageDB is the interface for querying package database
