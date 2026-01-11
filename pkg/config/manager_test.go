@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -21,7 +22,7 @@ func (m *MockBackend) DistroFamily() string { return "arch" } // Kept for compat
 func (m *MockBackend) Search(query string) ([]core.PackageInfo, error) {
 	var results []core.PackageInfo
 	for _, p := range m.pkgs {
-		if p.Name == query || query == "" { // Simple mock search
+		if strings.HasPrefix(p.Name, query) || query == "" {
 			results = append(results, p)
 		}
 	}
