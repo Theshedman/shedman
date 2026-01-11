@@ -6,7 +6,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/theshedman/shedman/pkg/shedman/output"
+	"github.com/theshedman/shedman/internal/output"
 )
 
 // SignalHandler manages cleanup handlers and signal interception

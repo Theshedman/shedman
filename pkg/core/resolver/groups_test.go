@@ -3,7 +3,7 @@ package resolver_test
 import (
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/resolver"
+	"github.com/theshedman/shedman/pkg/core/resolver"
 )
 
 func TestIsGroupReference(t *testing.T) {

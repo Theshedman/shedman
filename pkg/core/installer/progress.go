@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/theshedman/shedman/pkg/shedman/backend"
+	"github.com/theshedman/shedman/pkg/backend"
 )
 
 // ProgressCallback is called with progress updates during download/install

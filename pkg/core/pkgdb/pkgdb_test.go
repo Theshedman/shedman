@@ -3,7 +3,7 @@ package pkgdb_test
 import (
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 func TestPackageInfo_HasRequiredFields(t *testing.T) {

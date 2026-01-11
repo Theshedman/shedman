@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 func TestAURDB_NewAURDB(t *testing.T) {

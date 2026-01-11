@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // MockBackend implements pkgdb.PackageSearcher for testing

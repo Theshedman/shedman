@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // Errors for dependency resolution

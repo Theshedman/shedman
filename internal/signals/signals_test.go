@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/signals"
+	"github.com/theshedman/shedman/internal/signals"
 )
 
 func TestSignalHandler_AddHandler(t *testing.T) {

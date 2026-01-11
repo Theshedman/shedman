@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	shedhttp "github.com/theshedman/shedman/pkg/shedman/http"
+	shedhttp "github.com/theshedman/shedman/internal/http"
 )
 
 func TestRetryClient_UsesFirstMirror_WhenSucceeds(t *testing.T) {

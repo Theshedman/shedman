@@ -1,13 +1,13 @@
-package cmd
+package commands
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/shedman"
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	"github.com/theshedman/shedman/pkg/shedman/config"
-	"github.com/theshedman/shedman/pkg/shedman/output"
+	"github.com/theshedman/shedman/pkg/core"
+	"github.com/theshedman/shedman/pkg/backend"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/output"
 )
 
 var (

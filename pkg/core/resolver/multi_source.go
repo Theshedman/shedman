@@ -1,7 +1,7 @@
 package resolver
 
 import (
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // Source priority order (highest to lowest)

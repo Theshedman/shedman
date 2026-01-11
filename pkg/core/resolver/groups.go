@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/theshedman/shedman/pkg/shedman/config"
+	"github.com/theshedman/shedman/internal/config"
 )
 
 // GroupPrefix is the prefix for package group references

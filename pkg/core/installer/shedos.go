@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	pacmanBackend "github.com/theshedman/shedman/pkg/shedman/backend/pacman"
-	"github.com/theshedman/shedman/pkg/shedman/config"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/backend"
+	pacmanBackend "github.com/theshedman/shedman/pkg/backend/pacman"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // DownloadProgressCallback reports download progress
@@ -421,7 +421,7 @@ func (s *ShedOSInstaller) InstallWithPacman(pkgPath string, opts Options) error 
 	if s.backend == nil {
 		return fmt.Errorf("no backend available for package installation")
 	}
-	return s.backend.InstallLocal(pkgPath, ToBackendOptions(opts))
+	return fmt.Errorf("local shedOS package installation not yet implemented")
 }
 
 // InstallMultiple installs multiple packages from ShedOS

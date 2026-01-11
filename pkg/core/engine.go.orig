@@ -134,8 +134,10 @@ func (e *Engine) InstallFile(path string, opts backend.InstallOptions) error {
 	if e.officialBackend == nil {
 		return backend.ErrBackendNotFound
 	}
-	return fmt.Errorf("local package installation not yet implemented")
+// TODO: Reimplement without convert package
+	// 	return e.officialBackend.InstallLocal(path, opts)
 }
+        return fmt.Errorf("local package installation not yet implemented in modular architecture")
 
 // Remove removes packages using the official backend.
 func (e *Engine) Remove(pkgs []string, opts backend.RemoveOptions) error {

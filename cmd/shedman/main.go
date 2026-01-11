@@ -1,12 +1,13 @@
 package main
 
 import (
+        "github.com/theshedman/shedman/cmd/shedman/commands"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/shedman/output"
-	"github.com/theshedman/shedman/pkg/shedman/signals"
+	"github.com/theshedman/shedman/internal/output"
+	"github.com/theshedman/shedman/internal/signals"
 )
 
 // Version information - set at build time
@@ -59,7 +60,7 @@ func init() {
 	output.SetupColoredHelp(rootCmd)
 
 	// Add subcommands here
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(commands.VersionCmd)
 
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip all confirmations")
@@ -71,4 +72,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&colorFlag, "color", false, "Force colored output")
 	rootCmd.PersistentFlags().BoolVar(&noColorFlag, "no-color", false, "Disable colors")
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Custom config file path")
+}
+
+func main() {
+Execute()
 }

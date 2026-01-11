@@ -3,7 +3,7 @@ package output_test
 import (
 "testing"
 
-"github.com/theshedman/shedman/pkg/shedman/output"
+"github.com/theshedman/shedman/internal/output"
 )
 
 func TestColorize_WhenEnabled(t *testing.T) {

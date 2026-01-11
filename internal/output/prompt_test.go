@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/output"
+	"github.com/theshedman/shedman/internal/output"
 )
 
 func TestConfirmOptions_SkipPrompt(t *testing.T) {

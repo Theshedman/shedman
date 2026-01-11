@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/backend"
+	"github.com/theshedman/shedman/pkg/backend"
 )
 
 func TestPackageError(t *testing.T) {

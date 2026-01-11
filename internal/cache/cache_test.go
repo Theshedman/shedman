@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/cache"
+	"github.com/theshedman/shedman/internal/cache"
 )
 
 func TestNewFileSystemCache(t *testing.T) {

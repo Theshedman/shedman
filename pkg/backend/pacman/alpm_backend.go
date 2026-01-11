@@ -4,9 +4,8 @@ import (
 	"fmt"
 
 	"github.com/Jguer/go-alpm/v2"
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	"github.com/theshedman/shedman/pkg/shedman/convert"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/backend"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // AlpmBackend implements backend.OfficialBackend using libalpm directly.
@@ -428,36 +427,36 @@ func (b *AlpmBackend) addAllPackagesForUpgrade() (int, error) {
 	return upgradeCount, nil
 }
 
-// InstallLocal installs a local package file by converting to .shed format.
-// Supports .pkg.tar.zst, .pkg.tar.xz, .pkg.tar.gz, and .shed formats.
-func (b *AlpmBackend) InstallLocal(path string, opts backend.InstallOptions) error {
-	// Detect package format
-	format := convert.DetectPackageFormat(path)
-
-	var shedPath string
-	var err error
-
-	switch format {
-	case "shed":
-		// Already .shed format, use directly
-		shedPath = path
-
-	case "pacman-zst", "pacman-xz", "pacman-gz":
-		// Convert pacman package to .shed format
-		converter := convert.NewPackageConverter()
-		shedPath, err = converter.ConvertPacmanToShed(path)
-		if err != nil {
-			return fmt.Errorf("failed to convert package: %w", err)
-		}
-
-	default:
-		return fmt.Errorf("unsupported package format: %s", format)
-	}
-
-	// Install the .shed package
-	if err := convert.InstallShed(shedPath); err != nil {
-		return fmt.Errorf("shed installation failed: %w", err)
-	}
-
-	return nil
-}
+// // InstallLocal installs a local package file by converting to .shed format.
+// // Supports .pkg.tar.zst, .pkg.tar.xz, .pkg.tar.gz, and .shed formats.
+// func (b *AlpmBackend) InstallLocal(path string, opts backend.InstallOptions) error {
+// 	// Detect package format
+// 	format := convert.DetectPackageFormat(path)
+// 
+// 	var shedPath string
+// 	var err error
+// 
+// 	switch format {
+// 	case "shed":
+// 		// Already .shed format, use directly
+// 		shedPath = path
+// 
+// 	case "pacman-zst", "pacman-xz", "pacman-gz":
+// 		// Convert pacman package to .shed format
+// 		converter := convert.NewPackageConverter()
+// 		shedPath, err = converter.ConvertPacmanToShed(path)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to convert package: %w", err)
+// 		}
+// 
+// 	default:
+// 		return fmt.Errorf("unsupported package format: %s", format)
+// 	}
+// 
+// 	// Install the .shed package
+// 	if err := convert.InstallShed(shedPath); err != nil {
+// 		return fmt.Errorf("shed installation failed: %w", err)
+// 	}
+// 
+// 	return nil
+// }

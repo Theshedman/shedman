@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman"
+	"github.com/theshedman/shedman/pkg/core"
 )
 
 // MockBackend implements PackageBackend for testing

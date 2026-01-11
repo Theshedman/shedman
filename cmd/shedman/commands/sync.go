@@ -1,18 +1,18 @@
-package cmd
+package commands
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/shedman"
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	"github.com/theshedman/shedman/pkg/shedman/backend/aur"
-	"github.com/theshedman/shedman/pkg/shedman/backend/pacman"
-	"github.com/theshedman/shedman/pkg/shedman/backend/shedrepo"
-	"github.com/theshedman/shedman/pkg/shedman/cache"
-	"github.com/theshedman/shedman/pkg/shedman/config"
-	"github.com/theshedman/shedman/pkg/shedman/output"
+	"github.com/theshedman/shedman/pkg/core"
+	"github.com/theshedman/shedman/pkg/backend"
+	"github.com/theshedman/shedman/pkg/backend/aur"
+	"github.com/theshedman/shedman/pkg/backend/pacman"
+	"github.com/theshedman/shedman/pkg/backend/shedrepo"
+	"github.com/theshedman/shedman/internal/cache"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/output"
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 	syncRefresh  bool
 )
 
-var syncCmd = &cobra.Command{
+var SYNCCMD = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync package databases",
 	Long: `Synchronize package databases from configured sources.

@@ -6,7 +6,7 @@ import (
 "testing"
 "time"
 
-"github.com/theshedman/shedman/pkg/shedman/config"
+"github.com/theshedman/shedman/internal/config"
 )
 
 func TestConfig_Default(t *testing.T) {

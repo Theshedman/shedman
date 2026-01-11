@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/config"
+	"github.com/theshedman/shedman/internal/config"
 )
 
 // AUR RPC API version path

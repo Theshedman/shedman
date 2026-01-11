@@ -3,7 +3,7 @@
 package backend
 
 import (
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // OfficialBackend is the distribution-specific package manager interface.
@@ -42,8 +42,6 @@ type OfficialBackend interface {
 	// IsInstalled checks if a package is installed
 	IsInstalled(pkgName string) bool
 
-	// InstallLocal installs a local package file (.pkg.tar.zst, .deb, .rpm)
-	InstallLocal(path string, opts InstallOptions) error
 
 	// IsAvailable checks if this backend is available on the system
 	IsAvailable() bool

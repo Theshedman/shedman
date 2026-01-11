@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/theshedman/shedman/pkg/shedman/config"
+	"github.com/theshedman/shedman/internal/config"
 )
 
 // ShedOS API version path

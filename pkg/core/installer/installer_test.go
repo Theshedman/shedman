@@ -3,8 +3,8 @@ package installer_test
 import (
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/installer"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/installer"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 func TestInstallOptions_Defaults(t *testing.T) {

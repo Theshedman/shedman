@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/Jguer/go-alpm/v2"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // AlpmHandle abstracts libalpm operations for testability.

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // DB queries the pacman package database

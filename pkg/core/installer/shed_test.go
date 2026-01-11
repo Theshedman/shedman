@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/installer"
+	"github.com/theshedman/shedman/pkg/core/installer"
 )
 
 func TestShedInstaller_NewShedInstaller(t *testing.T) {

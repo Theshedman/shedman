@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/cache"
-	shedhttp "github.com/theshedman/shedman/pkg/shedman/http"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/internal/cache"
+	shedhttp "github.com/theshedman/shedman/internal/http"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 const (

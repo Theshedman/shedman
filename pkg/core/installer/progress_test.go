@@ -3,8 +3,8 @@ package installer_test
 import (
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/backend/pacman"
-	"github.com/theshedman/shedman/pkg/shedman/installer"
+	"github.com/theshedman/shedman/pkg/backend/pacman"
+	"github.com/theshedman/shedman/pkg/core/installer"
 )
 
 func TestPacmanProgress_ParseDownloading(t *testing.T) {

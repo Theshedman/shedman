@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/Jguer/go-alpm/v2"
-	"github.com/theshedman/shedman/pkg/shedman/backend"
+	"github.com/theshedman/shedman/pkg/backend"
 )
 
 func TestAlpmBackend_Search(t *testing.T) {

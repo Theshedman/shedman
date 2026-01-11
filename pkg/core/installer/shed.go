@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/theshedman/shedman/pkg/shedman/output"
+	"github.com/theshedman/shedman/internal/output"
 )
 
 // Common errors

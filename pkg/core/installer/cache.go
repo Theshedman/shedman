@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	pacmanBackend "github.com/theshedman/shedman/pkg/shedman/backend/pacman"
+	"github.com/theshedman/shedman/pkg/backend"
+	pacmanBackend "github.com/theshedman/shedman/pkg/backend/pacman"
 )
 
 // PackageFileCache provides thread-safe caching of package file ownership

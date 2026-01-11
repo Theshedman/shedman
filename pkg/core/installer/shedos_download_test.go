@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/config"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 func TestShedOSInstaller_DownloadMultiple_Parallel(t *testing.T) {

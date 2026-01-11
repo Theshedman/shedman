@@ -1,15 +1,15 @@
-package cmd
+package commands
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	"github.com/theshedman/shedman/pkg/shedman/config"
-	"github.com/theshedman/shedman/pkg/shedman/installer"
-	"github.com/theshedman/shedman/pkg/shedman/output"
-	"github.com/theshedman/shedman/pkg/shedman/resolver"
+	"github.com/theshedman/shedman/pkg/backend"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/core/installer"
+	"github.com/theshedman/shedman/internal/output"
+	"github.com/theshedman/shedman/pkg/core/resolver"
 )
 
 var (
@@ -44,7 +44,7 @@ func (s ShedInstalledProvider) GetInstalledPackages() []resolver.InstalledPackag
 	return result
 }
 
-var removeCmd = &cobra.Command{
+var REMOVECMD = &cobra.Command{
 	Use:   "remove [packages...]",
 	Short: "Remove packages",
 	Long: `Remove installed packages.

@@ -8,9 +8,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	"github.com/theshedman/shedman/pkg/shedman/config"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/backend"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // Default binary paths

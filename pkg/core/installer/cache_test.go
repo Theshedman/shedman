@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/config"
-	"github.com/theshedman/shedman/pkg/shedman/installer"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/core/installer"
 )
 
 func TestPackageFileCache_New(t *testing.T) {

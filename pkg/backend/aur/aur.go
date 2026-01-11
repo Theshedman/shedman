@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/theshedman/shedman/pkg/shedman/cache"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/internal/cache"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 const (

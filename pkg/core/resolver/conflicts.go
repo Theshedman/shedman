@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // ConflictSeverity represents how severe a conflict is

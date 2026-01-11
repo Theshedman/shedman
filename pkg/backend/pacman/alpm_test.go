@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/Jguer/go-alpm/v2"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // MockAlpmHandle implements AlpmHandle for testing.

@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/cache"
+	"github.com/theshedman/shedman/internal/cache"
 )
 
 func TestAURBackend_Name(t *testing.T) {

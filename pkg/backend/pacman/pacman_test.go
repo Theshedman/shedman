@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/theshedman/shedman/pkg/shedman/backend"
+	"github.com/theshedman/shedman/pkg/backend"
 )
 
 // MockExecutor implements CommandExecutor for testing

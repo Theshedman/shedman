@@ -3,7 +3,7 @@ package resolver
 import (
 	"fmt"
 
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // UpgradeInfo represents a package upgrade

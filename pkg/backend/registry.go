@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/theshedman/shedman/pkg/shedman/config"
+	"github.com/theshedman/shedman/internal/config"
 )
 
 // BackendFactory is a function that creates a backend with configuration

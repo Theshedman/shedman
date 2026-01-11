@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	pacmanBackend "github.com/theshedman/shedman/pkg/shedman/backend/pacman"
-	"github.com/theshedman/shedman/pkg/shedman/config"
+	"github.com/theshedman/shedman/pkg/backend"
+	pacmanBackend "github.com/theshedman/shedman/pkg/backend/pacman"
+	"github.com/theshedman/shedman/internal/config"
 )
 
 const (
@@ -279,8 +279,8 @@ func (a *AURInstaller) Install(pkgName string) error {
 		return fmt.Errorf("no backend available for package installation")
 	}
 
-	opts := backend.InstallOptions{NoConfirm: true}
-	return a.backend.InstallLocal(pkgFile, opts)
+	_ = backend.InstallOptions{NoConfirm: true}
+	return fmt.Errorf("local AUR package installation not yet implemented")
 }
 
 // findBuiltPackage finds the .pkg.tar.zst file in the build directory

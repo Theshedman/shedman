@@ -15,12 +15,9 @@
 graph LR
     A["Developer Push"] --> B["GitHub Actions"]
     B --> C["Build .pkg.tar.zst"]
-    B --> D["Build .shed"]
-    C --> E["Sign with Ed25519"]
-    D --> E
-    E --> F["Upload to R2"]
-    F --> G["Update shedos.db"]
-    F --> H["Update index.json"]
+    C --> D["Sign with Ed25519"]
+    D --> E["Upload to R2"]
+    E --> F["Update shedos.db"]
 ```
 
 ## Domain Structure
@@ -35,36 +32,18 @@ graph LR
 
 ## shedrepo Architecture (repo.shedos.org)
 
-Hosted on **Cloudflare R2**, serves both ShedOS native and universal packages.
+Hosted on **Cloudflare R2**, serves Arch packages for ShedOS.
 
 ### Directory Structure
 
 ```
 repo.shedos.org/
-├── arch/                           # ShedOS native packages
-│   ├── x86_64/
-│   │   ├── shedos.db               # Pacman database
-│   │   ├── shedos.db.sig
-│   │   └── packages/
-│   │       └── neovim-0.10.0.pkg.tar.zst
-│   └── aarch64/
-│
-├── shed/                      # .shed packages (all distros)
-│   ├── index.json                  # Package index + TUF metadata
-│   ├── deps-map/                   # Abstract → distro mapping
-│   │   ├── openssl.yml
-│   │   └── gtk3.yml
-│   └── packages/
-│       └── neovim/
-│           └── 0.10.0/
-│               ├── neovim-0.10.0-x86_64.shed
-│               └── manifest.yml
-│
-└── tuf/                            # TUF root metadata
-    ├── root.json
-    ├── targets.json
-    ├── snapshot.json
-    └── timestamp.json
+└── arch/                           # ShedOS packages (Arch format)
+    └── x86_64/
+        ├── shedos.db               # Pacman database
+        ├── shedos.db.sig
+        └── packages/
+            └── neovim-0.10.0.pkg.tar.zst
 ```
 
 ### URL Endpoints
@@ -73,40 +52,21 @@ repo.shedos.org/
 |---------|-----|
 | Arch DB | `repo.shedos.org/arch/x86_64/shedos.db` |
 | Arch Pkg | `repo.shedos.org/arch/x86_64/packages/*.pkg.tar.zst` |
-| Universal Index | `repo.shedos.org/shed/index.json` |
-| Universal Pkg | `repo.shedos.org/shed/packages/{name}/{ver}/*.shed` |
-| Deps Map | `repo.shedos.org/shed/deps-map/*.yml` |
 
-### Dependency Mapping Database
-
-```yaml
-# deps-map/openssl.yml
-abstract: openssl
-provides: [lib:libssl.so.3, lib:libcrypto.so.3]
-packages:
-  arch: openssl
-  debian: libssl3
-  fedora: openssl-libs
-  alpine: openssl
-```
-
-### shedman Resolution Priority
+### shedman Package Resolution
 
 ```mermaid
 graph TD
-    A["shedman install pkg"] --> B{"In arch/?"}
-    B -->|Yes| C["Install .pkg.tar.zst"]
-    B -->|No| D{"In shed/?"}
-    D -->|Yes| E["Install .shed"]
-    D -->|No| F{"Foreign format?"}
-    F -->|Yes| G["Convert → Install"]
-    F -->|No| H["Build from source"]
+    A["shedman install pkg"] --> B{"In shedos repo?"}
+    B -->|Yes| C["Install from shedos"]
+    B -->|No| D{"In official Arch repos?"}
+    D -->|Yes| E["Install from official"]
+    D -->|No| F{"In AUR?"}
+    F -->|Yes| G["Build from AUR"]
+    F -->|No| H["Package not found"]
 ```
 
-1. `arch/` (native .pkg.tar.zst) — fastest
-2. `shed/` (.shed) — cross-distro
-3. Convert foreign format — fallback
-4. Build from source — last resort
+**Priority**: shedos repo → official Arch repos → AUR
 
 ---
 
@@ -118,68 +78,23 @@ shedman is the **primary package manager for ShedOS** — an Arch-based Linux di
 
 ## Core Principles
 
-1. **ShedOS-Native, Cross-Distro Compatible** — designed for ShedOS, works on any Linux distribution
-2. **Version Freedom** — install any version, rollback anytime (unlike Arch's latest-only model)
-3. **Universal Packages** — install packages meant for one distro on another via `.shed` format
+1. **Arch-Native** — designed specifically for Arch-based distributions (ShedOS, Arch Linux, Manjaro, EndeavourOS)
+2. **100% Pacman Compatible** — supports all pacman flags and directly uses /etc/pacman.conf
+3. **Modular Design** — separate concerns (core, snapshot, config, de, theme) composed into unified CLI
 4. **Never Lose Your Data** — cloud + USB snapshots, restore after reinstall
-5. **Native Implementation** — uses libraries (e.g., `go-alpm`) directly, not binary wrappers
+5. **Native Implementation** — uses `go-alpm` library directly, shells to pacman for installations
 
 ## What Makes shedman Different
 
-| Feature | Traditional (pacman/apt/dnf) | shedman |
-|---------|------------------------------|---------|
-| Version availability | Latest only | **Multiple versions** |
-| Install specific version | ❌ Not supported | ✅ `shedman install pkg@1.2.3` |
-| Rollback | Limited/manual | ✅ `shedman rollback pkg` |
-| Cross-distro packages | ❌ | ✅ via `.shed` format |
-| Implementation | Standalone binary | **Native library integration** |
-
----
-
-# Cross-Distribution Support
-
-## How shedman Works Across Distributions
-
-shedman uses a **pluggable backend architecture** with native library integration:
-
-| Distribution | Backend | Implementation |
-|--------------|---------|----------------|
-| ShedOS | Native | Built-in |
-| Arch Linux | libalpm | Via `go-alpm` library |
-| Debian/Ubuntu | (planned) | Via libapt bindings |
-| Fedora/RHEL | (planned) | Via librpm bindings |
-
-**Key point:** shedman does NOT wrap other package manager binaries. It integrates with their libraries directly for native performance and control.
-
-## Universal Package Format (`.shed`)
-
-The `.shed` format allows packages to be installed on any distribution:
-
-```
-package.shed
-├── manifest.toml       # Package metadata
-├── files/              # Files to install
-│   └── usr/bin/app
-├── hooks/              # Install scripts
-│   ├── pre-install.sh
-│   └── post-install.sh
-└── deps-map.yml        # Abstract → distro-specific deps
-```
-
-### Dependency Mapping
-
-`.shed` packages use abstract dependency names that map to distro-specific packages:
-
-```yaml
-# deps-map/openssl.yml
-abstract: openssl
-packages:
-  arch: openssl
-  debian: libssl3
-  fedora: openssl-libs
-```
-
-This allows a single `.shed` package to install correctly on any supported distribution.
+| Feature | pacman/yay | shedman |
+|---------|------------|---------|
+| Modular architecture | ❌ Monolithic | ✅ Separate modules |
+| System snapshots | ❌ External tools | ✅ Integrated |
+| DE switching | ❌ Manual | ✅ `shedman de switch` |
+| Theme management | ❌ Manual | ✅ `shedman theme apply` |
+| Config packages | ❌ | ✅ `shedman config install` |
+| Service management | ❌ Must use systemctl | ✅ `shedman svc enable` |
+| Implementation | C/Bash | Go with go-alpm |
 
 ---
 
@@ -208,22 +123,19 @@ All pacman flags are supported for users transitioning from pacman.
 All packages installed with pacman/yay before switching to shedman:
 
 - Automatically tracked by shedman
-- Benefit from rollback, snapshots, verification
+- Benefit from snapshots, verification
 - Show in `shedman history` from point of migration
 
-## Import Pacman Config
+## Pacman Config Integration
 
-```bash
-shedman migrate                 # Import pacman.conf settings
-shedman migrate --from /etc/pacman.conf
-```
+shedman automatically reads and uses `/etc/pacman.conf`:
 
-This imports:
-
-- Mirror configuration
-- IgnorePkg/IgnoreGroup settings
-- ParallelDownloads setting
-- SigLevel settings
+- No migration needed
+- All pacman settings respected
+- Mirror configuration preserved
+- IgnorePkg/IgnoreGroup honored
+- ParallelDownloads setting used
+- SigLevel settings enforced
 
 ## Symlink Compatibility
 
@@ -293,7 +205,6 @@ Install packages.
 
 ```bash
 shedman install <pkg>           # Install from best source
-shedman install <pkg>@<version> # Install specific version
 shedman install <pkg> --aur     # Force install from AUR
 shedman install <pkg> --official  # Force from official
 shedman install <pkg> --shedos  # Force from shedos repo
@@ -410,16 +321,6 @@ Show package information.
 ```bash
 shedman info <pkg>              # Show package details
 shedman info <pkg> --json       # Output as JSON
-```
-
-### `shedman rollback`
-
-Downgrade to previous version.
-
-```bash
-shedman rollback <pkg>          # Rollback to previous version
-shedman rollback <pkg>@<version>  # Rollback to specific version
-shedman rollback --list <pkg>   # List available versions
 ```
 
 ### `shedman history`
@@ -776,20 +677,20 @@ shedman boot set-oneshot linux-lts     # Boot LTS once
 
 ---
 
-## 8. Service Management Commands
+## 8. Service Management Commands (svc)
 
-### `shedman service list`
+### `shedman svc list`
 
 ```bash
-shedman service list docker     # List docker services
+shedman svc list docker         # List docker services
 ```
 
-### `shedman service enable/start/status`
+### `shedman svc enable/start/status`
 
 ```bash
-shedman service enable docker
-shedman service start docker
-shedman service status docker
+shedman svc enable docker
+shedman svc start docker
+shedman svc status docker
 ```
 
 ---
@@ -882,18 +783,7 @@ shedman security report                 # Generate security report
 
 ## 13. AUR Commands
 
-### `shedman aur`
-
-AUR-specific operations.
-
-```bash
-shedman aur search <query>              # Search AUR
-shedman aur info <pkg>                  # Show AUR package info
-shedman aur vote <pkg>                  # Vote for package
-shedman aur unvote <pkg>                # Remove vote
-shedman aur comments <pkg>              # View maintainer/user comments
-shedman aur orphans                     # List orphaned AUR packages
-```
+---
 
 ---
 
@@ -901,83 +791,32 @@ shedman aur orphans                     # List orphaned AUR packages
 
 ### `shedman build`
 
-Build packages from various sources.
+Build packages from PKGBUILD (Arch format only).
 
 ```bash
-# Build from PKGBUILD (Arch)
+# Build from PKGBUILD
 shedman build ./PKGBUILD                # Build → .pkg.tar.zst
 shedman build ./PKGBUILD --install      # Build and install
 shedman build <aur-pkg> --edit          # Edit PKGBUILD before build
-
-# Build .shed packages
-shedman build ./manifest.yml            # Build → .shed from manifest
-shedman build --from-source pkg.shed    # Build from source .shed package
-```
-
-### `shedman convert`
-
-Convert between package formats.
-
-```bash
-# Convert TO .shed (import)
-shedman convert app.deb                 # .deb → .shed
-shedman convert app.rpm                 # .rpm → .shed
-shedman convert ./PKGBUILD              # PKGBUILD → .shed
-
-# Convert FROM .shed (export)
-shedman export app.shed --format deb    # .shed → .deb
-shedman export app.shed --format rpm    # .shed → .rpm
-shedman export app.shed --format pkg    # .shed → .pkg.tar.zst
 ```
 
 ### Local Package Install
 
-Install from local package files (any supported format).
+Install from local Arch package files.
 
 ```bash
-# Native Arch format
+# Native Arch format only
 shedman install ./package.pkg.tar.zst
 shedman install ./package.pkg.tar.zst --asdeps
-
-# .shed universal format
-shedman install ./package.shed
-shedman install ./package.shed --asdeps
-
-# Foreign formats (auto-converted)
-shedman install ./package.deb           # Converts to native, then installs
-shedman install ./package.rpm           # Converts to native, then installs
 ```
 
 ---
 
-## 15. Reporting & Stats
-
-### `shedman report`
-
-Generate system report for bug submissions.
-
-```bash
-shedman report                          # Generate report
-shedman report --output report.txt      # Save to file
-shedman report --include-logs           # Include recent logs
-```
-
-Report includes: OS version, kernel, installed packages, recent transactions, hardware info.
-
-### `shedman stats`
-
-Package statistics.
-
-```bash
-shedman stats                           # Overall stats
-shedman stats <pkg>                     # Package-specific stats
-```
-
-Shows: install date, update count, disk usage over time, dependency count.
+---
 
 ---
 
-## 16. Completion & Plugin Commands
+## 15. Completion Commands
 
 ### `shedman completion`
 
@@ -987,18 +826,6 @@ Generate shell completions.
 shedman completion bash > /etc/bash_completion.d/shedman
 shedman completion zsh > /usr/share/zsh/site-functions/_shedman
 shedman completion fish > ~/.config/fish/completions/shedman.fish
-```
-
-### `shedman plugin`
-
-Manage community plugins.
-
-```bash
-shedman plugin list                     # List installed plugins
-shedman plugin search <query>           # Search available plugins
-shedman plugin install <plugin>         # Install plugin
-shedman plugin remove <plugin>          # Remove plugin
-shedman plugin update                   # Update all plugins
 ```
 
 ---
@@ -1674,56 +1501,6 @@ Shows: added files, removed files, modified files, package changes.
 
 ---
 
-## Plugin System
-
-### Architecture
-
-```mermaid
-graph LR
-    A["shedman"] --> B["Plugin Discovery"]
-    B --> C["/usr/lib/shedman/plugins/"]
-    B --> D["~/.local/lib/shedman/plugins/"]
-    C --> E["shedman-plugin-docker"]
-    D --> F["shedman-plugin-flatpak"]
-    E --> G["JSON-RPC stdin/stdout"]
-    F --> G
-```
-
-Plugins are standalone executables that follow a naming convention:
-
-```
-shedman-plugin-<name>
-```
-
-shedman discovers plugins in:
-
-- `/usr/lib/shedman/plugins/`
-- `~/.local/lib/shedman/plugins/`
-
-### Plugin API
-
-Plugins receive commands via stdin (JSON-RPC) and output to stdout.
-
-```go
-// Plugin interface (Go example)
-type Plugin interface {
-    Name() string
-    Version() string
-    Commands() []Command
-    Execute(cmd string, args []string) error
-}
-```
-
-### Example Plugins
-
-| Plugin | Description |
-|--------|-------------|
-| `shedman-plugin-docker` | Manage Docker images alongside packages |
-| `shedman-plugin-flatpak` | Unified search across Flatpak |
-| `shedman-plugin-backup` | Advanced backup strategies |
-
----
-
 ## API / Library Mode
 
 shedman can be used programmatically:
@@ -1745,379 +1522,60 @@ client.Install("neovim", shedman.WithConfirm(false))
 
 ---
 
-## Cross-Distro Architecture
-
-### Philosophy: "Shed the Packaging Hell"
-
-> **Developers submit once. Users install anywhere.**
-
-shedman aims to solve Linux's fragmentation problem:
-
-- Users shouldn't care what format a package is in
-- Developers shouldn't package for 10 different distros
-- One command should work everywhere
 
 ---
 
-### Unified Syntax (Works Everywhere)
+# Part 3: Module Overview
 
-The same commands work on ANY Linux distribution:
+shedman uses a **modular monorepo** architecture. Each module handles a specific concern:
+
+## Core Modules
+
+| Module | Responsibility | Key Commands |
+|--------|----------------|--------------|
+| **core** | Package management | install, remove, update, search, info |
+| **snapshot** | Backup/restore | snapshot create/restore/push/pull |
+| **config** | Config packages | config list/install/update |
+| **de** | Desktop environments | de list/switch |
+| **theme** | Theme management | theme list/install/apply |
+| **boot** | Kernel/bootloader | boot list/set-default |
+| **svc** | Service management | svc list/enable/start/status |
+| **notifier** | Update notifications | notifier enable/disable/check |
+| **mirror** | Mirror management | mirror list/test/select |
+| **log** | Transaction logging | log, history |
+| **tui** | Interactive UI | tui |
+| **keyring** | GPG keys | keyring list/add/remove |
+| **security** | CVE scanning | security check/list/fix |
+
+## Module Interactions
+
+All modules compose into single `shedman` binary:
 
 ```bash
-shedman install neovim      # Works on Arch, Debian, Fedora, FreeBSD
-shedman update              # Works everywhere
-shedman remove firefox      # Works everywhere
-shedman search vim          # Works everywhere
+shedman install pkg       # Uses core module
+shedman snapshot create   # Uses snapshot module
+shedman de switch gnome   # Uses de + core + config modules
+shedman svc enable docker # Uses svc module
 ```
 
-No distro-specific syntax like `shedman apt install` or `shedman dnf install`. Just `shedman install`.
-
----
-
-### Symlink Compatibility
-
-Users can symlink their native package manager to shedman:
-
-```bash
-# On Arch
-sudo ln -sf /usr/bin/shedman /usr/bin/pacman
-# Now: pacman -S neovim → shedman handles it
-
-# On Debian/Ubuntu
-sudo ln -sf /usr/bin/shedman /usr/bin/apt
-# Now: apt install neovim → shedman handles it
-
-# On Fedora
-sudo ln -sf /usr/bin/shedman /usr/bin/dnf
-# Now: dnf install neovim → shedman handles it
-```
-
-**How it works:**
-
-```go
-func main() {
-    calledAs := filepath.Base(os.Args[0])  // "apt", "dnf", "pacman", or "shedman"
-    
-    switch calledAs {
-    case "pacman":
-        handlePacmanSyntax(os.Args[1:])  // Parse -S, -Syu, -R, etc.
-    case "apt":
-        handleAptSyntax(os.Args[1:])     // Parse install, update, upgrade
-    case "dnf":
-        handleDnfSyntax(os.Args[1:])     // Parse install, update, remove
-    default:
-        handleShedmanSyntax(os.Args[1:]) // Native shedman syntax
-    }
-}
-```
-
----
-
-### Universal Package Installation
-
-Install packages from ANY format on ANY distro:
-
-```mermaid
-graph TD
-    A["shedman install pkg"] --> B{"In native repos?"}
-    B -->|Yes| C["Install natively"]
-    B -->|No| D{"In shedrepo?"}
-    D -->|Yes| E["Download universal"]
-    D -->|No| F{"Foreign format available?"}
-    F -->|.deb| G["Convert .deb → native"]
-    F -->|.rpm| H["Convert .rpm → native"]
-    F -->|PKGBUILD| I["Build from PKGBUILD"]
-    E --> J["Convert to native format"]
-    G --> J
-    H --> J
-    I --> J
-    J --> K["Install"]
-```
-
-**Example:**
-
-```bash
-# User on Fedora wants a package only available as .deb
-shedman install discord
-
-# shedman:
-# 1. Checks native repos → not found
-# 2. Checks shedrepo → finds .deb
-# 3. Downloads .deb
-# 4. Converts to .rpm
-# 5. Installs natively
-```
-
----
-
-### Package Conversion Engine
-
-shedman converts between package formats transparently:
-
-| From | To | Method |
-|------|-----|--------|
-| `.deb` | `.pkg.tar.zst` | Extract, remap deps, repackage |
-| `.deb` | `.rpm` | Extract, create spec, build |
-| `.rpm` | `.pkg.tar.zst` | Extract, remap deps, repackage |
-| `.rpm` | `.deb` | Extract, create control, build |
-| `PKGBUILD` | `.rpm` | Parse, create spec, build |
-| `PKGBUILD` | `.deb` | Parse, create debian/, build |
-
-**Prior art:** `alien`, `debtap`, `fpm` — shedman builds on these concepts.
-
----
-
-### The `.shed` Universal Package Format
-
-> **Design Philosophy:** "NPM-like simplicity with Nix-like power"
-
-A developer-first format that hides advanced power (CAS, TUF, zchunk) behind a simple interface.
-
-#### File Structure (`.shed` = `tar.zst` + zchunk)
+## Monorepo Structure
 
 ```
-package-1.0.0.shed
-├── manifest.yml        # Package metadata + permissions
-├── files/              # Binary payload (for binary packages)
-├── build.sh            # Build script (for source packages, optional)
-├── deps.yml            # Auto-generated dependency map
-├── signatures/         # TUF metadata & Ed25519 signatures
-└── sbom.json           # SLSA provenance + SBOM
+shedman/
+├── cmd/shedman/          # Main CLI entry
+├── pkg/                  # Public modules
+│   ├── core/
+│   ├── snapshot/
+│   ├── config/
+│   └── ...
+└── internal/             # Shared utilities
+    ├── alpm/
+    ├── config/
+    └── output/
 ```
 
-#### `manifest.yml` (Developer Writes This)
+For detailed architecture, see:
 
-```yaml
-name: "neovim"
-version: "0.10.0"
-description: "Vim-fork focused on extensibility"
-license: "Apache-2.0"
-arch: ["x86_64", "aarch64"]
-type: "binary"  # or "source"
-
-# Sandbox Permissions (Network-only default)
-permissions:
-  network: true       # ✅ Allowed by default
-  audio: false        # ❌ Denied
-  gpu: false          # ❌ Denied
-  camera: false       # ❌ Denied
-  microphone: false   # ❌ Denied
-  files: ["/home", "/tmp"]
-
-# Abstract Dependencies (shedman resolves per-distro)
-depends:
-  - openssl
-  - gtk3
-  - lua >= 5.1
-
-# Build Dependencies (for source packages only)
-makedepends:
-  - cmake
-  - gcc
-```
-
-#### Source Build Support
-
-For source packages, include a `build.sh` (POSIX shell):
-
-```bash
-#!/bin/sh
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr
-cmake --build build
-DESTDIR="$pkgdir" cmake --install build
-```
-
-**Commands:**
-
-- `shedman build` — Build binary `.shed` from source
-- `shedman build --from-source` — Build from source package
-
-```mermaid
-graph LR
-    A["manifest.yml"] --> B["shedman build"]
-    C["files/"] --> B
-    D["build.sh"] --> B
-    B --> E["Auto-detect deps"]
-    E --> F["Sign with Ed25519"]
-    F --> G["Chunk with zchunk"]
-    G --> H["package.shed"]
-```
-
-#### Hybrid Dependency Resolution
-
-| Step | Action |
-|------|--------|
-| 1. Auto-Detect | `ldd` scans binaries → finds `libssl.so.3` |
-| 2. Map | Lookup: `libssl.so.3` → abstract name `openssl` |
-| 3. Resolve | Install: `openssl` → `libssl3` (Debian) / `openssl` (Arch) |
-
-**Developer writes:** `depends: [openssl]` — shedman does the rest.
-
-#### Delta Updates (zchunk, v1)
-
-Uses `zchunk` for efficient updates:
-
-- **Build**: `shedman build` auto-chunks archive
-- **Update**: User downloads only changed chunks
-- **Example**: 200MB app, 5MB changed → 5MB download
-
-#### Conversion Engine
-
-```bash
-# Import from other formats
-shedman convert app.deb      # → app.shed
-shedman convert app.rpm      # → app.shed
-shedman convert PKGBUILD     # → app.shed
-
-# Export to other formats
-shedman export app.shed --format deb
-shedman export app.shed --format rpm
-```
-
-#### Security Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Signatures** | Ed25519 (mandatory, auto-signed) |
-| **Integrity** | TUF (prevents rollback/freeze attacks) |
-| **Provenance** | SLSA (auto-generated in CI) |
-| **Storage** | CAS (`/shed/store/<hash>/`) |
-| **Sandbox** | Bubblewrap (permission-aware) |
-
-#### TUF Key Hierarchy
-
-| Key | Function |
-|-----|----------|
-| **Root** | Offline, signs other keys |
-| **Targets** | Signs package manifests |
-| **Snapshot** | Signs repo state |
-| **Timestamp** | Short-lived freshness |
-
-#### Content Addressable Store (CAS)
-
-Files stored in `/shed/store/<hash>-neovim-0.10.0/`:
-
-- **Deduplication**: Identical files stored once
-- **Atomic Updates**: Symlink switching
-- **Instant Rollbacks**: Previous versions preserved
-
----
-
-**Minimal package requires only 6 lines of YAML + files directory.**
-
----
-
-### Search Across All Sources
-
-```bash
-shedman search discord
-
- 📦 discord    0.0.35    [native]     # In native repos
- 📦 discord    0.0.36    [shedrepo]   # Universal package
- 📦 discord    0.0.36    [deb]        # Convertible from .deb
- 📦 discord    0.0.36    [aur]        # Buildable from AUR
-
-shedman install discord
-# Picks best source automatically (native > shedrepo > convert > build)
-```
-
----
-
-### Backend Interface
-
-```go
-type PackageBackend interface {
-    Name() string
-    Sync() error
-    Install(pkgs []string) error
-    Remove(pkgs []string) error
-    Search(query string) []Package
-    Info(pkg string) *PackageInfo
-    Convert(pkg *Package, targetFormat string) (*Package, error)  // NEW
-}
-```
-
-**Current backends (Arch + Universal):**
-
-| Backend | Source | Format |
-|---------|--------|--------|
-| `pacman` | Official Arch repos | `.pkg.tar.zst` |
-| `aur` | Arch User Repository | PKGBUILD |
-| `shedos` | repo.shedos.org/arch/ | `.pkg.tar.zst` |
-| `shedrepo` | repo.shedos.org/shed/ | `.shed` |
-
-**Future backends (Cross-Distro):**
-
-| Backend | Source | Format |
-|---------|--------|--------|
-| `apt` | Debian/Ubuntu repos + PPAs | `.deb` |
-| `dnf` | Fedora repos + COPR | `.rpm` |
-| `pkg` | FreeBSD ports | pkg |
-| `alpine` | Alpine repos | `.apk` |
-
----
-
-### Auto-Detect Distribution
-
-```go
-func detectDistro() Distro {
-    if exists("/etc/arch-release") { return Arch }
-    if exists("/etc/debian_version") { return Debian }
-    if exists("/etc/fedora-release") { return Fedora }
-    if exists("/etc/alpine-release") { return Alpine }
-    if runtime.GOOS == "freebsd" { return FreeBSD }
-    return Unknown
-}
-```
-
----
-
-### Migration Between Distros
-
-```bash
-# Export from current system (any distro)
-shedman export --universal > my-packages.yml
-
-# On new distro, install everything
-shedman import my-packages.yml
-# shedman finds equivalent packages for new distro
-```
-
----
-
-# Part 3: Implementation Phases
-
-| Phase | Scope | Priority |
-|-------|-------|----------|
-| 1 | Core: sync, install, remove, search, update, info, rollback, history | P0 |
-| 2 | shedrepo + R2 + CI/CD + signing | P0 |
-| 3 | TUI + progress bars + pretty output | P0 |
-| 4 | Config/theme system + conflict resolution | P1 |
-| 5 | Snapshot (local, all filesystems) | P1 |
-| 6 | AUR sandbox + verification | P1 |
-| 7 | Snapshot (cloud backup + USB) | P2 |
-| 8 | DE switching | P2 |
-| 9 | System utils (doctor, clean, orphans) | P2 |
-| 10 | Boot management | P2 |
-| 11 | Security (keyring, CVE checking) | P2 |
-| 12 | Notifications (desktop + MOTD) | P3 |
-| 13 | Shell completions + man pages | P3 |
-| 14 | Hooks system | P3 |
-| 15 | Systemd integration | P3 |
-| 16 | Network (resume, delta, bandwidth limit) | P3 |
-| 17 | Scheduled snapshots + encryption | P3 |
-| 18 | Plugin system | P3 |
-| 19 | API/library mode | P3 |
-| 20 | AUR voting/comments | P4 |
-| 21 | Build commands | P4 |
-| 22 | Reporting & stats | P4 |
-| 23 | shedos-calamares fork | P4 |
-| 24 | Mirror failover | P4 |
-| 25 | Package request system (web) | P5 |
-| 26 | packages.shedos.org (web) | P5 |
-| 27 | Telemetry (opt-in) | P5 |
-| 28 | Symlink compatibility (apt/dnf/pacman) | P6 |
-| 29 | Package conversion engine (.deb ↔ .rpm ↔ .pkg) | P6 |
-| 30 | shedrepo universal format (package.yml) | P6 |
-| 31 | Cross-distro backends (apt, dnf, pkg) | P7 |
-| 32 | Universal package search (all formats) | P7 |
+- [Modular Architecture](../architecture/modular_architecture.md)
+- [Capability Interfaces](../architecture/capability_interfaces.md)
+- [Architecture Decision Records](../architecture/adrs.md)

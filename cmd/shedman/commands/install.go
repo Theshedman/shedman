@@ -1,16 +1,16 @@
-package cmd
+package commands
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	"github.com/theshedman/shedman/pkg/shedman/backend/pacman"
-	"github.com/theshedman/shedman/pkg/shedman/config"
-	"github.com/theshedman/shedman/pkg/shedman/installer"
-	"github.com/theshedman/shedman/pkg/shedman/output"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
-	"github.com/theshedman/shedman/pkg/shedman/resolver"
+	"github.com/theshedman/shedman/pkg/backend"
+	"github.com/theshedman/shedman/pkg/backend/pacman"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/core/installer"
+	"github.com/theshedman/shedman/internal/output"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
+	"github.com/theshedman/shedman/pkg/core/resolver"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 	installFromShedOS   bool
 )
 
-var installCmd = &cobra.Command{
+var INSTALLCMD = &cobra.Command{
 	Use:   "install [packages...]",
 	Short: "Install packages",
 	Long: `Install packages from configured sources.

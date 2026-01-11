@@ -1,8 +1,8 @@
-package cmd
+package commands
 
 import "github.com/spf13/cobra"
 
-var versionCmd = &cobra.Command{
+var VERSIONCMD = &cobra.Command{
 	Use:   "version",
 	Short: "Prints the current version of the shedman package manager",
 	Long:  "Prints the current version of the shedman packange manager",

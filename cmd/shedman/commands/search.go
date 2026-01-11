@@ -1,4 +1,4 @@
-package cmd
+package commands
 
 import (
 	"encoding/json"
@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/shedman/backend"
-	"github.com/theshedman/shedman/pkg/shedman/backend/aur"
-	"github.com/theshedman/shedman/pkg/shedman/backend/shedrepo"
-	"github.com/theshedman/shedman/pkg/shedman/cache"
-	"github.com/theshedman/shedman/pkg/shedman/config"
-	"github.com/theshedman/shedman/pkg/shedman/installer"
-	"github.com/theshedman/shedman/pkg/shedman/output"
-	"github.com/theshedman/shedman/pkg/shedman/pkgdb"
+	"github.com/theshedman/shedman/pkg/backend"
+	"github.com/theshedman/shedman/pkg/backend/aur"
+	"github.com/theshedman/shedman/pkg/backend/shedrepo"
+	"github.com/theshedman/shedman/internal/cache"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/core/installer"
+	"github.com/theshedman/shedman/internal/output"
+	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 var (
@@ -35,7 +35,7 @@ type SearchResult struct {
 	Installed   bool   `json:"installed"`
 }
 
-var searchCmd = &cobra.Command{
+var SEARCHCMD = &cobra.Command{
 	Use:   "search <query>",
 	Short: "Search for packages",
 	Long: `Search for packages across multiple sources.
