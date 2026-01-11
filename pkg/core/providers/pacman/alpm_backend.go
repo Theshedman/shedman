@@ -86,11 +86,6 @@ func (b *AlpmBackend) Name() string {
 	return "pacman"
 }
 
-// DistroFamily returns "arch".
-func (b *AlpmBackend) DistroFamily() string {
-	return "arch"
-}
-
 // IsAvailable returns true if libalpm is initialized.
 func (b *AlpmBackend) IsAvailable() bool {
 	return b.handle != nil && b.handle.LocalDb() != nil

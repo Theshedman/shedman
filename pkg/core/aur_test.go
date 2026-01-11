@@ -268,10 +268,10 @@ type mockInstallBackend struct {
 	installLocalFunc func(path string, opts interface{}) error
 }
 
-func (m *mockInstallBackend) Name() string         { return "mock" }
-func (m *mockInstallBackend) DistroFamily() string { return "mock" }
-func (m *mockInstallBackend) IsAvailable() bool    { return true }
-func (m *mockInstallBackend) Sync() error          { return nil }
+func (m *mockInstallBackend) Name() string { return "mock" }
+
+func (m *mockInstallBackend) IsAvailable() bool { return true }
+func (m *mockInstallBackend) Sync() error       { return nil }
 
 func (m *mockInstallBackend) Install(pkgs []string, opts InstallOptions) error {
 	return nil

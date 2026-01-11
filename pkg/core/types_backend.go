@@ -10,7 +10,4 @@ type OfficialBackend interface {
 	Upgradable
 	LocalInstaller
 	FileProvider
-
-	// DistroFamily returns the distro family ("arch", "debian", "fedora", "suse")
-	DistroFamily() string
 }

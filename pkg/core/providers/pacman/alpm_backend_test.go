@@ -146,13 +146,6 @@ func TestAlpmBackend_Name(t *testing.T) {
 	}
 }
 
-func TestAlpmBackend_DistroFamily(t *testing.T) {
-	b := &AlpmBackend{}
-	if b.DistroFamily() != "arch" {
-		t.Errorf("Expected 'arch', got '%s'", b.DistroFamily())
-	}
-}
-
 func TestAlpmBackend_GetPackageFiles(t *testing.T) {
 	vimPkg := &alpm.MockAlpmPackage{
 		NameVal:    "vim",
@@ -200,7 +193,6 @@ func TestAlpmBackend_GetPackageFiles_NotFound(t *testing.T) {
 		t.Errorf("Expected ErrPackageNotFound, got %v", err)
 	}
 }
-
 
 func TestAlpmBackend_InstallLocal(t *testing.T) {
 	mockExecutor := &MockExecutor{}

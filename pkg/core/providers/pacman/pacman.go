@@ -112,11 +112,6 @@ func (b *Backend) Name() string {
 	return "pacman"
 }
 
-// DistroFamily returns "arch"
-func (b *Backend) DistroFamily() string {
-	return "arch"
-}
-
 // IsAvailable checks if pacman is available
 func (b *Backend) IsAvailable() bool {
 	_, err := exec.LookPath(b.binaryPath)

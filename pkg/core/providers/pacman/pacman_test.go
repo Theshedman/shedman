@@ -40,13 +40,6 @@ func TestBackend_Name(t *testing.T) {
 	}
 }
 
-func TestBackend_DistroFamily(t *testing.T) {
-	b := NewWithExecutor(&MockExecutor{})
-	if b.DistroFamily() != "arch" {
-		t.Errorf("Expected family 'arch', got '%s'", b.DistroFamily())
-	}
-}
-
 func TestBackend_Install_BuildsCorrectCommand(t *testing.T) {
 	mock := &MockExecutor{}
 	b := NewWithExecutor(mock)
