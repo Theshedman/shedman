@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
 )
@@ -14,6 +13,8 @@ import (
 var (
 	infoJSON bool
 )
+
+var InfoCmd = NewInfoCmd()
 
 func NewInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -41,7 +42,7 @@ func runInfo(pkgName string) error {
 	}
 
 	// Initialize Engine
-	eng, err := shedman.NewEngineWithConfig(cfg)
+	eng, err := NewEngineWithConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize engine: %w", err)
 	}
@@ -58,7 +59,6 @@ func runInfo(pkgName string) error {
 		return enc.Encode(info)
 	}
 
-	// Render Text Output
 	// Render Text Output
 	output.PrintInfoKV("Name", info.Name)
 	output.PrintInfoKV("Version", info.Version)
@@ -85,5 +85,4 @@ func runInfo(pkgName string) error {
 }
 
 func init() {
-	rootCmd.AddCommand(NewInfoCmd())
 }

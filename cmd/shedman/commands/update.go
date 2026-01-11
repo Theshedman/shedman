@@ -4,10 +4,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/core"
-	"github.com/theshedman/shedman/pkg/backend"
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
+	"github.com/theshedman/shedman/pkg/core"
 )
 
 var (
@@ -18,6 +17,8 @@ var (
 	updateIgnore      []string
 	updateIgnoreGroup []string
 )
+
+var UpdateCmd = NewUpdateCmd()
 
 func NewUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -55,7 +56,7 @@ func runUpdate(args []string) error {
 	pkgs := args
 
 	// Setup options
-	opts := backend.UpgradeOptions{
+	opts := core.UpgradeOptions{
 		// We sync manually via engine for parallelism, so we disable refresh in Upgrade
 		Refresh:      false,
 		NoConfirm:    updateYes,
@@ -75,7 +76,7 @@ func runUpdate(args []string) error {
 	}
 
 	// Initialize Engine to manage backends
-	eng, err := shedman.NewEngineWithConfig(cfg)
+	eng, err := NewEngineWithConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize engine: %w", err)
 	}
@@ -97,5 +98,4 @@ func runUpdate(args []string) error {
 }
 
 func init() {
-	rootCmd.AddCommand(NewUpdateCmd())
 }

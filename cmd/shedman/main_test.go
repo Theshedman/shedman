@@ -1,7 +1,7 @@
-package cmd
+package main
 
 import (
-"testing"
+	"testing"
 )
 
 func TestGlobalFlagsRegistry(t *testing.T) {

@@ -7,9 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
-	"github.com/theshedman/shedman/pkg/backend"
-	"github.com/theshedman/shedman/pkg/core/installer"
-	"github.com/theshedman/shedman/pkg/core/resolver"
+	"github.com/theshedman/shedman/pkg/core"
 )
 
 var (
@@ -19,13 +17,13 @@ var (
 	removeNosave    bool
 )
 
-// ShedInstalledProvider adapts ShedInstaller to resolver.InstalledProvider
+// ShedInstalledProvider adapts ShedInstaller to core.InstalledProvider
 type ShedInstalledProvider struct {
-	installer *installer.ShedInstaller
+	installer *core.ShedInstaller
 }
 
-func (s ShedInstalledProvider) GetInstalledPackages() []resolver.InstalledPackage {
-	var result []resolver.InstalledPackage
+func (s ShedInstalledProvider) GetInstalledPackages() []core.InstalledPackage {
+	var result []core.InstalledPackage
 
 	names, _ := s.installer.ListInstalled()
 	for _, name := range names {
@@ -36,7 +34,7 @@ func (s ShedInstalledProvider) GetInstalledPackages() []resolver.InstalledPackag
 			continue
 		}
 
-		result = append(result, resolver.InstalledPackage{
+		result = append(result, core.InstalledPackage{
 			Name:    manifest.Name,
 			Depends: manifest.Depends,
 		})
@@ -44,7 +42,7 @@ func (s ShedInstalledProvider) GetInstalledPackages() []resolver.InstalledPackag
 	return result
 }
 
-var removeCmd = &cobra.Command{
+var RemoveCmd = &cobra.Command{
 	Use:   "remove [packages...]",
 	Short: "Remove packages",
 	Long: `Remove installed packages.
@@ -74,12 +72,13 @@ Examples:
 		}
 
 		// Dry-run mode
-		if dryRunFlag {
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
+		if dryRun {
 			return handleRemoveDryRun(cmd, args, cfg)
 		}
 
 		// Get the appropriate official backend for this distro
-		officialBackend, err := backend.DetectBackendWithConfig(&cfg.Backend)
+		officialBackend, err := DetectBackendWithConfig(&cfg.Backend)
 		if err != nil {
 			output.Warning("Official backend not available: %v", err)
 			officialBackend = nil
@@ -98,11 +97,11 @@ Examples:
 
 		// Handle Recursive Removal for .shed packages
 		if removeRecursive && len(shedPkgs) > 0 {
-			shedInstaller := installer.NewShedInstaller()
+			shedInstaller := core.NewShedInstaller()
 			provider := ShedInstalledProvider{installer: shedInstaller}
 
 			// Calculate removal list including orphans
-			expandedList := resolver.CalculateRecursiveRemoval(shedPkgs, provider)
+			expandedList := core.CalculateRecursiveRemoval(shedPkgs, provider)
 
 			// Identify newly added packages for user info
 			originalSet := make(map[string]bool)
@@ -129,7 +128,8 @@ Examples:
 		}
 
 		// Show what we're removing
-		if !quietFlag {
+		quiet, _ := cmd.Flags().GetBool("quiet")
+		if !quiet {
 			backendName := "unknown"
 			if officialBackend != nil {
 				backendName = officialBackend.Name()
@@ -145,7 +145,8 @@ Examples:
 		}
 
 		// Confirmation prompt (unless --yes or config.General.Confirm is false)
-		if !yesFlag && cfg.General.Confirm {
+		yes, _ := cmd.Flags().GetBool("yes")
+		if !yes && cfg.General.Confirm {
 			prompt := fmt.Sprintf("Remove %d package(s)?", totalToRemove)
 			if !output.Confirm(prompt, output.ConfirmOptions{Default: false}) {
 				output.Info("Removal cancelled.")
@@ -154,11 +155,12 @@ Examples:
 		}
 
 		// Execute removal for each backend
-		if err := executeRemoval(officialBackend, officialPkgs, shedPkgs, cfg); err != nil {
+		verbose, _ := cmd.Flags().GetBool("verbose")
+		if err := executeRemoval(officialBackend, officialPkgs, shedPkgs, cfg, quiet, yes, verbose); err != nil {
 			return err
 		}
 
-		if !quietFlag {
+		if !quiet {
 			output.Success("Removal complete.")
 		}
 
@@ -167,7 +169,7 @@ Examples:
 }
 
 // categorizePackagesForRemoval groups packages by their backend (official vs shed)
-func categorizePackagesForRemoval(args []string, cfg *config.Config, officialBackend backend.OfficialBackend) (officialPkgs, shedPkgs, notFound []string, err error) {
+func categorizePackagesForRemoval(args []string, cfg *config.Config, officialBackend core.OfficialBackend) (officialPkgs, shedPkgs, notFound []string, err error) {
 	// Build ignore set from config
 	ignoreSet := make(map[string]bool)
 	for _, pkg := range cfg.Packages.IgnorePkg {
@@ -175,7 +177,7 @@ func categorizePackagesForRemoval(args []string, cfg *config.Config, officialBac
 	}
 
 	// Initialize ShedInstaller to check for .shed packages
-	shedInstaller := installer.NewShedInstaller()
+	shedInstaller := core.NewShedInstaller()
 
 	for _, pkg := range args {
 		// Check if package is ignored
@@ -204,7 +206,7 @@ func categorizePackagesForRemoval(args []string, cfg *config.Config, officialBac
 }
 
 // executeRemoval removes packages using the appropriate backend
-func executeRemoval(officialBackend backend.OfficialBackend, officialPkgs, shedPkgs []string, cfg *config.Config) error {
+func executeRemoval(officialBackend core.OfficialBackend, officialPkgs, shedPkgs []string, cfg *config.Config, quiet, yes, verbose bool) error {
 	// Remove official packages via detected backend
 	if len(officialPkgs) > 0 {
 		if officialBackend == nil {
@@ -214,14 +216,14 @@ func executeRemoval(officialBackend backend.OfficialBackend, officialPkgs, shedP
 		// Merge --purge and --nosave
 		noSave := removePurge || removeNosave
 
-		opts := backend.RemoveOptions{
+		opts := core.RemoveOptions{
 			Cascade:   removeCascade,
 			NoSave:    noSave,
 			Recursive: removeRecursive,
-			NoConfirm: yesFlag || !cfg.General.Confirm,
+			NoConfirm: yes || !cfg.General.Confirm,
 		}
 
-		if !quietFlag {
+		if !quiet {
 			output.Info("Removing %d %s package(s)...", len(officialPkgs), officialBackend.Name())
 		}
 
@@ -232,14 +234,14 @@ func executeRemoval(officialBackend backend.OfficialBackend, officialPkgs, shedP
 
 	// Remove .shed packages
 	if len(shedPkgs) > 0 {
-		shedInstaller := installer.NewShedInstaller()
+		shedInstaller := core.NewShedInstaller()
 
-		if !quietFlag {
+		if !quiet {
 			output.Info("Removing %d .shed package(s)...", len(shedPkgs))
 		}
 
 		for _, pkg := range shedPkgs {
-			if verboseFlag {
+			if verbose {
 				output.Info("Removing .shed package: %s", pkg)
 			}
 			if err := shedInstaller.Remove(pkg); err != nil {
@@ -254,7 +256,7 @@ func executeRemoval(officialBackend backend.OfficialBackend, officialPkgs, shedP
 // handleRemoveDryRun shows what would be removed without actually removing
 func handleRemoveDryRun(cmd *cobra.Command, args []string, cfg *config.Config) error {
 	// Detect backend for display
-	backendName := backend.GetBackendName()
+	backendName := core.GetBackendName()
 
 	cmd.Printf("Dry-run mode (backend: %s):\n", backendName)
 	cmd.Println("Would remove the following packages:")
@@ -275,14 +277,12 @@ func handleRemoveDryRun(cmd *cobra.Command, args []string, cfg *config.Config) e
 
 // GetRemoveCmd returns the remove command for testing
 func GetRemoveCmd() *cobra.Command {
-	return removeCmd
+	return RemoveCmd
 }
 
 func init() {
-	removeCmd.Flags().BoolVarP(&removeRecursive, "recursive", "s", false, "Remove unused dependencies")
-	removeCmd.Flags().BoolVar(&removeCascade, "cascade", false, "Remove packages that depend on these")
-	removeCmd.Flags().BoolVar(&removePurge, "purge", false, "Also remove configuration files")
-	removeCmd.Flags().BoolVar(&removeNosave, "nosave", false, "Don't save configuration files (alias for --purge)")
-
-	rootCmd.AddCommand(removeCmd)
+	RemoveCmd.Flags().BoolVarP(&removeRecursive, "recursive", "s", false, "Remove unused dependencies")
+	RemoveCmd.Flags().BoolVar(&removeCascade, "cascade", false, "Remove packages that depend on these")
+	RemoveCmd.Flags().BoolVar(&removePurge, "purge", false, "Also remove configuration files")
+	RemoveCmd.Flags().BoolVar(&removeNosave, "nosave", false, "Don't save configuration files (alias for --purge)")
 }

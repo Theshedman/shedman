@@ -5,14 +5,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/cache"
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
-	"github.com/theshedman/shedman/pkg/backend"
-	"github.com/theshedman/shedman/pkg/backend/aur"
-	"github.com/theshedman/shedman/pkg/backend/pacman"
-	"github.com/theshedman/shedman/pkg/backend/shedrepo"
-	shedman "github.com/theshedman/shedman/pkg/core"
+	"github.com/theshedman/shedman/pkg/core"
+	"github.com/theshedman/shedman/pkg/core/providers/aur"
+	"github.com/theshedman/shedman/pkg/core/providers/pacman"
+	shedrepo "github.com/theshedman/shedman/pkg/core/providers/shed"
 )
 
 var (
@@ -22,7 +20,7 @@ var (
 	syncRefresh  bool
 )
 
-var syncCmd = &cobra.Command{
+var SyncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync package databases",
 	Long: `Synchronize package databases from configured sources.
@@ -34,15 +32,16 @@ By default, syncs all databases. Use flags to sync specific sources:
   --refresh     Force refresh even if cache exists`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Load configuration
+		configFile, _ := cmd.Flags().GetString("config")
 		cfg, err := config.Load(configFile)
 		if err != nil {
 			return err
 		}
 
-		c := cache.NewFileSystemCache()
+		fsCache := core.NewFileSystemCache()
 
 		// Collect backends based on flags
-		var backendList []shedman.PackageBackend
+		var backendList []core.PackageBackend
 		syncAll := !syncOfficial && !syncAUR && !syncShedOS
 
 		if syncAll || syncOfficial {
@@ -59,17 +58,20 @@ By default, syncs all databases. Use flags to sync specific sources:
 			}
 		}
 		if syncAll || syncAUR {
-			if !backend.IsAURAvailable() {
+			if !core.IsAURAvailable() {
 				if syncAUR {
 					// Explicit --aur flag, return error
-					return backend.ErrAURNotAvailable
+					return core.ErrAURNotAvailable
 				}
 				// syncAll - just skip AUR silently on non-Arch systems
-				if debugFlag {
+				debug, _ := cmd.Flags().GetBool("debug")
+				if debug {
 					output.Warning("Skipping AUR sync: not on Arch-based system")
 				}
 			} else {
-				backendList = append(backendList, aur.New(c))
+				// Need pkgCache for AUR
+				pkgCache := core.NewPackageFileCacheWithBackend(24*time.Hour, nil)
+				backendList = append(backendList, aur.New(pkgCache))
 			}
 		}
 		if syncAll || syncShedOS {
@@ -78,17 +80,20 @@ By default, syncs all databases. Use flags to sync specific sources:
 			if cfg.Network.Timeout > 0 {
 				timeout = time.Duration(cfg.Network.Timeout) * time.Second
 			}
-			shedRepo := shedrepo.NewWithMirrors(cfg.Mirrors.ShedOS, c, timeout)
-			if syncRefresh {
-				shedRepo.SetForceRefresh(true)
+			// ShedOS backend
+			if cfg.Mirrors.ShedOS != nil && len(cfg.Mirrors.ShedOS) > 0 {
+				backendList = append(backendList, shedrepo.NewWithMirrors(cfg.Mirrors.ShedOS, fsCache, timeout))
+			} else {
+				backendList = append(backendList, shedrepo.New(fsCache, timeout))
 			}
-			backendList = append(backendList, shedRepo)
 		}
 
 		// Debug output
-		if debugFlag {
+		debug, _ := cmd.Flags().GetBool("debug")
+		if debug {
+			configFile, _ := cmd.Flags().GetString("config")
 			cmd.Printf("[DEBUG] Config file: %s\n", configFile)
-			cmd.Printf("[DEBUG] Cache directory: %s\n", c.GetDir())
+			cmd.Printf("[DEBUG] Cache directory: %s\n", fsCache.GetDir())
 			cmd.Printf("[DEBUG] ShedRepo mirrors: %v\n", cfg.Mirrors.ShedOS)
 			cmd.Printf("[DEBUG] Backends to sync: %d\n", len(backendList))
 			cmd.Printf("[DEBUG] Refresh mode: %v\n", syncRefresh)
@@ -98,7 +103,8 @@ By default, syncs all databases. Use flags to sync specific sources:
 		}
 
 		// Dry-run mode
-		if dryRunFlag {
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
+		if dryRun {
 			cmd.Println("Dry-run mode: would sync the following backends:")
 			for _, b := range backendList {
 				cmd.Printf("  - %s\n", b.Name())
@@ -106,14 +112,16 @@ By default, syncs all databases. Use flags to sync specific sources:
 			return nil
 		}
 
-		if !quietFlag {
-			output.Info("Synchronizing package databases...")
+		quiet, _ := cmd.Flags().GetBool("quiet")
+		if !quiet {
+			output.Info("Synchronizing package databases to %s...", fsCache.GetDir())
 		}
 
 		// Sync each backend with verbose progress
-		engine := shedman.NewEngine()
+		engine := core.NewEngine()
+		verbose, _ := cmd.Flags().GetBool("verbose")
 		for _, backend := range backendList {
-			if verboseFlag {
+			if verbose {
 				cmd.Printf("  Syncing %s...\n", backend.Name())
 			}
 			engine.AddBackend(backend)
@@ -123,7 +131,7 @@ By default, syncs all databases. Use flags to sync specific sources:
 			return err
 		}
 
-		if !quietFlag {
+		if !quiet {
 			output.Success("Sync complete.")
 		}
 
@@ -132,11 +140,9 @@ By default, syncs all databases. Use flags to sync specific sources:
 }
 
 func init() {
-	syncCmd.Flags().BoolVar(&syncOfficial, "official", false, "Sync official Arch repositories only")
-	syncCmd.Flags().BoolVar(&syncAUR, "aur", false, "Sync AUR cache only")
-	syncCmd.Flags().BoolVar(&syncShedOS, "shedos", false, "Sync ShedOS repository only")
-	syncCmd.Flags().BoolVar(&syncRefresh, "refresh", false, "Force refresh even if cache exists")
-	syncCmd.Flags().BoolVar(&syncRefresh, "force", false, "Force refresh (alias for --refresh)")
-
-	rootCmd.AddCommand(syncCmd)
+	SyncCmd.Flags().BoolVar(&syncOfficial, "official", false, "Sync official Arch repositories only")
+	SyncCmd.Flags().BoolVar(&syncAUR, "aur", false, "Sync AUR cache only")
+	SyncCmd.Flags().BoolVar(&syncShedOS, "shedos", false, "Sync ShedOS repository only")
+	SyncCmd.Flags().BoolVar(&syncRefresh, "refresh", false, "Force refresh even if cache exists")
+	SyncCmd.Flags().BoolVar(&syncRefresh, "force", false, "Force refresh (alias for --refresh)")
 }

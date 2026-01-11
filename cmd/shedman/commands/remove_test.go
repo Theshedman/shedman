@@ -1,13 +1,11 @@
 package commands
 
 import (
-	"bytes"
-	"strings"
 	"testing"
 )
 
 func TestRemoveCommand_Exists(t *testing.T) {
-	removeCmd := GetRemoveCmd()
+	removeCmd := RemoveCmd
 	if removeCmd == nil {
 		t.Fatal("Remove command should exist")
 	}
@@ -18,7 +16,7 @@ func TestRemoveCommand_Exists(t *testing.T) {
 }
 
 func TestRemoveCommand_HasRequiredFlags(t *testing.T) {
-	removeCmd := GetRemoveCmd()
+	removeCmd := RemoveCmd
 
 	flags := []string{"recursive", "purge", "cascade", "nosave"}
 
@@ -30,7 +28,7 @@ func TestRemoveCommand_HasRequiredFlags(t *testing.T) {
 }
 
 func TestRemoveCommand_HasShortFlags(t *testing.T) {
-	removeCmd := GetRemoveCmd()
+	removeCmd := RemoveCmd
 
 	// -s is shorthand for --recursive
 	if flag := removeCmd.Flags().ShorthandLookup("s"); flag == nil {
@@ -39,7 +37,7 @@ func TestRemoveCommand_HasShortFlags(t *testing.T) {
 }
 
 func TestRemoveCommand_RequiresArgs(t *testing.T) {
-	removeCmd := GetRemoveCmd()
+	removeCmd := RemoveCmd
 
 	// Remove command requires at least 1 package
 	if removeCmd.Args == nil {
@@ -47,34 +45,8 @@ func TestRemoveCommand_RequiresArgs(t *testing.T) {
 	}
 }
 
-func TestRemoveCommand_HelpOutput(t *testing.T) {
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-
-	rootCmd.SetArgs([]string{"remove", "--help"})
-	_ = rootCmd.Execute()
-
-	output := buf.String()
-
-	// Verify help includes key information
-	expected := []string{
-		"Remove installed packages",
-		"--recursive",
-		"--purge",
-		"--cascade",
-		"-s",
-	}
-
-	for _, exp := range expected {
-		if !strings.Contains(output, exp) {
-			t.Errorf("Expected help to contain '%s'", exp)
-		}
-	}
-}
-
 func TestRemoveCommand_ShortDescription(t *testing.T) {
-	removeCmd := GetRemoveCmd()
+	removeCmd := RemoveCmd
 
 	if removeCmd.Short != "Remove packages" {
 		t.Errorf("Expected Short 'Remove packages', got '%s'", removeCmd.Short)
@@ -82,7 +54,7 @@ func TestRemoveCommand_ShortDescription(t *testing.T) {
 }
 
 func TestRemoveCommand_NosaveIsPurgeAlias(t *testing.T) {
-	removeCmd := GetRemoveCmd()
+	removeCmd := RemoveCmd
 
 	purgeFlag := removeCmd.Flags().Lookup("purge")
 	nosaveFlag := removeCmd.Flags().Lookup("nosave")

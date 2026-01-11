@@ -7,14 +7,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/cache"
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
-	"github.com/theshedman/shedman/pkg/backend"
-	"github.com/theshedman/shedman/pkg/backend/aur"
-	"github.com/theshedman/shedman/pkg/backend/shedrepo"
-	"github.com/theshedman/shedman/pkg/core/installer"
-	"github.com/theshedman/shedman/pkg/core/pkgdb"
+	"github.com/theshedman/shedman/pkg/core"
+	"github.com/theshedman/shedman/pkg/core/providers/aur"
+	shedrepo "github.com/theshedman/shedman/pkg/core/providers/shed"
 )
 
 var (
@@ -35,7 +32,7 @@ type SearchResult struct {
 	Installed   bool   `json:"installed"`
 }
 
-var searchCmd = &cobra.Command{
+var SearchCmd = &cobra.Command{
 	Use:   "search <query>",
 	Short: "Search for packages",
 	Long: `Search for packages across multiple sources.
@@ -69,12 +66,11 @@ Examples:
 
 		var results []SearchResult
 		var searchErrors []string
-
-		// Create shared cache instance (reused across backends)
-		cacheDir := cache.NewFileSystemCache()
+		// Create file system cache for downloads
+		fsCache := core.NewFileSystemCache()
 
 		// Get official backend
-		officialBackend, err := backend.DetectBackendWithConfig(&cfg.Backend)
+		officialBackend, err := DetectBackendWithConfig(&cfg.Backend)
 		if err != nil {
 			output.Warning("Official backend not available: %v", err)
 			officialBackend = nil
@@ -101,13 +97,16 @@ Examples:
 		}
 
 		// Search AUR (only if enabled in config and on Arch-based system)
-		if (searchAll || searchAUR) && cfg.AUR.Enabled && backend.IsArchBased() {
+		if (searchAll || searchAUR) && cfg.AUR.Enabled && core.IsArchBased() {
+			// Create ownership cache for AUR
+			pkgCache := core.NewPackageFileCacheWithBackend(24*time.Hour, officialBackend)
+
 			// Use config AUR URL if specified, otherwise default
 			var aurBackend *aur.Backend
 			if cfg.Mirrors.AUR != "" {
-				aurBackend = aur.NewWithURL(cfg.Mirrors.AUR, cacheDir)
+				aurBackend = aur.NewWithURL(cfg.Mirrors.AUR, pkgCache)
 			} else {
-				aurBackend = aur.New(cacheDir)
+				aurBackend = aur.New(pkgCache)
 			}
 			pkgs, err := aurBackend.Search(query)
 			if err != nil {
@@ -135,8 +134,8 @@ Examples:
 			if cfg.Network.Timeout > 0 {
 				timeout = time.Duration(cfg.Network.Timeout) * time.Second
 			}
-			shedBackend := shedrepo.New(cacheDir, timeout)
-			shedInstaller := installer.NewShedInstaller()
+			shedBackend := shedrepo.New(fsCache, timeout)
+			shedInstaller := core.NewShedInstaller()
 			pkgs, err := shedBackend.Search(query)
 			if err != nil {
 				searchErrors = append(searchErrors, fmt.Sprintf("shedos: %v", err))
@@ -179,7 +178,7 @@ Examples:
 			}
 
 			// Search .shed installed packages (with full info)
-			shedInstaller := installer.NewShedInstaller()
+			shedInstaller := core.NewShedInstaller()
 			shedPkgs, err := shedInstaller.ListInstalledWithInfo()
 			if err != nil {
 				searchErrors = append(searchErrors, fmt.Sprintf("installed/shed: %v", err))
@@ -223,7 +222,7 @@ Examples:
 }
 
 // limitResults limits the number of results if limit > 0
-func limitResults(pkgs []pkgdb.PackageInfo, limit int) []pkgdb.PackageInfo {
+func limitResults(pkgs []core.PackageInfo, limit int) []core.PackageInfo {
 	if limit <= 0 || len(pkgs) <= limit {
 		return pkgs
 	}
@@ -286,16 +285,14 @@ func outputFormatted(cmd *cobra.Command, results []SearchResult, cfg *config.Con
 
 // GetSearchCmd returns the search command for testing
 func GetSearchCmd() *cobra.Command {
-	return searchCmd
+	return SearchCmd
 }
 
 func init() {
-	searchCmd.Flags().BoolVar(&searchOfficial, "official", false, "Search official repositories only")
-	searchCmd.Flags().BoolVar(&searchAUR, "aur", false, "Search AUR only")
-	searchCmd.Flags().BoolVar(&searchShedOS, "shedos", false, "Search ShedOS repository only")
-	searchCmd.Flags().BoolVar(&searchInstalled, "installed", false, "Search installed packages only")
-	searchCmd.Flags().BoolVar(&searchJSON, "json", false, "Output as JSON")
-	searchCmd.Flags().IntVar(&searchLimit, "limit", 0, "Limit results per source (0 = unlimited)")
-
-	rootCmd.AddCommand(searchCmd)
+	SearchCmd.Flags().BoolVar(&searchOfficial, "official", false, "Search official repositories only")
+	SearchCmd.Flags().BoolVar(&searchAUR, "aur", false, "Search AUR only")
+	SearchCmd.Flags().BoolVar(&searchShedOS, "shedos", false, "Search ShedOS repository only")
+	SearchCmd.Flags().BoolVar(&searchInstalled, "installed", false, "Search installed packages only")
+	SearchCmd.Flags().BoolVar(&searchJSON, "json", false, "Output as JSON")
+	SearchCmd.Flags().IntVar(&searchLimit, "limit", 0, "Limit results per source (0 = unlimited)")
 }

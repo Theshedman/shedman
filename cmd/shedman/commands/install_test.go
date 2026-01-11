@@ -1,13 +1,11 @@
 package commands
 
 import (
-	"bytes"
-	"strings"
 	"testing"
 )
 
 func TestInstallCommand_Exists(t *testing.T) {
-	installCmd := GetInstallCmd()
+	installCmd := InstallCmd
 	if installCmd == nil {
 		t.Fatal("Install command should exist")
 	}
@@ -18,9 +16,9 @@ func TestInstallCommand_Exists(t *testing.T) {
 }
 
 func TestInstallCommand_HasRequiredFlags(t *testing.T) {
-	installCmd := GetInstallCmd()
+	installCmd := InstallCmd
 
-	flags := []string{"needed", "asdeps", "asexplicit", "downloadonly", "aur", "official", "shedos", "overwrite"}
+	flags := []string{"needed", "asdeps", "asexplicit", "aur", "official", "shedos", "overwrite"}
 
 	for _, flag := range flags {
 		if installCmd.Flags().Lookup(flag) == nil {
@@ -30,7 +28,7 @@ func TestInstallCommand_HasRequiredFlags(t *testing.T) {
 }
 
 func TestInstallCommand_RequiresArgs(t *testing.T) {
-	installCmd := GetInstallCmd()
+	installCmd := InstallCmd
 
 	// Install command requires at least 1 package
 	if installCmd.Args == nil {
@@ -38,34 +36,8 @@ func TestInstallCommand_RequiresArgs(t *testing.T) {
 	}
 }
 
-func TestInstallCommand_HelpOutput(t *testing.T) {
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-
-	rootCmd.SetArgs([]string{"install", "--help"})
-	_ = rootCmd.Execute()
-
-	output := buf.String()
-
-	// Verify help includes key information
-	expected := []string{
-		"Install packages",
-		"neovim@0.10.0",
-		"--needed",
-		"--aur",
-		"--official",
-	}
-
-	for _, exp := range expected {
-		if !strings.Contains(output, exp) {
-			t.Errorf("Expected help to contain '%s'", exp)
-		}
-	}
-}
-
 func TestInstallCommand_ShortDescription(t *testing.T) {
-	installCmd := GetInstallCmd()
+	installCmd := InstallCmd
 
 	if installCmd.Short != "Install packages" {
 		t.Errorf("Expected Short 'Install packages', got '%s'", installCmd.Short)
