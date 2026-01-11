@@ -1,0 +1,108 @@
+package boot
+
+import (
+	"testing"
+
+	"github.com/theshedman/shedman/pkg/core"
+)
+
+// MockBackend for Boot testing
+type MockBackend struct {
+	core.OfficialBackend
+	pkgs      []core.PackageInfo
+	installed map[string]string // map[name]version
+}
+
+func (m *MockBackend) Name() string         { return "mock" }
+func (m *MockBackend) IsAvailable() bool    { return true }
+func (m *MockBackend) Sync() error          { return nil }
+func (m *MockBackend) DistroFamily() string { return "arch" }
+
+func (m *MockBackend) Search(query string) ([]core.PackageInfo, error) {
+	return nil, nil
+}
+
+func (m *MockBackend) IsInstalled(name string) bool {
+	_, ok := m.installed[name]
+	return ok
+}
+
+func (m *MockBackend) Info(pkgName string) (*core.PackageInfo, error) {
+	if ver, ok := m.installed[pkgName]; ok {
+		return &core.PackageInfo{
+			Name:    pkgName,
+			Version: ver,
+		}, nil
+	}
+	return nil, core.ErrPackageNotFound
+}
+
+// Stubs
+func (m *MockBackend) Install(pkgs []string, opts core.InstallOptions) error    { return nil }
+func (m *MockBackend) InstallLocal(path string, opts core.InstallOptions) error { return nil }
+func (m *MockBackend) Remove(pkgs []string, opts core.RemoveOptions) error      { return nil }
+func (m *MockBackend) Upgrade(pkgs []string, opts core.UpgradeOptions) error    { return nil }
+func (m *MockBackend) GetInstalledPackages() ([]core.PackageInfo, error)        { return nil, nil }
+func (m *MockBackend) GetPackageFiles(pkgName string) ([]string, error)         { return nil, nil }
+
+func TestManager_List(t *testing.T) {
+	mock := &MockBackend{
+		installed: map[string]string{
+			"linux":     "6.6.1-arch1-1",
+			"linux-lts": "6.1.60-1",
+			"vim":       "9.0",
+		},
+	}
+	engine := core.NewEngineWithBackend(mock)
+	mgr := New(engine)
+
+	kernels, err := mgr.List()
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+
+	if len(kernels) != 2 {
+		t.Errorf("Expected 2 kernels, got %d", len(kernels))
+	}
+
+	foundStock := false
+	foundLTS := false
+
+	for _, k := range kernels {
+		if k.Name == "linux" {
+			foundStock = true
+			if k.Version != "6.6.1-arch1-1" {
+				t.Errorf("Expected linux version 6.6.1-arch1-1, got %s", k.Version)
+			}
+		} else if k.Name == "linux-lts" {
+			foundLTS = true
+		}
+	}
+
+	if !foundStock {
+		t.Error("linux kernel not found")
+	}
+	if !foundLTS {
+		t.Error("linux-lts kernel not found")
+	}
+}
+
+func TestManager_SetDefault(t *testing.T) {
+	mock := &MockBackend{
+		installed: map[string]string{
+			"linux": "6.6.1",
+		},
+	}
+	engine := core.NewEngineWithBackend(mock)
+	mgr := New(engine)
+
+	err := mgr.SetDefault("linux")
+	if err != nil {
+		t.Errorf("SetDefault(linux) failed: %v", err)
+	}
+
+	err = mgr.SetDefault("linux-zen")
+	if err == nil {
+		t.Error("Expected error when setting default to uninstalled kernel")
+	}
+}
