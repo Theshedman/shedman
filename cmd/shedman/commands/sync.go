@@ -5,14 +5,14 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/pkg/core"
+	"github.com/theshedman/shedman/internal/cache"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/backend"
 	"github.com/theshedman/shedman/pkg/backend/aur"
 	"github.com/theshedman/shedman/pkg/backend/pacman"
 	"github.com/theshedman/shedman/pkg/backend/shedrepo"
-	"github.com/theshedman/shedman/internal/cache"
-	"github.com/theshedman/shedman/internal/config"
-	"github.com/theshedman/shedman/internal/output"
+	shedman "github.com/theshedman/shedman/pkg/core"
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 	syncRefresh  bool
 )
 
-var SYNCCMD = &cobra.Command{
+var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync package databases",
 	Long: `Synchronize package databases from configured sources.

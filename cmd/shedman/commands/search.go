@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/theshedman/shedman/internal/cache"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/backend"
 	"github.com/theshedman/shedman/pkg/backend/aur"
 	"github.com/theshedman/shedman/pkg/backend/shedrepo"
-	"github.com/theshedman/shedman/internal/cache"
-	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/pkg/core/installer"
-	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
@@ -35,7 +35,7 @@ type SearchResult struct {
 	Installed   bool   `json:"installed"`
 }
 
-var SEARCHCMD = &cobra.Command{
+var searchCmd = &cobra.Command{
 	Use:   "search <query>",
 	Short: "Search for packages",
 	Long: `Search for packages across multiple sources.
