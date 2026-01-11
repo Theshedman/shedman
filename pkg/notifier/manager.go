@@ -1,25 +1,37 @@
 package notifier
 
-import "github.com/theshedman/shedman/pkg/core"
+import (
+	"fmt"
+)
 
 // Notifier handles update notifications
 type Notifier struct {
-	core *core.Engine
+	backend NotifierBackend
 }
 
-// New creates a new notifier
-func New(c *core.Engine) *Notifier {
+// New creates a new notifier with default libnotify backend
+func New() *Notifier {
 	return &Notifier{
-		core: c,
+		backend: NewLibnotifyBackend(),
 	}
 }
 
-// Check checks for updates
+// NewWithBackend creates a notifier with a specific backend
+func NewWithBackend(b NotifierBackend) *Notifier {
+	return &Notifier{
+		backend: b,
+	}
+}
+
+// Check checks for updates (Stub for future logic)
 func (n *Notifier) Check() error {
 	return nil
 }
 
 // Notify sends a notification
-func (n *Notifier) Notify(msg string) error {
-	return nil
+func (n *Notifier) Notify(title, message, level string) error {
+	if n.backend == nil {
+		return fmt.Errorf("no notifier backend configured")
+	}
+	return n.backend.Notify(title, message, level)
 }
