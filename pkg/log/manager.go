@@ -23,7 +23,12 @@ type Transaction struct {
 	Success   bool
 }
 
-// Log logs a transaction
+// Log logs a transaction (stub)
 func (l *Logger) Log(tx Transaction) error {
 	return nil
+}
+
+// List returns a list of transactions from the log file
+func (l *Logger) List() ([]Transaction, error) {
+	return Parse(l.path)
 }
