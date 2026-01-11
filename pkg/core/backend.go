@@ -1,4 +1,4 @@
-package shedman
+package core
 
 type PackageBackend interface {
 	Sync() error

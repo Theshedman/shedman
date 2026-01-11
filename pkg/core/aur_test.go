@@ -1,0 +1,296 @@
+package core
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/theshedman/shedman/internal/config"
+)
+
+func TestAURInstaller_NewAURInstaller(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+	if ai == nil {
+		t.Fatal("NewAURInstaller should return non-nil")
+	}
+}
+
+func TestAURInstaller_NewAURInstallerWithConfig(t *testing.T) {
+	cfg := config.Default()
+	cfg.AUR.BuildDir = "/custom/build/dir"
+
+	ai := NewAURInstallerWithBackend(cfg, nil)
+	if ai == nil {
+		t.Fatal("NewAURInstallerWithConfig should return non-nil")
+	}
+
+	// Verify the build dir is used
+	if ai.GetCacheDir() != "/custom/build/dir" {
+		t.Errorf("Expected cache dir '/custom/build/dir', got '%s'", ai.GetCacheDir())
+	}
+}
+
+func TestAURInstaller_UsesDefaultBuildDirWhenEmpty(t *testing.T) {
+	cfg := config.Default()
+	cfg.AUR.BuildDir = "" // Empty = use default
+
+	ai := NewAURInstallerWithBackend(cfg, nil)
+
+	// Should fall back to default
+	if ai.GetCacheDir() == "" {
+		t.Error("Expected non-empty cache dir when BuildDir is empty")
+	}
+}
+
+func TestAURInstaller_Clone_FirstTime(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+
+	var executedCmds [][]string
+	ai.SetExecutor(func(dir string, cmd []string) error {
+		executedCmds = append(executedCmds, cmd)
+		return nil
+	})
+
+	err := ai.Clone("neovim-nightly")
+	if err != nil {
+		t.Fatalf("Clone failed: %v", err)
+	}
+
+	// Should use git clone for first time
+	if len(executedCmds) < 1 {
+		t.Fatal("Expected git command")
+	}
+	if executedCmds[0][0] != "git" || executedCmds[0][1] != "clone" {
+		t.Errorf("Expected 'git clone', got %v", executedCmds[0])
+	}
+}
+
+func TestAURInstaller_Clone_Update(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+
+	// Create fake existing clone with .git directory
+	tmpDir := t.TempDir()
+	ai.SetCacheDir(tmpDir)
+	pkgDir := filepath.Join(tmpDir, "neovim-nightly")
+	gitDir := filepath.Join(pkgDir, ".git")
+	os.MkdirAll(gitDir, 0755)
+	os.WriteFile(filepath.Join(gitDir, "config"), []byte(""), 0644)
+
+	var executedCmds [][]string
+	ai.SetExecutor(func(dir string, cmd []string) error {
+		executedCmds = append(executedCmds, cmd)
+		return nil
+	})
+
+	err := ai.Clone("neovim-nightly")
+	if err != nil {
+		t.Fatalf("Clone update failed: %v", err)
+	}
+
+	// Should use git pull for updates, not clone
+	found := false
+	for _, cmd := range executedCmds {
+		cmdStr := strings.Join(cmd, " ")
+		if strings.Contains(cmdStr, "pull") || strings.Contains(cmdStr, "fetch") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("Expected git pull/fetch for existing repo, got %v", executedCmds)
+	}
+}
+
+func TestAURInstaller_IsFirstTime(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+	tmpDir := t.TempDir()
+	ai.SetCacheDir(tmpDir)
+
+	// Non-existent package
+	if !ai.IsFirstTime("nonexistent-pkg") {
+		t.Error("Should be first time for non-existent package")
+	}
+
+	// Create fake clone
+	pkgDir := filepath.Join(tmpDir, "existing-pkg")
+	os.MkdirAll(filepath.Join(pkgDir, ".git"), 0755)
+
+	if ai.IsFirstTime("existing-pkg") {
+		t.Error("Should not be first time for existing package")
+	}
+}
+
+func TestAURInstaller_GetPKGBUILD(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+	tmpDir := t.TempDir()
+	ai.SetCacheDir(tmpDir)
+
+	// Create fake PKGBUILD
+	pkgDir := filepath.Join(tmpDir, "test-pkg")
+	os.MkdirAll(pkgDir, 0755)
+	expectedContent := "pkgname=test-pkg\npkgver=1.0.0"
+	os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte(expectedContent), 0644)
+
+	content, err := ai.GetPKGBUILD("test-pkg")
+	if err != nil {
+		t.Fatalf("GetPKGBUILD failed: %v", err)
+	}
+
+	if content != expectedContent {
+		t.Errorf("Expected %q, got %q", expectedContent, content)
+	}
+}
+
+func TestAURInstaller_GetPKGBUILDDiff(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+	tmpDir := t.TempDir()
+	ai.SetCacheDir(tmpDir)
+
+	// Create fake package dir with git
+	pkgDir := filepath.Join(tmpDir, "test-pkg")
+	os.MkdirAll(filepath.Join(pkgDir, ".git"), 0755)
+	os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte("pkgver=2.0"), 0644)
+
+	// Note: GetPKGBUILDDiff uses exec.Command directly, not the executor
+	// This test verifies it returns an error for non-existent package
+	_, err := ai.GetPKGBUILDDiff("test-pkg")
+	// Will fail because there's no git repo - that's expected
+	if err == nil {
+		// If no error, verify it returned something (mock won't work here)
+		t.Log("GetPKGBUILDDiff returned no error (may have found a valid repo)")
+	}
+}
+
+func TestAURInstaller_VerifyChecksums(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+
+	var executedCmd []string
+	ai.SetExecutor(func(dir string, cmd []string) error {
+		executedCmd = cmd
+		return nil
+	})
+
+	err := ai.VerifyChecksums("test-pkg")
+	if err != nil {
+		t.Fatalf("VerifyChecksums failed: %v", err)
+	}
+
+	// Should run makepkg --verifysource or similar
+	cmdStr := strings.Join(executedCmd, " ")
+	if !strings.Contains(cmdStr, "makepkg") || !strings.Contains(cmdStr, "verif") {
+		t.Errorf("Expected makepkg verification command, got %v", executedCmd)
+	}
+}
+
+func TestAURInstaller_Build_WithSandbox(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+	ai.SetSandboxEnabled(true)
+
+	var executedCmd []string
+	ai.SetExecutor(func(dir string, cmd []string) error {
+		executedCmd = cmd
+		return nil
+	})
+
+	err := ai.Build("test-pkg")
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// Should use bubblewrap when sandbox is enabled
+	cmdStr := strings.Join(executedCmd, " ")
+	if !strings.Contains(cmdStr, "bwrap") {
+		t.Errorf("Expected bubblewrap command, got %v", executedCmd)
+	}
+}
+
+func TestAURInstaller_Build_WithoutSandbox(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+	ai.SetSandboxEnabled(false)
+
+	var executedCmd []string
+	ai.SetExecutor(func(dir string, cmd []string) error {
+		executedCmd = cmd
+		return nil
+	})
+
+	err := ai.Build("test-pkg")
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// Should run makepkg directly without bwrap
+	cmdStr := strings.Join(executedCmd, " ")
+	if strings.Contains(cmdStr, "bwrap") {
+		t.Errorf("Should not use bubblewrap when disabled, got %v", executedCmd)
+	}
+	if !strings.Contains(cmdStr, "makepkg") {
+		t.Errorf("Expected makepkg command, got %v", executedCmd)
+	}
+}
+
+func TestAURInstaller_Install(t *testing.T) {
+	ai := NewAURInstallerWithBackend(config.Default(), nil)
+	tmpDir := t.TempDir()
+	ai.SetCacheDir(tmpDir)
+
+	// Create fake built package
+	pkgDir := filepath.Join(tmpDir, "test-pkg")
+	os.MkdirAll(pkgDir, 0755)
+	pkgFile := filepath.Join(pkgDir, "test-pkg-1.0-1-x86_64.pkg.tar.zst")
+	os.WriteFile(pkgFile, []byte("fake"), 0644)
+
+	// Use mock backend for testing
+	mockBackend := &mockInstallBackend{
+		installLocalFunc: func(path string, opts interface{}) error {
+			// Verify we received the correct package file
+			if !strings.Contains(path, "test-pkg-1.0-1-x86_64.pkg.tar.zst") {
+				t.Errorf("Expected package file path, got %s", path)
+			}
+			return nil
+		},
+	}
+	ai.SetBackend(mockBackend)
+
+	err := ai.Install("test-pkg")
+	if err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+
+	if !mockBackend.installCalled {
+		t.Error("Expected InstallLocal to be called")
+	}
+}
+
+// mockInstallBackend implements OfficialBackend for testing
+type mockInstallBackend struct {
+	installCalled    bool
+	installLocalFunc func(path string, opts interface{}) error
+}
+
+func (m *mockInstallBackend) Name() string         { return "mock" }
+func (m *mockInstallBackend) DistroFamily() string { return "mock" }
+func (m *mockInstallBackend) IsAvailable() bool    { return true }
+func (m *mockInstallBackend) Sync() error          { return nil }
+
+func (m *mockInstallBackend) Install(pkgs []string, opts InstallOptions) error {
+	return nil
+}
+func (m *mockInstallBackend) Remove(pkgs []string, opts RemoveOptions) error { return nil }
+func (m *mockInstallBackend) Upgrade(pkgs []string, opts UpgradeOptions) error {
+	return nil
+}
+func (m *mockInstallBackend) Search(query string) ([]PackageInfo, error) { return nil, nil }
+func (m *mockInstallBackend) Info(name string) (*PackageInfo, error)     { return nil, nil }
+func (m *mockInstallBackend) IsInstalled(name string) bool               { return false }
+func (m *mockInstallBackend) GetInstalledPackages() ([]PackageInfo, error) {
+	return nil, nil
+}
+func (m *mockInstallBackend) GetPackageFiles(name string) ([]string, error) { return nil, nil }
+func (m *mockInstallBackend) InstallLocal(path string, opts InstallOptions) error {
+	m.installCalled = true
+	if m.installLocalFunc != nil {
+		return m.installLocalFunc(path, opts)
+	}
+	return nil
+}

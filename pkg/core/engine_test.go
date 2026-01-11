@@ -1,11 +1,9 @@
-package shedman_test
+package core
 
 import (
 	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/theshedman/shedman/pkg/core"
 )
 
 // MockBackend implements PackageBackend for testing
@@ -26,7 +24,7 @@ func (m *MockBackend) Name() string {
 }
 
 func TestEngine_Sync(t *testing.T) {
-	engine := shedman.NewEngine()
+	engine := NewEngine()
 	backend := &MockBackend{name: "test", shouldFail: false}
 	engine.AddBackend(backend)
 
@@ -45,7 +43,7 @@ func TestBackend_Name(t *testing.T) {
 }
 
 func TestEngine_Sync_CollectsAllErrors(t *testing.T) {
-	engine := shedman.NewEngine()
+	engine := NewEngine()
 
 	// Add two backends that both fail
 	engine.AddBackend(&MockBackend{name: "backend1", shouldFail: true})
@@ -68,7 +66,7 @@ func TestEngine_Sync_CollectsAllErrors(t *testing.T) {
 }
 
 func TestEngine_Sync_ContinuesAfterError(t *testing.T) {
-	engine := shedman.NewEngine()
+	engine := NewEngine()
 
 	// First backend fails, second succeeds
 	backend1 := &MockBackend{name: "failing", shouldFail: true}
@@ -92,7 +90,7 @@ func TestEngine_Sync_ContinuesAfterError(t *testing.T) {
 }
 
 func TestEngine_GetOfficialBackend_Nil(t *testing.T) {
-	engine := shedman.NewEngine()
+	engine := NewEngine()
 	if engine.GetOfficialBackend() != nil {
 		t.Error("Expected nil official backend for new engine")
 	}
@@ -101,7 +99,7 @@ func TestEngine_GetOfficialBackend_Nil(t *testing.T) {
 func TestEngine_NewEngineWithBackend(t *testing.T) {
 	mock := &MockBackend{name: "mock", shouldFail: false}
 	// MockBackend doesn't implement OfficialBackend, so we test with nil
-	engine := shedman.NewEngineWithBackend(nil)
+	engine := NewEngineWithBackend(nil)
 
 	if engine.GetOfficialBackend() != nil {
 		t.Error("Expected nil backend when created with nil")
@@ -115,7 +113,7 @@ func TestEngine_NewEngineWithBackend(t *testing.T) {
 }
 
 func TestEngine_IsOfficialBackendAvailable_NoBackend(t *testing.T) {
-	engine := shedman.NewEngine()
+	engine := NewEngine()
 	if engine.IsOfficialBackendAvailable() {
 		t.Error("Expected false when no backend is set")
 	}

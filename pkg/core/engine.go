@@ -1,21 +1,18 @@
 // Package shedman provides the core engine for package management.
-package shedman
+package core
 
 import (
 	"fmt"
 	"strings"
 	"sync"
 
-	"github.com/theshedman/shedman/pkg/backend"
-	"github.com/theshedman/shedman/pkg/backend/pacman"
 	"github.com/theshedman/shedman/internal/config"
-	"github.com/theshedman/shedman/pkg/core/pkgdb"
 )
 
 // Engine orchestrates package management operations across multiple backends.
 type Engine struct {
 	backends        []PackageBackend
-	officialBackend backend.OfficialBackend
+	officialBackend OfficialBackend
 	config          *config.Config
 }
 
@@ -26,28 +23,9 @@ func NewEngine() *Engine {
 	}
 }
 
-// NewEngineWithConfig creates an Engine with backends auto-detected from config.
-// This is the preferred way to create an Engine for production use.
-func NewEngineWithConfig(cfg *config.Config) (*Engine, error) {
-	e := &Engine{
-		backends: []PackageBackend{},
-		config:   cfg,
-	}
-
-	// Detect and initialize the official backend
-	officialBackend, err := backend.DetectBackendWithConfig(&cfg.Backend)
-	if err == nil && officialBackend != nil {
-		e.officialBackend = officialBackend
-		// Also add to backends list for Sync compatibility
-		e.backends = append(e.backends, officialBackend)
-	}
-
-	return e, nil
-}
-
 // NewEngineWithBackend creates an Engine with a specific official backend.
 // Useful for testing or when you want to provide a pre-configured backend.
-func NewEngineWithBackend(b backend.OfficialBackend) *Engine {
+func NewEngineWithBackend(b OfficialBackend) *Engine {
 	e := &Engine{
 		backends:        []PackageBackend{},
 		officialBackend: b,
@@ -65,13 +43,13 @@ func (e *Engine) AddBackend(b PackageBackend) {
 
 // GetOfficialBackend returns the detected official package manager backend.
 // Returns nil if no official backend is available (e.g., on unsupported systems).
-func (e *Engine) GetOfficialBackend() backend.OfficialBackend {
+func (e *Engine) GetOfficialBackend() OfficialBackend {
 	return e.officialBackend
 }
 
 // SetOfficialBackend sets the official backend.
 // This is useful for late initialization or testing.
-func (e *Engine) SetOfficialBackend(b backend.OfficialBackend) {
+func (e *Engine) SetOfficialBackend(b OfficialBackend) {
 	e.officialBackend = b
 	// Ensure it's in the backends list
 	for _, existing := range e.backends {
@@ -122,31 +100,31 @@ func (e *Engine) Sync() error {
 
 // Install installs packages using the official backend.
 // Returns an error if no official backend is available.
-func (e *Engine) Install(pkgs []string, opts backend.InstallOptions) error {
+func (e *Engine) Install(pkgs []string, opts InstallOptions) error {
 	if e.officialBackend == nil {
-		return backend.ErrBackendNotFound
+		return ErrBackendNotFound
 	}
 	return e.officialBackend.Install(pkgs, opts)
 }
 
 // InstallFile installs a local package file (wraps InstallLocal).
-func (e *Engine) InstallFile(path string, opts backend.InstallOptions) error {
+func (e *Engine) InstallFile(path string, opts InstallOptions) error {
 	if e.officialBackend == nil {
-		return backend.ErrBackendNotFound
+		return ErrBackendNotFound
 	}
 	return fmt.Errorf("local package installation not yet implemented")
 }
 
 // Remove removes packages using the official backend.
-func (e *Engine) Remove(pkgs []string, opts backend.RemoveOptions) error {
+func (e *Engine) Remove(pkgs []string, opts RemoveOptions) error {
 	if e.officialBackend == nil {
-		return backend.ErrBackendNotFound
+		return ErrBackendNotFound
 	}
 	return e.officialBackend.Remove(pkgs, opts)
 }
 
 // Upgrade upgrades packages across all supported backends.
-func (e *Engine) Upgrade(pkgs []string, opts backend.UpgradeOptions) error {
+func (e *Engine) Upgrade(pkgs []string, opts UpgradeOptions) error {
 	var errors []string
 
 	// Track whether we found any backend capable of upgrading
@@ -170,7 +148,7 @@ func (e *Engine) Upgrade(pkgs []string, opts backend.UpgradeOptions) error {
 
 		// Check if backend supports Upgrading via interface assertion
 		type Upgrader interface {
-			Upgrade(pkgs []string, opts backend.UpgradeOptions) error
+			Upgrade(pkgs []string, opts UpgradeOptions) error
 		}
 
 		if upgrader, ok := b.(Upgrader); ok {
@@ -183,7 +161,7 @@ func (e *Engine) Upgrade(pkgs []string, opts backend.UpgradeOptions) error {
 
 	if !upgradableFound {
 		if e.officialBackend == nil {
-			return backend.ErrBackendNotFound
+			return ErrBackendNotFound
 		}
 		// Fallback to official backend if no generic Upgrader found (though official usually implements it)
 		return e.officialBackend.Upgrade(pkgs, opts)
@@ -205,7 +183,7 @@ func (e *Engine) IsInstalled(name string) bool {
 }
 
 // Info returns detailed information about a package from available backends.
-func (e *Engine) Info(pkgName string) (*pkgdb.PackageInfo, error) {
+func (e *Engine) Info(pkgName string) (*PackageInfo, error) {
 	// 1. Try official backend first (local + sync)
 	if e.officialBackend != nil {
 		if info, err := e.officialBackend.Info(pkgName); err == nil {
@@ -220,7 +198,7 @@ func (e *Engine) Info(pkgName string) (*pkgdb.PackageInfo, error) {
 		}
 
 		type Informer interface {
-			Info(pkgName string) (*pkgdb.PackageInfo, error)
+			Info(pkgName string) (*PackageInfo, error)
 		}
 
 		if informer, ok := b.(Informer); ok {
@@ -230,24 +208,5 @@ func (e *Engine) Info(pkgName string) (*pkgdb.PackageInfo, error) {
 		}
 	}
 
-	return nil, backend.ErrPackageNotFound
-}
-
-// DetectBackend auto-detects and returns the appropriate official backend.
-// This is a convenience method that wraps backend.DetectBackendWithConfig.
-func DetectBackend(cfg *config.Config) (backend.OfficialBackend, error) {
-	if cfg == nil {
-		cfg = config.Default()
-	}
-	return backend.DetectBackendWithConfig(&cfg.Backend)
-}
-
-// CreatePacmanBackend creates a pacman backend with optional config.
-// Returns an error if pacman is not available.
-func CreatePacmanBackend(cfg *config.BackendConfig) (backend.OfficialBackend, error) {
-	c := pacman.DefaultConfig()
-	if cfg != nil && cfg.BinaryPath != "" {
-		c.BinaryPath = cfg.BinaryPath
-	}
-	return pacman.NewWithConfig(c)
+	return nil, ErrPackageNotFound
 }
