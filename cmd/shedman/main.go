@@ -67,7 +67,9 @@ func init() {
 	rootCmd.AddCommand(commands.SearchCmd)
 	rootCmd.AddCommand(commands.SyncCmd)
 	rootCmd.AddCommand(commands.UpdateCmd)
+	rootCmd.AddCommand(commands.UpdateCmd)
 	rootCmd.AddCommand(commands.InfoCmd)
+	rootCmd.AddCommand(commands.ConfigCmd)
 
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip all confirmations")

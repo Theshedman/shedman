@@ -1,9 +1,14 @@
 package commands
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/theshedman/shedman/internal/config"
+	pkgconfig "github.com/theshedman/shedman/pkg/config"
 	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/pkg/core/providers/pacman"
+	"github.com/theshedman/shedman/pkg/tui"
 )
 
 // NewEngineWithConfig creates an Engine with backends auto-detected from config.
@@ -57,4 +62,20 @@ func CreateAURInstaller(cfg *config.Config) *core.AURInstaller {
 	// Detect backend
 	backend, _ := DetectBackendWithConfig(&cfg.Backend)
 	return core.NewAURInstallerWithBackend(cfg, backend)
+}
+
+// CreateConfigEngine creates a ConfigEngine with default implementations
+func CreateConfigEngine() *pkgconfig.ConfigEngine {
+	home, _ := os.UserHomeDir() // Error ignored for factory defaults
+	statePath := filepath.Join(home, ".local", "state", "shedman", "configs.json")
+
+	stateMgr := pkgconfig.NewJSONStateManager(statePath)
+	// Auto-load state
+	_ = stateMgr.Load()
+
+	backupMgr := pkgconfig.NewFileBackupManager()
+	differ := pkgconfig.NewDiffer()
+	resolver := tui.NewConflictResolver()
+
+	return pkgconfig.NewConfigEngine(stateMgr, backupMgr, differ, resolver)
 }

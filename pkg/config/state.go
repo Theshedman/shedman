@@ -108,3 +108,17 @@ func (m *JSONStateManager) Set(packageName, relPath string, state FileState) {
 
 	m.state.Configs[packageName][relPath] = state
 }
+
+// List returns all tracked file states flattened
+func (m *JSONStateManager) List() []FileState {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var list []FileState
+	for _, pkgMap := range m.state.Configs {
+		for _, state := range pkgMap {
+			list = append(list, state)
+		}
+	}
+	return list
+}

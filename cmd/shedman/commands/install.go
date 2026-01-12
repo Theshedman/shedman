@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/config"
@@ -135,6 +136,51 @@ var InstallCmd = &cobra.Command{
 
 		if !quiet {
 			output.Success("Installation complete.")
+		}
+
+		// Post-install: Handle configuration management
+		// Scan for .pacnew files generated during install
+		engine := CreateConfigEngine()
+
+		output.Info("Checking for configuration updates...")
+		for _, pkg := range pkgs {
+			// Ensure backend supports file listing
+			if fp, ok := backend.(core.FileProvider); ok {
+				files, err := fp.GetPackageFiles(pkg.Name)
+				if err != nil {
+					// Soft fail, just log
+					verbose, _ := cmd.Flags().GetBool("verbose")
+					if verbose {
+						output.Warning("Could not list files for %s: %v", pkg.Name, err)
+					}
+					continue
+				}
+
+				for _, file := range files {
+					// alpm usually returns paths without leading /
+					absPath := file
+					if len(absPath) > 0 && absPath[0] != '/' {
+						absPath = "/" + absPath
+					}
+
+					// We look for .pacnew files
+					// Note: .pacnew files might NOT be in the package file list technically,
+					// because they are created on disk. But we iterate the PACKAGE's file list
+					// to find the *original* config, then check if a .pacnew exists on disk.
+					// Wait, GetPackageFiles returns what is in the DB (the package contents).
+					// So it lists /etc/foo.conf.
+					// We need to check if /etc/foo.conf.pacnew exists.
+
+					pacnewPath := absPath + ".pacnew"
+					if _, err := os.Stat(pacnewPath); err == nil {
+						// Found a pacnew file!
+						output.Info("Processing config: %s", absPath)
+						if err := engine.Apply(pkg.Name, pacnewPath, absPath); err != nil {
+							output.Error("Failed to apply config for %s: %v", absPath, err)
+						}
+					}
+				}
+			}
 		}
 
 		return nil
