@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/cmd/shedman/commands"
+	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/internal/signals"
 )
@@ -37,6 +38,13 @@ var rootCmd = &cobra.Command{
 		}
 		// Initialize color output
 		output.InitColor(colorFlag, noColorFlag)
+
+		// Ensure config exists (auto-create if missing)
+		if configFile == "" {
+			_, _ = config.LoadDefault()
+		} else {
+			_, _ = config.Load(configFile)
+		}
 	},
 }
 

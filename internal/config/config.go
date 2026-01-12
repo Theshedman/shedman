@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -109,6 +110,22 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// Save writes the configuration to the specified path
+func Save(path string, cfg *Config) error {
+	data, err := toml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
 // DefaultConfigPath returns the default config file path (~/.config/shedman/config.toml)
 func DefaultConfigPath() string {
 	home, err := os.UserHomeDir()
@@ -119,7 +136,22 @@ func DefaultConfigPath() string {
 }
 
 // LoadDefault loads config from the default path (~/.config/shedman/config.toml)
-// If the file doesn't exist, returns default configuration.
+// If the file doesn't exist, it CREATES it with default values.
 func LoadDefault() (*Config, error) {
-	return Load(DefaultConfigPath())
+	path := DefaultConfigPath()
+
+	// Check if file exists
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		// Create default config
+		cfg := Default()
+
+		// Save it to disk
+		if err := Save(path, cfg); err != nil {
+			return nil, fmt.Errorf("failed to create default config: %w", err)
+		}
+
+		return cfg, nil
+	}
+
+	return Load(path)
 }
