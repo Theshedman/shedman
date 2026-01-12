@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -61,33 +62,28 @@ func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
 	action := ActionNoop
 
 	if !targetExists {
-		// Scenario 1: Fresh Install
+		// Fresh Install
 		action = ActionCopy
 	} else if !hasState {
-		// Target exists but no state (Untracked)
+		// Target exists but Untracked
 		if currentHash == newHash {
 			action = ActionNoop
 		} else {
-			// Content differs from new package version
 			action = ActionConflict
 		}
 	} else {
-		// Full Three-Way Logic
+		// Three-Way Logic
 		userChanged := currentHash != baseHash
 		pkgChanged := newHash != baseHash
 
 		if !userChanged && !pkgChanged {
 			action = ActionNoop
 		} else if userChanged && !pkgChanged {
-			// User changed, pkg same.
 			action = ActionKeepUser
 		} else if !userChanged && pkgChanged {
-			// User same, pkg changed.
 			action = ActionUpdate
 		} else if userChanged && pkgChanged {
-			// Both changed.
 			if currentHash == newHash {
-				// Accidental convergence
 				action = ActionNoop
 			} else {
 				action = ActionConflict
@@ -176,7 +172,7 @@ func (e *ConfigEngine) updateState(pkg, path, hash string) {
 	e.StateMgr.Save()
 }
 
-// copyFile copies content from src to dst atomically
+// copyFile copies content from src to dst atomically, preserving metadata
 func (e *ConfigEngine) copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
@@ -184,19 +180,47 @@ func (e *ConfigEngine) copyFile(src, dst string) error {
 	}
 	defer in.Close()
 
+	// Determined target metadata
+	mode := os.FileMode(0644)
+	uid, gid := os.Getuid(), os.Getgid() // Default to current user
+
+	// If destination exists, preserve its metadata
+	if info, err := os.Stat(dst); err == nil {
+		mode = info.Mode()
+		if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+			uid = int(stat.Uid)
+			gid = int(stat.Gid)
+		}
+	} else {
+		// New file: use source metadata if available or defaults
+		if srcInfo, err := in.Stat(); err == nil {
+			mode = srcInfo.Mode()
+		}
+	}
+
 	// Atomic write via temp file
 	tmp := dst + ".tmp"
-	out, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	out, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 	if err != nil {
 		return err
 	}
 
 	if _, err := io.Copy(out, in); err != nil {
 		out.Close()
+		os.Remove(tmp)
 		return err
 	}
 	if err := out.Close(); err != nil {
+		os.Remove(tmp)
 		return err
+	}
+
+	// Restore ownership
+	if err := os.Chown(tmp, uid, gid); err != nil {
+		if !os.IsPermission(err) {
+			os.Remove(tmp)
+			return fmt.Errorf("failed to restore file ownership: %w", err)
+		}
 	}
 
 	return os.Rename(tmp, dst)

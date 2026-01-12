@@ -22,7 +22,7 @@ type MockExecutor struct {
 
 func (m *MockExecutor) Output(name string, args ...string) ([]byte, error) {
 	key := name + " " + strings.Join(args, " ")
-	// Simple key matching. In real tests we might need regex or exact args matching.
+	// Simple key matching.
 	if resp, ok := m.Responses[key]; ok {
 		return resp.Output, resp.Err
 	}
@@ -62,18 +62,14 @@ func TestGetOriginalContent_Success(t *testing.T) {
 				Output: []byte("testpkg " + pkgVer),
 				Err:    nil,
 			},
+			"uname -m": {
+				Output: []byte(arch + "\n"),
+				Err:    nil,
+			},
 		},
 	}
 
-	// Mock Cache?
-	// PacmanSourceProvider uses core.GetDefaultCache() internally in `NewPacmanSourceProviderWithExecutor`?
-	// Note: The implementation:
-	// return &PacmanSourceProvider{
-	// 	cache:    core.GetDefaultCache(),
-	// ...
-	// }
-	// We need to inject a mock cache or seed the default cache.
-	// core.PackageFileCache is struct, not interface. We can seed it.
+	// Seed cache
 	cache := core.GetDefaultCache()
 	cache.SetPackageFiles(pkgName, []string{"/etc/test.conf"})
 

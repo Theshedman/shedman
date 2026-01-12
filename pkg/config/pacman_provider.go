@@ -42,41 +42,17 @@ func (p *PacmanSourceProvider) GetOriginalContent(filePath string) ([]byte, erro
 	// 1. Identify Owner
 	owner, found := p.cache.GetFileOwner(filePath)
 	if !found {
-		// Try refreshing cache for this file or just fail if not tracked?
-		// User might request diff on a file not yet loaded in cache.
-		// Try to resolve owner dynamically if possible, or assume cache is populated.
-		// For now, assume cache is populated or fail.
-		// Since we want robust, let's try to query pacman -Qo if cache fails?
-		// But core/cache is the source of truth for us.
 		return nil, fmt.Errorf("file %s is not owned by any known package", filePath)
 	}
 
 	// 2. Get Installed Version
-	// We need the exact version to find the archive.
-	// 2. Get Installed Version
-	// We use exec for robustness
-
-	// We need a method to get specific package info from Core/Backend without overhead.
-	// p.engine.Info() might work if exposed.
-	// Or we can use `pacman -Q <pkg>` but that's what backend does.
-	// Since engine.Info might not be exposed efficiently for this, let's assume we can use a helper or backend directly.
-	// backend := p.engine.GetOfficialBackend()
-	// But getting backend requires type assertion.
-	// Lets stick to `pacman -Q` explicitly for robustness here, or assume we can find the version.
-
-	// Actually, let's use `pacman -Q <pkg>` via exec for simplicity and reliability if backend API is complex.
-	// But we should use the backend if possible.
-	// Let's rely on `pacman -Q` output parsing for now, or better:
-	// Find the archive by globbing the cache dir?
-	// Archives are named: name-version-release-arch.pkg.tar.zst
-
-	// Let's first get the CacheDir.
+	// Use cache directories to find the archive
 	cacheDirs, err := p.getCacheDirs()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cache dirs: %w", err)
 	}
 
-	// We need the full version string (ver-rel).
+	// Get package version
 	version, err := p.getPackageVersion(owner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get package version for %s: %w", owner, err)
@@ -143,11 +119,20 @@ func (p *PacmanSourceProvider) getPackageVersion(pkgName string) (string, error)
 	return "", fmt.Errorf("unexpected output from pacman -Q")
 }
 
+func (p *PacmanSourceProvider) getArchitecture() (string, error) {
+	out, err := p.executor.Output("uname", "-m")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func (p *PacmanSourceProvider) findArchive(dirs []string, name, version string) (string, error) {
-	// Standard Arch naming: name-version-arch.pkg.tar.zst
-	// We need architecture too? `uname -m`
-	arch := "x86_64" // Assume x86_64 for now, or detect
-	// Actually, just globbing name-version-* might be safer.
+	// Detect architecture
+	arch, err := p.getArchitecture()
+	if err != nil {
+		arch = "x86_64"
+	}
 
 	extensions := []string{".pkg.tar.zst", ".pkg.tar.xz"}
 
@@ -171,6 +156,9 @@ func (p *PacmanSourceProvider) findArchive(dirs []string, name, version string) 
 	return "", os.ErrNotExist
 }
 
+// MaxConfigSize is the maximum size of a config file we'll extract (10MB)
+const MaxConfigSize = 10 * 1024 * 1024
+
 func (p *PacmanSourceProvider) extractFile(archivePath, relPath string) ([]byte, error) {
 	// Use external tar if possible for robustness, or Go's archive/tar + zstd.
 	// Go's zstd support is good.
@@ -192,7 +180,7 @@ func (p *PacmanSourceProvider) extractFile(archivePath, relPath string) ([]byte,
 		defer decoder.Close()
 		r = decoder
 	}
-	// Add xz support if needed (not in stdlib, assume zstd for now as it's standard)
+	// Add xz support if needed
 
 	tr := tar.NewReader(r)
 
@@ -206,10 +194,27 @@ func (p *PacmanSourceProvider) extractFile(archivePath, relPath string) ([]byte,
 		}
 
 		if header.Name == relPath {
+			// Check header size first (optimization)
+			if header.Size > MaxConfigSize {
+				return nil, fmt.Errorf("config file %s exceeds max size limit (%d bytes)", relPath, MaxConfigSize)
+			}
+
+			// Read with limit to be safe against trailing zeroes or attacks
 			var buf bytes.Buffer
-			if _, err := io.Copy(&buf, tr); err != nil {
+			// Pre-allocate if size is reasonable
+			if header.Size > 0 {
+				buf.Grow(int(header.Size))
+			}
+
+			lr := io.LimitReader(tr, MaxConfigSize+1)
+			n, err := io.Copy(&buf, lr)
+			if err != nil {
 				return nil, err
 			}
+			if n > MaxConfigSize {
+				return nil, fmt.Errorf("config file %s exceeds max size limit", relPath)
+			}
+
 			return buf.Bytes(), nil
 		}
 	}

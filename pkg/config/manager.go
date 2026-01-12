@@ -45,8 +45,6 @@ func (m *Manager) Apply(name string) error {
 // List returns available configuration packages matching "shedos-configs-*"
 func (m *Manager) List() ([]ConfigPackage, error) {
 	// Search for all packages starting with shedos-configs-
-	// Engine.Search usually takes a query. Using "shedos-configs-" might work if backend supports partial match.
-	// For now, we assume searching "shedos-configs" returns relevant results.
 	results, err := m.core.Search("shedos-configs-")
 	if err != nil {
 		return nil, err
