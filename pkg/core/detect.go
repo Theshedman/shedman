@@ -26,7 +26,7 @@ type DistroInfo struct {
 	IDLike   []string // Parent distros
 	Name     string   // Pretty name
 	Version  string   // Version string
-	Family   string   // Detected family (arch, debian, fedora, suse)
+	Family   string   // Detected family (arch)
 	IsShedOS bool     // Is this ShedOS specifically
 }
 

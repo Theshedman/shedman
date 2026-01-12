@@ -66,7 +66,7 @@ const (
 type PackageError struct {
 	Op       Operation // The operation that failed
 	Package  string    // The package name (if applicable)
-	Backend  string    // The backend name (pacman, apt, etc.)
+	Backend  string    // The backend name (pacman, etc.)
 	Err      error     // The underlying error
 	ExitCode int       // Exit code if from command execution
 	Output   string    // Command output if available

@@ -14,10 +14,9 @@ type MockBackend struct {
 	installed            []string
 }
 
-func (m *MockBackend) Name() string         { return "mock" }
-func (m *MockBackend) IsAvailable() bool    { return true }
-func (m *MockBackend) Sync() error          { return nil }
-func (m *MockBackend) DistroFamily() string { return "arch" } // Kept for compatibility if still used, though removed earlier
+func (m *MockBackend) Name() string      { return "mock" }
+func (m *MockBackend) IsAvailable() bool { return true }
+func (m *MockBackend) Sync() error       { return nil }
 
 func (m *MockBackend) Search(query string) ([]core.PackageInfo, error) {
 	var results []core.PackageInfo
