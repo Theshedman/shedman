@@ -10,19 +10,21 @@ import (
 
 // ConfigEngine manages configuration application logic
 type ConfigEngine struct {
-	stateMgr  StateManager
-	backupMgr BackupManager
-	differ    *Differ
-	resolver  ConflictResolver
+	StateMgr  StateManager
+	BackupMgr BackupManager
+	Differ    *Differ
+	Resolver  ConflictResolver
+	provider  SourceProvider
 }
 
 // NewConfigEngine creates a new config engine
-func NewConfigEngine(state StateManager, backup BackupManager, differ *Differ, resolver ConflictResolver) *ConfigEngine {
+func NewConfigEngine(state StateManager, backup BackupManager, differ *Differ, resolver ConflictResolver, provider SourceProvider) *ConfigEngine {
 	return &ConfigEngine{
-		stateMgr:  state,
-		backupMgr: backup,
-		differ:    differ,
-		resolver:  resolver,
+		StateMgr:  state,
+		BackupMgr: backup,
+		Differ:    differ,
+		Resolver:  resolver,
+		provider:  provider,
 	}
 }
 
@@ -32,7 +34,7 @@ func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
 
 	// 2. Calculate Hashes
 	// New (Incoming Package)
-	newHash, err := e.differ.CalculateHash(sourcePath)
+	newHash, err := e.Differ.CalculateHash(sourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to hash source: %w", err)
 	}
@@ -42,14 +44,14 @@ func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
 	targetExists := false
 	if _, err := os.Stat(targetPath); err == nil {
 		targetExists = true
-		currentHash, err = e.differ.CalculateHash(targetPath)
+		currentHash, err = e.Differ.CalculateHash(targetPath)
 		if err != nil {
 			return fmt.Errorf("failed to hash target: %w", err)
 		}
 	}
 
 	// Base (Last Applied)
-	state, hasState := e.stateMgr.Get(packageName, targetPath)
+	state, hasState := e.StateMgr.Get(packageName, targetPath)
 	var baseHash string
 	if hasState {
 		baseHash = state.Hash
@@ -131,7 +133,7 @@ func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
 			return fmt.Errorf("diff gen failed: %w", err)
 		}
 
-		resolution, err := e.resolver.Resolve(targetPath, diff)
+		resolution, err := e.Resolver.Resolve(targetPath, diff)
 		if err != nil {
 			return fmt.Errorf("resolution failed: %w", err)
 		}
@@ -153,7 +155,7 @@ func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
 
 // applyPackageVersion backs up the current file (if exists), overwrites it with source, and updates state
 func (e *ConfigEngine) applyPackageVersion(packageName, sourcePath, targetPath, newHash string) error {
-	if _, err := e.backupMgr.Backup(targetPath); err != nil {
+	if _, err := e.BackupMgr.Backup(targetPath); err != nil {
 		return fmt.Errorf("backup failed: %w", err)
 	}
 	if err := e.copyFile(sourcePath, targetPath); err != nil {
@@ -165,13 +167,13 @@ func (e *ConfigEngine) applyPackageVersion(packageName, sourcePath, targetPath, 
 
 // updateState updates the persistence layer
 func (e *ConfigEngine) updateState(pkg, path, hash string) {
-	e.stateMgr.Set(pkg, path, FileState{
+	e.StateMgr.Set(pkg, path, FileState{
 		Path:         path,
 		Hash:         hash,
 		LastModified: time.Now(),
 		Version:      "latest",
 	})
-	e.stateMgr.Save()
+	e.StateMgr.Save()
 }
 
 // copyFile copies content from src to dst atomically
@@ -202,13 +204,29 @@ func (e *ConfigEngine) copyFile(src, dst string) error {
 
 // generateDisplayDiff generates diff for interactive display
 func (e *ConfigEngine) generateDisplayDiff(userPath, pkgPath string) (string, error) {
-	userContent, err := e.differ.ReadFile(userPath)
+	userContent, err := e.Differ.ReadFile(userPath)
 	if err != nil {
 		return "", err
 	}
-	pkgContent, err := e.differ.ReadFile(pkgPath)
+	pkgContent, err := e.Differ.ReadFile(pkgPath)
 	if err != nil {
 		return "", err
 	}
-	return e.differ.GenerateDiff(userPath, userContent, pkgPath, pkgContent)
+	return e.Differ.GenerateDiff(userPath, userContent, pkgPath, pkgContent)
+}
+
+// GetOriginal retrieves the original content of a tracked file.
+func (e *ConfigEngine) GetOriginal(path string) ([]byte, error) {
+	if e.provider == nil {
+		return nil, fmt.Errorf("no source provider configured")
+	}
+	return e.provider.GetOriginalContent(path)
+}
+
+// GetFileOwner returns the owner package of the file.
+func (e *ConfigEngine) GetFileOwner(path string) (string, error) {
+	if e.provider == nil {
+		return "", fmt.Errorf("no source provider configured")
+	}
+	return e.provider.GetOwner(path)
 }

@@ -32,7 +32,7 @@ func setupEngineTest(t *testing.T) (*ConfigEngine, string, string) {
 	differ := NewDiffer()
 	resolver := new(MockConflictResolver)
 
-	engine := NewConfigEngine(stateMgr, backupMgr, differ, resolver)
+	engine := NewConfigEngine(stateMgr, backupMgr, differ, resolver, nil)
 
 	return engine, tmpDir, stateFile
 }
@@ -56,9 +56,9 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		assert.Equal(t, "pkg content", string(content))
 
 		// Verify state updated
-		state, found := eng.stateMgr.Get("testpkg", target)
+		state, found := eng.StateMgr.Get("testpkg", target)
 		assert.True(t, found)
-		hash, _ := eng.differ.CalculateHash(src)
+		hash, _ := eng.Differ.CalculateHash(src)
 		assert.Equal(t, hash, state.Hash)
 	})
 
@@ -74,8 +74,8 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		os.WriteFile(target, content, 0644)
 
 		// Set State match
-		hash := eng.differ.CalculateStringHash(string(content))
-		eng.stateMgr.Set("testpkg", target, FileState{
+		hash := eng.Differ.CalculateStringHash(string(content))
+		eng.StateMgr.Set("testpkg", target, FileState{
 			Path: target, Hash: hash, LastModified: time.Now(),
 		})
 
@@ -102,8 +102,8 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		os.WriteFile(target, []byte(userContent), 0644)
 
 		// State matches base
-		baseHash := eng.differ.CalculateStringHash(baseContent)
-		eng.stateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
+		baseHash := eng.Differ.CalculateStringHash(baseContent)
+		eng.StateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
 
 		err := eng.Apply("testpkg", src, target)
 		require.NoError(t, err)
@@ -127,8 +127,8 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		os.WriteFile(src, []byte(pkgContent), 0644)
 		os.WriteFile(target, []byte(userContent), 0644)
 
-		baseHash := eng.differ.CalculateStringHash(baseContent)
-		eng.stateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
+		baseHash := eng.Differ.CalculateStringHash(baseContent)
+		eng.StateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
 
 		err := eng.Apply("testpkg", src, target)
 		require.NoError(t, err)
@@ -138,8 +138,8 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		assert.Equal(t, pkgContent, string(finalContent))
 
 		// Verify State Updated
-		newState, _ := eng.stateMgr.Get("testpkg", target)
-		newHash := eng.differ.CalculateStringHash(pkgContent)
+		newState, _ := eng.StateMgr.Get("testpkg", target)
+		newHash := eng.Differ.CalculateStringHash(pkgContent)
 		assert.Equal(t, newHash, newState.Hash)
 	})
 
@@ -157,11 +157,11 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		os.WriteFile(src, []byte(pkgContent), 0644)
 		os.WriteFile(target, []byte(userContent), 0644)
 
-		baseHash := eng.differ.CalculateStringHash(baseContent)
-		eng.stateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
+		baseHash := eng.Differ.CalculateStringHash(baseContent)
+		eng.StateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
 
 		// Mock Resolver
-		mockResolver := eng.resolver.(*MockConflictResolver)
+		mockResolver := eng.Resolver.(*MockConflictResolver)
 		mockResolver.On("Resolve", target, mock.Anything).Return(ActionKeepUser, nil)
 
 		err := eng.Apply("testpkg", src, target)
@@ -188,10 +188,10 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		os.WriteFile(src, []byte(pkgContent), 0644)
 		os.WriteFile(target, []byte(userContent), 0644)
 
-		baseHash := eng.differ.CalculateStringHash(baseContent)
-		eng.stateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
+		baseHash := eng.Differ.CalculateStringHash(baseContent)
+		eng.StateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
 
-		mockResolver := eng.resolver.(*MockConflictResolver)
+		mockResolver := eng.Resolver.(*MockConflictResolver)
 		mockResolver.On("Resolve", target, mock.Anything).Return(ActionUpdate, nil)
 
 		err := eng.Apply("testpkg", src, target)
