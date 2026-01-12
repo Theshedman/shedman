@@ -20,17 +20,18 @@ shedman follows a **modular monorepo** architecture where distinct functional mo
 shedman/
 ├── cmd/
 │   └── shedman/
-│       ├── main.go                 # Entry point, CLI router
-│       └── commands/               # Command implementations
-│           ├── install.go
-│           ├── snapshot.go
-│           └── ...
+│       └── main.go                 # Entry point, CLI router
 │
 ├── pkg/                           # Public packages (modules)
 │   ├── core/                      # Core package management
 │   │   ├── engine.go
 │   │   ├── resolver.go
-│   │   └── installer.go
+│   │   ├── installer.go
+│   │   └── cmd/                   # CLI command implementations
+│   │       ├── install.go
+│   │       ├── remove.go
+│   │       ├── update.go
+│   │       └── ...
 │   │
 │   ├── snapshot/                  # Backup/restore system
 │   │   ├── snapshot.go

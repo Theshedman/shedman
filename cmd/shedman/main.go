@@ -5,11 +5,11 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/cmd/shedman/commands"
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/internal/signals"
 	configcmd "github.com/theshedman/shedman/pkg/config/cmd"
+	commands "github.com/theshedman/shedman/pkg/core/cmd"
 )
 
 // Global flags
