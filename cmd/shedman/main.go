@@ -9,6 +9,7 @@ import (
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/internal/signals"
+	configcmd "github.com/theshedman/shedman/pkg/config/cmd"
 )
 
 // Global flags
@@ -67,9 +68,8 @@ func init() {
 	rootCmd.AddCommand(commands.SearchCmd)
 	rootCmd.AddCommand(commands.SyncCmd)
 	rootCmd.AddCommand(commands.UpdateCmd)
-	rootCmd.AddCommand(commands.UpdateCmd)
 	rootCmd.AddCommand(commands.InfoCmd)
-	rootCmd.AddCommand(commands.ConfigCmd)
+	rootCmd.AddCommand(configcmd.NewCommand())
 
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&yesFlag, "yes", "y", false, "Skip all confirmations")

@@ -24,7 +24,6 @@ shedman/
 │       └── commands/               # Command implementations
 │           ├── install.go
 │           ├── snapshot.go
-│           ├── config.go
 │           └── ...
 │
 ├── pkg/                           # Public packages (modules)
