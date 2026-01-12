@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -83,12 +84,11 @@ func (b *Backend) SetForceRefresh(force bool) {
 // doRequest performs an HTTP GET request with proper headers
 // falls back to curl if standard client fails (likely due to TLS fingerprinting/Cloudflare)
 func (b *Backend) doRequest(url string) (*http.Response, error) {
-	// 1. Prefer curl if available (most robust against Cloudflare/TLS fingerprinting)
+	// Prefer curl if available to bypass TLS fingerprinting
 	if hasCurl() {
 		return b.curlRequest(url)
 	}
 
-	// 2. Fallback to standard Go client
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -104,16 +104,28 @@ func hasCurl() bool {
 }
 
 func (b *Backend) curlRequest(url string) (*http.Response, error) {
-	cmd := exec.Command("curl", "-s", "-L", "-A", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", url)
+	// Use -w %{http_code} to get the status code
+	cmd := exec.Command("curl", "-s", "-L", "-A", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "-w", "%{http_code}", url)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
 
-	// Mock a response object
+	if len(output) < 3 {
+		return nil, fmt.Errorf("invalid curl output")
+	}
+
+	statusStr := string(output[len(output)-3:])
+	statusCode, err := strconv.Atoi(statusStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse status code: %w", err)
+	}
+
+	body := output[:len(output)-3]
+
 	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader(output)),
+		StatusCode: statusCode,
+		Body:       io.NopCloser(bytes.NewReader(body)),
 		Header:     make(http.Header),
 	}
 	resp.Header.Set("Content-Type", "application/json")

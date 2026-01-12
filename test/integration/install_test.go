@@ -38,11 +38,7 @@ func TestInstall_DryRun_Official(t *testing.T) {
 
 func TestInstall_DryRun_AUR(t *testing.T) {
 	// Use a known AUR package, e.g. 'google-chrome' or 'visual-studio-code-bin'
-	// But to be safe and dependent-less, maybe 'yay-bin'?
-	// Reusing 'neovim' with --aur flag to force check (it might fail if not found in AUR but we can check if it TRIES to use AUR backend)
-	// Actually, neovim is in official.
-	// Let's try 'yay-bin'.
-
+	// Using 'yay-bin' to force AUR usage
 	cmd := exec.Command(binaryPath, "install", "yay-bin", "--dry-run", "--noconfirm", "--aur")
 	// Note: This requires AUR enabled in config. Default might be false?
 	// We might need to supply a config or flags.
@@ -53,7 +49,7 @@ func TestInstall_DryRun_AUR(t *testing.T) {
 	// If it failed finding package, it might still show "AUR" backend source in error or log?
 	// Or we can invoke search.
 	// For install, if not found, it errors.
-	if strings.Contains(outStr, "Dry-run mode") && strings.Contains(outStr, "yay-bin") {
+	if strings.Contains(outStr, "Dry-run mode") && strings.Contains(outStr, "yay-bin") && (strings.Contains(outStr, "[AUR]") || strings.Contains(outStr, "aur/yay-bin")) {
 		// Pass
 	} else {
 		t.Skip("Skipping AUR test as package might not be resolvable or AUR disabled")

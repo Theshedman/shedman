@@ -92,7 +92,9 @@ func (b *AlpmBackend) IsAvailable() bool {
 }
 
 // Sync refreshes the package databases.
-// NOTE: go-alpm v2 does not expose alpm_db_update(), so we use pacman binary.
+//
+//	go-alpm v2 does not expose alpm_db_update(), so we use pacman binary
+//
 // This is the only operation that still requires the pacman binary.
 func (b *AlpmBackend) Sync() error {
 	return b.executor.Run(b.sudoPath, "pacman", "-Sy")

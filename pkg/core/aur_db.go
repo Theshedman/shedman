@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/theshedman/shedman/internal/config"
@@ -90,6 +91,8 @@ func NewAURDBWithConfig(cfg *config.Config) *AURDB {
 	if baseURL == "" {
 		baseURL = "https://aur.archlinux.org"
 	}
+	baseURL = strings.TrimSuffix(baseURL, "/")
+	baseURL = strings.TrimSuffix(baseURL, "/rpc")
 
 	return &AURDB{
 		httpClient: DefaultHTTPClient,
