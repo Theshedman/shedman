@@ -57,6 +57,7 @@ func CreateConfigEngine() *pkgconfig.ConfigEngine {
 	backupMgr := pkgconfig.NewFileBackupManager()
 	differ := pkgconfig.NewDiffer()
 	resolver := tui.NewConflictResolver()
+	provider := pkgconfig.NewPacmanSourceProvider(nil)
 
-	return pkgconfig.NewConfigEngine(stateMgr, backupMgr, differ, resolver)
+	return pkgconfig.NewConfigEngine(stateMgr, backupMgr, differ, resolver, provider)
 }
