@@ -45,7 +45,7 @@ func Default() *Config {
 		Mirrors: MirrorConfig{
 			ShedOS: []string{"https://repo.shedos.org"},
 			Arch:   []string{"https://geo.mirror.pkgbuild.com/$repo/os/$arch"},
-			AUR:    "https://aur.archlinux.org",
+			AUR:    "https://aur.archlinux.org/rpc/",
 		},
 		Boot: BootConfig{
 			KeepKernels: 3,

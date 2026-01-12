@@ -2,11 +2,13 @@
 package aur
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"time"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -78,6 +80,46 @@ func (b *Backend) SetForceRefresh(force bool) {
 	b.forceRefresh = force
 }
 
+// doRequest performs an HTTP GET request with proper headers
+// falls back to curl if standard client fails (likely due to TLS fingerprinting/Cloudflare)
+func (b *Backend) doRequest(url string) (*http.Response, error) {
+	// 1. Prefer curl if available (most robust against Cloudflare/TLS fingerprinting)
+	if hasCurl() {
+		return b.curlRequest(url)
+	}
+
+	// 2. Fallback to standard Go client
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	return b.client.Do(req)
+}
+
+func hasCurl() bool {
+	_, err := exec.LookPath("curl")
+	return err == nil
+}
+
+func (b *Backend) curlRequest(url string) (*http.Response, error) {
+	cmd := exec.Command("curl", "-s", "-L", "-A", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", url)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	// Mock a response object
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(output)),
+		Header:     make(http.Header),
+	}
+	resp.Header.Set("Content-Type", "application/json")
+	return resp, nil
+}
+
 // Sync verifies the AUR API is reachable.
 // Unlike traditional repositories, the AUR is queried on-demand via its RPC API.
 // There is no package database to download - packages are searched and fetched
@@ -86,7 +128,7 @@ func (b *Backend) Sync() error {
 	// Verify AUR API connectivity with a simple request
 	reqURL := fmt.Sprintf("%s?v=%s&type=info&arg=linux", b.baseURL, AURAPIVersion)
 
-	resp, err := b.client.Get(reqURL)
+	resp, err := b.doRequest(reqURL)
 	if err != nil {
 		return fmt.Errorf("failed to reach AUR API: %w", err)
 	}
@@ -105,7 +147,7 @@ func (b *Backend) Search(query string) ([]core.PackageInfo, error) {
 	reqURL := fmt.Sprintf("%s?v=%s&type=search&arg=%s",
 		b.baseURL, AURAPIVersion, url.QueryEscape(query))
 
-	resp, err := b.client.Get(reqURL)
+	resp, err := b.doRequest(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("AUR search failed: %w", err)
 	}
@@ -122,6 +164,9 @@ func (b *Backend) Search(query string) ([]core.PackageInfo, error) {
 
 	var aurResp AURResponse
 	if err := json.Unmarshal(body, &aurResp); err != nil {
+		if len(body) > 0 && body[0] == '<' {
+			return nil, fmt.Errorf("received HTML response from AUR (possible API error or rate limit)")
+		}
 		return nil, fmt.Errorf("failed to parse AUR response: %w", err)
 	}
 
@@ -148,7 +193,7 @@ func (b *Backend) Info(pkgName string) (*core.PackageInfo, error) {
 	reqURL := fmt.Sprintf("%s?v=%s&type=info&arg=%s",
 		b.baseURL, AURAPIVersion, url.QueryEscape(pkgName))
 
-	resp, err := b.client.Get(reqURL)
+	resp, err := b.doRequest(reqURL)
 	if err != nil {
 		return nil, fmt.Errorf("AUR info failed: %w", err)
 	}
