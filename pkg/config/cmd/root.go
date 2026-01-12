@@ -10,24 +10,18 @@ import (
 	"github.com/theshedman/shedman/pkg/tui"
 )
 
-// NewCommand creates the config command hierarchy
-func NewCommand() *cobra.Command {
-	usage := "config"
-	short := "Manage configuration files"
-	long := `Scan, diff, and reset tracked configuration files managed by shedman.`
+// ConfigCmd is the root command for configuration management
+var ConfigCmd = &cobra.Command{
+	Use:   "config",
+	Short: "Manage configuration files",
+	Long:  `Scan, diff, and reset tracked configuration files managed by shedman.`,
+}
 
-	cmd := &cobra.Command{
-		Use:   usage,
-		Short: short,
-		Long:  long,
-	}
-
-	cmd.AddCommand(newStatusCmd())
-	cmd.AddCommand(newDiffCmd())
-	cmd.AddCommand(newResetCmd())
-	cmd.AddCommand(newApplyCmd())
-
-	return cmd
+func init() {
+	ConfigCmd.AddCommand(newStatusCmd())
+	ConfigCmd.AddCommand(newDiffCmd())
+	ConfigCmd.AddCommand(newResetCmd())
+	ConfigCmd.AddCommand(newApplyCmd())
 }
 
 func newStatusCmd() *cobra.Command {
