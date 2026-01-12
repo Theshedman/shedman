@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/config"
 	"github.com/theshedman/shedman/pkg/tui"
 )
@@ -42,14 +43,14 @@ func newStatusCmd() *cobra.Command {
 			states := stateMgr.List()
 
 			if len(states) == 0 {
-				fmt.Println("No configuration files are currently tracked.")
+				output.Info("No configuration files are currently tracked.")
 				return
 			}
 
-			fmt.Printf("%-50s %-20s %s\n", "PATH", "VERSION", "LAST MODIFIED")
-			fmt.Printf("%-50s %-20s %s\n", "----", "-------", "-------------")
+			cmd.Printf("%-50s %-20s %s\n", "PATH", "VERSION", "LAST MODIFIED")
+			cmd.Printf("%-50s %-20s %s\n", "----", "-------", "-------------")
 			for _, s := range states {
-				fmt.Printf("%-50s %-20s %s\n", s.Path, s.Version, s.LastModified.Format("2006-01-02 15:04:05"))
+				cmd.Printf("%-50s %-20s %s\n", s.Path, s.Version, s.LastModified.Format("2006-01-02 15:04:05"))
 			}
 		},
 	}
@@ -87,9 +88,9 @@ func newDiffCmd() *cobra.Command {
 			}
 
 			if diff == "" {
-				fmt.Println("No differences found.")
+				output.Info("No differences found.")
 			} else {
-				fmt.Println(diff)
+				cmd.Println(diff)
 			}
 		},
 	}
@@ -107,24 +108,24 @@ func newResetCmd() *cobra.Command {
 			// Get Original
 			original, err := eng.GetOriginal(path)
 			if err != nil {
-				fmt.Printf("Error retrieving original content: %v\n", err)
+				output.Error("Error retrieving original content: %v", err)
 				os.Exit(1)
 			}
 
 			// Backup
-			fmt.Println("Backing up current configuration...")
+			output.Info("Backing up current configuration...")
 			if _, err := eng.BackupMgr.Backup(path); err != nil {
-				fmt.Printf("Backup failed: %v\n", err)
+				output.Error("Backup failed: %v", err)
 				os.Exit(1)
 			}
 
 			// Overwrite
 			if err := os.WriteFile(path, original, 0644); err != nil {
-				fmt.Printf("Failed to write file: %v\n", err)
+				output.Error("Failed to write file: %v", err)
 				os.Exit(1)
 			}
 
-			fmt.Printf("Successfully reset %s to package default.\n", path)
+			output.Success("Successfully reset %s to package default.", path)
 		},
 	}
 }
@@ -167,13 +168,14 @@ func newApplyCmd() *cobra.Command {
 			tmpFile.Close()
 
 			// 4. Apply
-			fmt.Printf("Applying configuration for %s (Owner: %s)...\n", path, owner)
+			cmd.Printf("Applying configuration for %s (Owner: %s)...\n", path, owner)
 			if err := eng.Apply(owner, tmpFile.Name(), path); err != nil {
-				fmt.Printf("Apply failed: %v\n", err)
+
+				output.Error("Apply failed: %v", err)
 				os.Exit(1)
 			}
 
-			fmt.Println("Configuration applied successfully.")
+			output.Success("Configuration applied successfully.")
 		},
 	}
 }
