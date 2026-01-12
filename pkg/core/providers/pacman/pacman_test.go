@@ -9,10 +9,12 @@ import (
 
 // MockExecutor implements CommandExecutor for testing
 type MockExecutor struct {
-	RunFunc     func(name string, args ...string) error
-	OutputFunc  func(name string, args ...string) ([]byte, error)
-	RunCalls    [][]string
-	OutputCalls [][]string
+	RunFunc        func(name string, args ...string) error
+	SilentRunFunc  func(name string, args ...string) error
+	OutputFunc     func(name string, args ...string) ([]byte, error)
+	RunCalls       [][]string
+	SilentRunCalls [][]string
+	OutputCalls    [][]string
 }
 
 func (m *MockExecutor) Run(name string, args ...string) error {
@@ -20,6 +22,15 @@ func (m *MockExecutor) Run(name string, args ...string) error {
 	m.RunCalls = append(m.RunCalls, call)
 	if m.RunFunc != nil {
 		return m.RunFunc(name, args...)
+	}
+	return nil
+}
+
+func (m *MockExecutor) SilentRun(name string, args ...string) error {
+	call := append([]string{name}, args...)
+	m.SilentRunCalls = append(m.SilentRunCalls, call)
+	if m.SilentRunFunc != nil {
+		return m.SilentRunFunc(name, args...)
 	}
 	return nil
 }
@@ -255,7 +266,7 @@ vim /usr/share/vim/
 
 func TestBackend_IsInstalled(t *testing.T) {
 	mock := &MockExecutor{
-		RunFunc: func(name string, args ...string) error {
+		SilentRunFunc: func(name string, args ...string) error {
 			if len(args) > 1 && args[1] == "vim" {
 				return nil
 			}

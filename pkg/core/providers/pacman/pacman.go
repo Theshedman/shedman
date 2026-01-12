@@ -42,6 +42,7 @@ type Backend struct {
 // CommandExecutor allows mocking command execution in tests
 type CommandExecutor interface {
 	Run(name string, args ...string) error
+	SilentRun(name string, args ...string) error
 	Output(name string, args ...string) ([]byte, error)
 }
 
@@ -58,6 +59,11 @@ func (r *RealExecutor) Run(name string, args ...string) error {
 
 func (r *RealExecutor) Output(name string, args ...string) ([]byte, error) {
 	return exec.Command(name, args...).Output()
+}
+
+func (r *RealExecutor) SilentRun(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	return cmd.Run()
 }
 
 // init registers the pacman backend factory
@@ -203,6 +209,10 @@ func (b *Backend) Sync() error {
 func (b *Backend) Search(query string) ([]core.PackageInfo, error) {
 	output, err := b.executor.Output(b.binaryPath, "-Ss", query)
 	if err != nil {
+		// pacman returns exit code 1 if no results found
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return []core.PackageInfo{}, nil
+		}
 		return nil, err
 	}
 
@@ -349,7 +359,8 @@ func (b *Backend) GetPackageFiles(pkgName string) ([]string, error) {
 
 // IsInstalled checks if a package is installed
 func (b *Backend) IsInstalled(pkgName string) bool {
-	err := b.executor.Run(b.binaryPath, "-Q", pkgName)
+	// Use SilentRun to avoid printing "error: package 'foo' was not found" to stderr
+	err := b.executor.SilentRun(b.binaryPath, "-Q", pkgName)
 	return err == nil
 }
 
