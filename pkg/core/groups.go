@@ -42,7 +42,7 @@ var DefaultGroups = map[string]PackageGroup{
 		Packages: []string{
 			"base-devel", "git", "vim", "neovim", "tmux",
 			"curl", "wget", "jq", "ripgrep", "fd", "fzf",
-			"make", "cmake", "gcc", "clang",
+			"make", "cmake", "gcc", "clang", "gdb",
 			"lazygit", "grep", "sed", "gawk",
 			"lua-language-server", "bash-language-server", "python-lsp-server",
 			"shellcheck", "shfmt", "docker", "docker-compose",
@@ -52,15 +52,15 @@ var DefaultGroups = map[string]PackageGroup{
 		Name:        "web-dev",
 		Description: "Web development tools",
 		Packages: []string{
-			"nodejs", "npm", "yarn", "firefox",
+			"nodejs", "npm", "yarn", "docker", "nginx",
 		},
 	},
 	"python-dev": {
 		Name:        "python-dev",
 		Description: "Python development tools",
 		Packages: []string{
-			"python", "python-pip", "python-virtualenv",
-			"python-poetry", "python-pytest",
+			"python", "python-pip", "python-poetry", "pyenv", "ipython", "python-virtualenv",
+			"python-pytest",
 		},
 	},
 	"rust-dev": {
@@ -93,32 +93,29 @@ var DefaultGroups = map[string]PackageGroup{
 		Name:        "gaming",
 		Description: "Gaming packages and tools",
 		Packages: []string{
-			"steam", "lutris", "wine", "gamemode",
-			"mangohud", "lib32-vulkan-icd-loader",
+			"steam", "wine", "gamemode", "mangohud", "lutris",
 		},
 	},
 	"multimedia": {
 		Name:        "multimedia",
 		Description: "Multimedia applications",
 		Packages: []string{
-			"vlc", "mpv", "ffmpeg", "obs-studio",
-			"gimp", "inkscape", "audacity",
+			"obs-studio", "kdenlive", "audacity", "gimp", "inkscape",
+			"vlc", "mpv", "ffmpeg",
 		},
 	},
 	"office": {
 		Name:        "office",
 		Description: "Office productivity applications",
 		Packages: []string{
-			"libreoffice-fresh", "thunderbird",
-			"evince", "okular",
+			"libreoffice-fresh", "thunderbird", "zathura", "evince", "okular",
 		},
 	},
 	"virtualization": {
 		Name:        "virtualization",
 		Description: "Virtualization tools",
 		Packages: []string{
-			"qemu-full", "libvirt", "virt-manager",
-			"docker", "docker-compose",
+			"qemu-full", "libvirt", "virt-manager", "docker", "docker-compose",
 		},
 	},
 	"fonts": {
@@ -135,7 +132,7 @@ var DefaultGroups = map[string]PackageGroup{
 		Name:        "shedos-hyprland",
 		Description: "ShedOS with Hyprland compositor",
 		Packages: []string{
-			"hyprland", "waybar", "wofi", "kitty",
+			"hyprland", "waybar", "walker", "kitty",
 			"swww", "hyprlock", "hypridle", "grim", "slurp",
 			"wl-clipboard", "xdg-desktop-portal-hyprland",
 			"polkit-kde-agent", "qt5-wayland", "qt6-wayland",
@@ -147,23 +144,49 @@ var DefaultGroups = map[string]PackageGroup{
 		Name:        "shedos-gnome",
 		Description: "ShedOS with GNOME desktop",
 		Packages: []string{
-			"gnome", "gnome-extra", "gdm",
-			"gnome-tweaks", "gnome-shell-extensions",
+			"gnome", "gnome-circle",
 		},
 	},
 	"shedos-kde": {
 		Name:        "shedos-kde",
 		Description: "ShedOS with KDE Plasma desktop",
 		Packages: []string{
-			"plasma", "plasma-wayland-session", "sddm",
-			"konsole", "dolphin", "kate", "ark",
+			"plasma", "kde-applications", "sddm",
 		},
 	},
 	"shedos-cosmic": {
 		Name:        "shedos-cosmic",
 		Description: "ShedOS with COSMIC desktop (System76)",
 		Packages: []string{
-			"cosmic-epoch", "cosmic-terminal", "cosmic-files",
+			"cosmic",
+		},
+	},
+	"shedos-budgie": {
+		Name:        "shedos-budgie",
+		Description: "ShedOS with Budgie desktop",
+		Packages: []string{
+			"budgie",
+		},
+	},
+	"shedos-cinnamon": {
+		Name:        "shedos-cinnamon",
+		Description: "ShedOS with Cinnamon desktop",
+		Packages: []string{
+			"cinnamon",
+		},
+	},
+	"shedos-deepin": {
+		Name:        "shedos-deepin",
+		Description: "ShedOS with Deepin desktop",
+		Packages: []string{
+			"deepin", "deepin-kwin", "deepin-extra",
+		},
+	},
+	"shedos-mate": {
+		Name:        "shedos-mate",
+		Description: "ShedOS with MATE desktop",
+		Packages: []string{
+			"mate", "mate-extra",
 		},
 	},
 }
