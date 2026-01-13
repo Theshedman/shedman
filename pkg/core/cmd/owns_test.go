@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -17,12 +19,14 @@ func TestRunOwns(t *testing.T) {
 		owner     string
 		mockError error
 		wantError bool
+		wantOut   string
 	}{
 		{
 			name:      "Owned",
 			path:      "/bin/ls",
 			owner:     "coreutils",
 			wantError: false,
+			wantOut:   "owned by 'coreutils'",
 		},
 		{
 			name:      "Not Owned",
@@ -41,9 +45,17 @@ func TestRunOwns(t *testing.T) {
 				return tt.owner, tt.mockError
 			}
 
-			err := RunOwns(eng, tt.path)
+			var buf bytes.Buffer
+			// RunOwns(eng, w, path)
+			err := RunOwns(eng, &buf, tt.path)
 			if (err != nil) != tt.wantError {
 				t.Errorf("RunOwns() error = %v, wantError %v", err, tt.wantError)
+			}
+
+			if !tt.wantError {
+				if !strings.Contains(buf.String(), tt.wantOut) {
+					t.Errorf("Output missing '%s'. Got: %s", tt.wantOut, buf.String())
+				}
 			}
 		})
 	}

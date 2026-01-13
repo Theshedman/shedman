@@ -1,10 +1,11 @@
 package cmd
 
 import (
+	"fmt"
+	"io"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -13,33 +14,28 @@ var OwnsCmd = &cobra.Command{
 	Use:   "owns [file]",
 	Short: "Check which package owns a file",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		path, err := filepath.Abs(args[0])
 		if err != nil {
-			output.Error("Invalid path: %v", err)
-			return
+			return fmt.Errorf("invalid path: %w", err)
 		}
 
 		eng, err := NewEngineWithConfig(nil)
 		if err != nil {
-			output.Error("Failed to initialize engine: %v", err)
-			return
+			return fmt.Errorf("failed to initialize engine: %w", err)
 		}
 
-		if err := RunOwns(eng, path); err != nil {
-			output.Error("%v", err)
-			return
-		}
+		return RunOwns(eng, cmd.OutOrStdout(), path)
 	},
 }
 
 // RunOwns executes the owns logic
-func RunOwns(eng *core.Engine, path string) error {
+func RunOwns(eng *core.Engine, w io.Writer, path string) error {
 	owner, err := eng.GetFileOwner(path)
 	if err != nil {
 		return err
 	}
 
-	output.Success("File '%s' is owned by '%s'", path, owner)
+	fmt.Fprintf(w, "File '%s' is owned by '%s'\n", path, owner)
 	return nil
 }

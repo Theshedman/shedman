@@ -3,11 +3,12 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"io"
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
+	"github.com/theshedman/shedman/pkg/core"
 )
 
 var (
@@ -23,7 +24,21 @@ func NewInfoCmd() *cobra.Command {
 		Long:  `Display detailed information about a package from configured repositories or installed packages.`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInfo(args[0])
+			// Load configuration
+			cfg, err := config.LoadDefault()
+			if err != nil {
+				output.Warning("Failed to load config, using defaults: %v", err)
+				cfg = config.Default()
+			}
+
+			// Initialize Engine
+			eng, err := NewEngineWithConfig(cfg)
+			if err != nil {
+				return fmt.Errorf("failed to initialize engine: %w", err)
+			}
+
+			// Execute
+			return RunInfo(eng, cmd.OutOrStdout(), args[0], infoJSON)
 		},
 	}
 
@@ -33,55 +48,55 @@ func NewInfoCmd() *cobra.Command {
 	return cmd
 }
 
-func runInfo(pkgName string) error {
-	// Load configuration
-	cfg, err := config.LoadDefault()
-	if err != nil {
-		output.Warning("Failed to load config, using defaults: %v", err)
-		cfg = config.Default()
-	}
-
-	// Initialize Engine
-	eng, err := NewEngineWithConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to initialize engine: %w", err)
-	}
-
+// RunInfo executes the info logic
+func RunInfo(eng *core.Engine, w io.Writer, pkgName string, asJson bool) error {
 	// Query Engine for Info
 	info, err := eng.Info(pkgName)
 	if err != nil {
 		return fmt.Errorf("failed to get info for %s: %w", pkgName, err)
 	}
 
-	if infoJSON {
-		enc := json.NewEncoder(os.Stdout)
+	if asJson {
+		// Create encoder that writes to w
+		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		return enc.Encode(info)
 	}
 
-	// Render Text Output
-	output.PrintInfoKV("Name", info.Name)
-	output.PrintInfoKV("Version", info.Version)
-	output.PrintInfoKV("Description", info.Description)
-	output.PrintInfoKV("Source", string(info.Source))
+	// Render Text Output to Writer
+	// Manual formatting to match output package
+	// We mimic output.PrintInfoKV logic but writing to w.
+	printKV(w, "Name", info.Name)
+	printKV(w, "Version", info.Version)
+	printKV(w, "Description", info.Description)
+	printKV(w, "Source", string(info.Source))
 	if info.PackageType != "" {
-		output.PrintInfoKV("Type", info.PackageType)
+		printKV(w, "Type", info.PackageType)
 	}
-	output.PrintInfoKV("URL", info.DownloadURL)
+	printKV(w, "URL", info.DownloadURL)
 	if len(info.Depends) > 0 {
-		output.PrintInfoKV("Depends On", fmt.Sprintf("%v", info.Depends))
+		printKV(w, "Depends On", fmt.Sprintf("%v", info.Depends))
 	}
 	if len(info.OptDepends) > 0 {
-		output.PrintInfoKV("Optional Deps", fmt.Sprintf("%v", info.OptDepends))
+		printKV(w, "Optional Deps", fmt.Sprintf("%v", info.OptDepends))
 	}
 	if info.Size > 0 {
-		output.PrintInfoKV("Download Size", fmt.Sprintf("%.2f MiB", float64(info.Size)/1024/1024))
+		printKV(w, "Download Size", fmt.Sprintf("%.2f MiB", float64(info.Size)/1024/1024))
 	}
 	if info.InstalledSize > 0 {
-		output.PrintInfoKV("Installed Size", fmt.Sprintf("%.2f MiB", float64(info.InstalledSize)/1024/1024))
+		printKV(w, "Installed Size", fmt.Sprintf("%.2f MiB", float64(info.InstalledSize)/1024/1024))
 	}
 
 	return nil
+}
+
+// printKV formats key-value output to writer
+func printKV(w io.Writer, key string, value string) {
+	if value == "" {
+		return
+	}
+	// Align keys: assume max key length ~15
+	fmt.Fprintf(w, "%-15s : %s\n", key, value)
 }
 
 func init() {
