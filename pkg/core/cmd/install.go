@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -43,148 +44,170 @@ var InstallCmd = &cobra.Command{
 			return fmt.Errorf("failed to initialize backend: %w", err)
 		}
 
-		// Parse package requests
-		var pkgs []core.PackageInfo
-		for _, arg := range args {
-			// Handle groups (placeholder)
-			if arg == "@dev" || (len(arg) > 0 && arg[0] == '@') {
-				output.Info("Package groups not yet implemented: %s", arg)
-				continue
-			}
+		eng := core.NewEngineWithBackend(backend)
+		return RunInstall(eng, cmd, args, os.Stdout, cfg)
+	},
+}
 
-			// Parse package spec (name@version)
-			req := core.ParsePackageRequest(arg)
-			pkgName := req.Name
+// RunInstall executes the install command logic
+func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer, cfg *config.Config) error {
+	backend := eng.GetOfficialBackend()
+	if backend == nil {
+		return core.ErrBackendNotFound
+	}
 
-			// Look up package info
-			info, err := backend.Info(pkgName)
+	// Parse package requests
+	var pkgs []core.PackageInfo
+	for _, arg := range args {
+		// Handle groups
+		if len(arg) > 0 && arg[0] == '@' {
+			output.Info("Resolving group %s...", arg)
+			registry := core.NewGroupRegistryWithConfig(cfg)
+			expanded, err := registry.ExpandGroups([]string{arg})
 			if err != nil {
-				output.Error("Failed to query package %s: %v", pkgName, err)
-				continue
-			}
-			if info == nil {
-				output.Error("Package not found: %s", pkgName)
+				output.Error("Failed to expand group %s: %v", arg, err)
 				continue
 			}
 
-			// If version requested, check match (simplified logic)
-			if req.Version != "" && info.Version != req.Version {
-				output.Warning("Requested version %s but found %s", req.Version, info.Version)
-				// Continue anyway or fail? using found version.
-			}
-
-			pkgs = append(pkgs, *info)
-		}
-
-		if len(pkgs) == 0 {
-			return fmt.Errorf("no packages to install")
-		}
-
-		// Show what we're installing using summary table
-		quiet, _ := cmd.Flags().GetBool("quiet")
-		yes, _ := cmd.Flags().GetBool("yes")
-		if !quiet {
-			summary := output.NewInstallSummaryTable()
-			for _, pkg := range pkgs {
-				status := "install"
-				if backend.IsInstalled(pkg.Name) {
-					status = "reinstall"
-				}
-				summary.AddPackage(output.SummaryRow{
-					Name:    pkg.Name,
-					Version: pkg.Version,
-					Source:  string(pkg.Source),
-					Size:    pkg.Size,
-					Status:  status,
-				})
-			}
-			summary.Print()
-
-			// Confirmation prompt
-			if !yes && cfg.General.Confirm {
-				if !output.Confirm("Proceed with installation?", output.ConfirmOptions{Default: true}) {
-					return fmt.Errorf("installation cancelled")
-				}
-			}
-		}
-
-		// Build install options
-		opts := core.InstallOptions{
-			Needed:       installNeeded,
-			AsDeps:       installAsDeps,
-			AsExplicit:   installAsExplicit || (!installAsDeps),
-			NoConfirm:    yes,
-			DownloadOnly: installDownloadOnly,
-			Overwrite:    installOverwrite,
-		}
-
-		// Dry-run mode
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		if dryRun {
-			cmd.Println("\nDry-run mode - would execute:")
-			for _, pkg := range pkgs {
-				cmd.Printf("  Install %s from %s\n", pkg.Name, pkg.Source)
-			}
-			return nil
-		}
-
-		// Execute installation based on source
-		if err := executeInstall(cfg, pkgs, opts); err != nil {
-			output.Error("Installation failed: %v", err)
-			return err
-		}
-
-		if !quiet {
-			output.Success("Installation complete.")
-		}
-
-		// Post-install: Handle configuration management
-		// Scan for .pacnew files generated during install
-		engine := CreateConfigEngine()
-
-		output.Info("Checking for configuration updates...")
-		for _, pkg := range pkgs {
-			// Ensure backend supports file listing
-			if fp, ok := backend.(core.FileProvider); ok {
-				files, err := fp.GetPackageFiles(pkg.Name)
+			for _, p := range expanded {
+				// Add to args to be processed (simple way) or handle directly
+				// Helper: process expanded packages
+				// We need to fetch info for them.
+				info, err := backend.Info(p)
 				if err != nil {
-					// Soft fail, just log
-					verbose, _ := cmd.Flags().GetBool("verbose")
-					if verbose {
-						output.Warning("Could not list files for %s: %v", pkg.Name, err)
-					}
+					output.Error("Failed to query package %s (from group %s): %v", p, arg, err)
 					continue
 				}
+				if info == nil {
+					output.Error("Package %s (from group %s) not found", p, arg)
+					continue
+				}
+				pkgs = append(pkgs, *info)
+			}
+			continue
+		}
 
-				for _, file := range files {
-					// alpm usually returns paths without leading /
-					absPath := file
-					if len(absPath) > 0 && absPath[0] != '/' {
-						absPath = "/" + absPath
-					}
+		// Parse package spec (name@version)
+		req := core.ParsePackageRequest(arg)
+		pkgName := req.Name
 
-					// We look for .pacnew files
-					// Note: .pacnew files might NOT be in the package file list technically,
-					// because they are created on disk. But we iterate the PACKAGE's file list
-					// to find the *original* config, then check if a .pacnew exists on disk.
-					// Wait, GetPackageFiles returns what is in the DB (the package contents).
-					// So it lists /etc/foo.conf.
-					// We need to check if /etc/foo.conf.pacnew exists.
+		// Look up package info
+		info, err := backend.Info(pkgName)
+		if err != nil {
+			output.Error("Failed to query package %s: %v", pkgName, err)
+			continue
+		}
+		if info == nil {
+			output.Error("Package not found: %s", pkgName)
+			continue
+		}
 
-					pacnewPath := absPath + ".pacnew"
-					if _, err := os.Stat(pacnewPath); err == nil {
-						// Found a pacnew file!
-						output.Info("Processing config: %s", absPath)
-						if err := engine.Apply(pkg.Name, pacnewPath, absPath); err != nil {
-							output.Error("Failed to apply config for %s: %v", absPath, err)
-						}
+		// If version requested, check match (simplified logic)
+		if req.Version != "" && info.Version != req.Version {
+			output.Warning("Requested version %s but found %s", req.Version, info.Version)
+			output.Warning("Requested version %s but found %s", req.Version, info.Version)
+			// Continue with found version
+		}
+
+		pkgs = append(pkgs, *info)
+	}
+
+	if len(pkgs) == 0 {
+		return fmt.Errorf("no packages to install")
+	}
+
+	// Show what we're installing using summary table
+	quiet, _ := cmd.Flags().GetBool("quiet")
+	yes, _ := cmd.Flags().GetBool("yes")
+	if !quiet {
+		summary := output.NewInstallSummaryTable()
+		for _, pkg := range pkgs {
+			status := "install"
+			if backend.IsInstalled(pkg.Name) {
+				status = "reinstall"
+			}
+			summary.AddPackage(output.SummaryRow{
+				Name:    pkg.Name,
+				Version: pkg.Version,
+				Source:  string(pkg.Source),
+				Size:    pkg.Size,
+				Status:  status,
+			})
+		}
+		summary.Print()
+
+		// Confirmation prompt
+		if !yes && cfg.General.Confirm {
+			if !output.Confirm("Proceed with installation?", output.ConfirmOptions{Default: true}) {
+				return fmt.Errorf("installation cancelled")
+			}
+		}
+	}
+
+	// Build install options
+	opts := core.InstallOptions{
+		Needed:       installNeeded,
+		AsDeps:       installAsDeps,
+		AsExplicit:   installAsExplicit || (!installAsDeps),
+		NoConfirm:    yes,
+		DownloadOnly: installDownloadOnly,
+		Overwrite:    installOverwrite,
+	}
+
+	// Dry-run mode
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	if dryRun {
+		cmd.Println("\nDry-run mode - would execute:")
+		for _, pkg := range pkgs {
+			cmd.Printf("  Install %s from %s\n", pkg.Name, pkg.Source)
+		}
+		return nil
+	}
+
+	// Execute installation based on source
+	if err := executeInstall(backend, cfg, pkgs, opts); err != nil {
+		return err
+	}
+
+	if !quiet {
+		fmt.Fprintln(w, "Installation complete.")
+	}
+
+	// Post-install: Handle configuration management
+	handlePostInstall(eng, pkgs, w)
+
+	return nil
+}
+
+func handlePostInstall(eng *core.Engine, pkgs []core.PackageInfo, w io.Writer) {
+	// Check for configuration updates
+	fmt.Fprintln(w, "Checking for configuration updates...")
+
+	backend := eng.GetOfficialBackend()
+	engine := CreateConfigEngine()
+
+	for _, pkg := range pkgs {
+		if fp, ok := backend.(core.FileProvider); ok {
+			files, err := fp.GetPackageFiles(pkg.Name)
+			if err != nil {
+				continue
+			}
+
+			for _, file := range files {
+				absPath := file
+				if len(absPath) > 0 && absPath[0] != '/' {
+					absPath = "/" + absPath
+				}
+				pacnewPath := absPath + ".pacnew"
+				if _, err := os.Stat(pacnewPath); err == nil {
+					fmt.Fprintf(w, "Processing config: %s\n", absPath)
+					if err := engine.Apply(pkg.Name, pacnewPath, absPath); err != nil {
+						fmt.Fprintf(w, "Failed to apply config for %s: %v\n", absPath, err)
 					}
 				}
 			}
 		}
-
-		return nil
-	},
+	}
 }
 
 // determineSource returns the forced source based on flags, or empty for auto
@@ -203,11 +226,7 @@ func determineSource() string {
 
 // selectDatabase returns the appropriate backend based on source
 func selectDatabase(source string, cfg *config.Config) (core.OfficialBackend, error) {
-	// For now, simpler logic: verify backend is available.
-	// If source is specific, we might want to ensure it's enabled?
-	// But DetectBackendWithConfig handles logic.
-	// If source == "aur", DetectBackend might still return pacman backend for deps?
-	// InstallCmd logic mainly needs "OfficialBackend" interface for querying.
+	// Verify backend is available
 
 	// Use factory to get main backend
 	backend, err := DetectBackendWithConfig(nil)
@@ -218,7 +237,7 @@ func selectDatabase(source string, cfg *config.Config) (core.OfficialBackend, er
 }
 
 // executeInstall runs the appropriate installer for each package
-func executeInstall(cfg *config.Config, pkgs []core.PackageInfo, opts core.InstallOptions) error {
+func executeInstall(pacmanBackend core.OfficialBackend, cfg *config.Config, pkgs []core.PackageInfo, opts core.InstallOptions) error {
 	// Group packages by source
 	var official []core.PackageInfo
 	var aur []core.PackageInfo
@@ -235,14 +254,10 @@ func executeInstall(cfg *config.Config, pkgs []core.PackageInfo, opts core.Insta
 
 	// Determine if we need pacman backend
 	needsPacman := len(official) > 0 || len(shedos) > 0
-	var pacmanBackend core.OfficialBackend
 
 	if needsPacman {
-		var err error
-		// Use factory instead of direct
-		pacmanBackend, err = CreatePacmanBackend(&cfg.Backend)
-		if err != nil {
-			return fmt.Errorf("pacman backend not available: %w", err)
+		if pacmanBackend == nil {
+			return fmt.Errorf("pacman backend required but not provided")
 		}
 	}
 
@@ -271,18 +286,9 @@ func executeInstall(cfg *config.Config, pkgs []core.PackageInfo, opts core.Insta
 	if len(aur) > 0 {
 		// Use factory
 		ai := CreateAURInstaller(cfg)
-		// For AUR, we might need a more complex loop to handle deps?
-		// Assuming AURInstaller has Install method?
-		// Check aur.go. It has Install(pkg PackageInfo, opts Options).
-		// aur.go line 376.
-		// InstallMultiple? aur.go doesn't seem to have InstallMultiple in snippets seen.
-		// Iterate.
 		for _, pkg := range aur {
-			// Convert core.InstallOptions to aur.Options?
-			// aur.go uses Options struct defined in aur.go? Or core?
-			// aur.go snippet 1622 line 376: `opts Options`. `Options` in `aur` package?
-			// It probably needs `core.InstallOptions`?
-			// aur.go likely uses `core.InstallOptions`.
+			// Install AUR package using helper
+			// Note: AUR installer handles dependency resolution internally
 			if err := ai.Install(pkg.Name); err != nil {
 				return fmt.Errorf("AUR install failed for %s: %w", pkg.Name, err)
 			}

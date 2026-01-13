@@ -1,7 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"testing"
+
+	"github.com/spf13/cobra"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/core"
 )
 
 func TestInstallCommand_Exists(t *testing.T) {
@@ -41,5 +46,75 @@ func TestInstallCommand_ShortDescription(t *testing.T) {
 
 	if installCmd.Short != "Install packages" {
 		t.Errorf("Expected Short 'Install packages', got '%s'", installCmd.Short)
+	}
+}
+
+func TestRunInstall_Group(t *testing.T) {
+	mock := &MockBackend{}
+	eng := core.NewEngineWithBackend(mock)
+
+	// Mock Info for packages in @base
+	// @base contains: base, linux, linux-firmware (from modified groups.go)
+
+	pkgInfo := map[string]*core.PackageInfo{
+		"base":           {Name: "base", Version: "1.0", Source: core.SourceOfficial},
+		"base-devel":     {Name: "base-devel", Version: "1.0", Source: core.SourceOfficial},
+		"linux":          {Name: "linux", Version: "6.0", Source: core.SourceOfficial},
+		"linux-firmware": {Name: "linux-firmware", Version: "2023", Source: core.SourceOfficial},
+		"networkmanager": {Name: "networkmanager", Version: "1.44", Source: core.SourceOfficial},
+		"sudo":           {Name: "sudo", Version: "1.9", Source: core.SourceOfficial},
+		"vim":            {Name: "vim", Version: "9.0", Source: core.SourceOfficial},
+		"git":            {Name: "git", Version: "2.40", Source: core.SourceOfficial},
+	}
+
+	mock.InfoFunc = func(name string) (*core.PackageInfo, error) {
+		if p, ok := pkgInfo[name]; ok {
+			return p, nil
+		}
+		return nil, core.ErrPackageNotFound
+	}
+
+	installCalled := false
+	installedPkgs := []string{}
+	mock.InstallFunc = func(pkgs []string, opts core.InstallOptions) error {
+		installCalled = true
+		installedPkgs = pkgs
+		return nil
+	}
+
+	// We need a dummy cobra command for context
+	cmd := &cobra.Command{}
+	// Set default flags
+	cmd.Flags().Bool("quiet", true, "")
+	cmd.Flags().Bool("yes", true, "")
+	cmd.Flags().Bool("dry-run", false, "")
+
+	var buf bytes.Buffer
+	// Call RunInstall with @base group
+	// Note: We need a cfg. Passing generic default config.
+	// But GroupRegistry needs to be initialized. NewGroupRegistryWithConfig(cfg) will default to DefaultGroups if config file missing.
+
+	err := RunInstall(eng, cmd, []string{"@base"}, &buf, config.Default())
+	if err != nil {
+		t.Fatalf("RunInstall failed: %v", err)
+	}
+
+	if !installCalled {
+		t.Fatal("Install was not called")
+	}
+
+	// Verify all base packages were installed
+	expected := []string{"base", "base-devel", "linux", "linux-firmware", "networkmanager", "sudo", "vim", "git"}
+	for _, exp := range expected {
+		found := false
+		for _, inst := range installedPkgs {
+			if inst == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected package %s was not installed", exp)
+		}
 	}
 }
