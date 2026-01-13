@@ -125,9 +125,7 @@ Examples:
 		opts := SearchOptions{
 			Limit:     searchLimit,
 			JSON:      searchJSON,
-			Installed: searchInstalled, // Filter flag handled in RunSearch logic or by backend selection?
-			// We handle logic manually in RunSearch for now as Engine.Search aggregates automatically.
-			// But specialized "Installed Only" search might need filtering.
+			Installed: searchInstalled,
 		}
 
 		return RunSearch(engine, cmd.OutOrStdout(), query, opts)
