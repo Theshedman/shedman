@@ -53,6 +53,15 @@ type MockBackend struct {
 	// DatabaseManager
 	SetInstallReasonFunc func(pkg string, reason core.InstallReason) error
 	CheckDatabaseFunc    func() error
+
+	// Exporter
+	ListExplicitPackagesFunc func() ([]string, error)
+
+	// SecurityScanner
+	AuditFunc func() ([]string, error)
+
+	// Differ
+	DiffFunc func() ([]core.PackageDiff, error)
 }
 
 func (m *MockBackend) Name() string {
@@ -288,4 +297,31 @@ func (m *MockBackend) CheckDatabase() error {
 		return m.CheckDatabaseFunc()
 	}
 	return nil
+}
+
+// Exporter implementation
+
+func (m *MockBackend) ListExplicitPackages() ([]string, error) {
+	if m.ListExplicitPackagesFunc != nil {
+		return m.ListExplicitPackagesFunc()
+	}
+	return nil, nil
+}
+
+// SecurityScanner implementation
+
+func (m *MockBackend) Audit() ([]string, error) {
+	if m.AuditFunc != nil {
+		return m.AuditFunc()
+	}
+	return nil, nil
+}
+
+// Differ implementation
+
+func (m *MockBackend) Diff() ([]core.PackageDiff, error) {
+	if m.DiffFunc != nil {
+		return m.DiffFunc()
+	}
+	return nil, nil
 }

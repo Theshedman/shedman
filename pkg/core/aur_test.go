@@ -314,3 +314,8 @@ func (m *mockInstallBackend) InstallLocal(path string, opts InstallOptions) erro
 	}
 	return nil
 }
+
+// Implement missing OfficialBackend methods
+func (m *mockInstallBackend) ListExplicitPackages() ([]string, error) { return nil, nil }
+func (m *mockInstallBackend) Audit() ([]string, error)                { return nil, nil }
+func (m *mockInstallBackend) Diff() ([]PackageDiff, error)            { return nil, nil }
