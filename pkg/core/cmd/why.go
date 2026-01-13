@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 
@@ -34,8 +35,8 @@ var WhyCmd = &cobra.Command{
 	Long:  `Uses pactree to show the reverse dependency chain for a package. Use --tree for forward dependency tree.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := RunWhy(defaultWhyDeps, args[0], whyTree); err != nil {
-			output.Error("%v", err) // e.g. "pactree not found"
+		if err := RunWhy(defaultWhyDeps, cmd.OutOrStdout(), args[0], whyTree); err != nil {
+			output.Error("%v", err)
 		}
 	},
 }
@@ -45,7 +46,7 @@ func init() {
 }
 
 // RunWhy executes the why logic
-func RunWhy(deps WhyDeps, pkg string, tree bool) error {
+func RunWhy(deps WhyDeps, w io.Writer, pkg string, tree bool) error {
 	// Check for pactree
 	if _, err := deps.LookPath("pactree"); err != nil {
 		return fmt.Errorf("pactree not found. Please install 'pacman-contrib'")
@@ -53,10 +54,10 @@ func RunWhy(deps WhyDeps, pkg string, tree bool) error {
 
 	args := []string{"-u"}
 	if !tree {
-		output.Info("Reverse dependency chain for %s:", pkg)
+		fmt.Fprintf(w, "Reverse dependency chain for %s:\n", pkg)
 		args = append([]string{"-r"}, args...)
 	} else {
-		output.Info("Dependency tree for %s:", pkg)
+		fmt.Fprintf(w, "Dependency tree for %s:\n", pkg)
 	}
 	args = append(args, pkg)
 

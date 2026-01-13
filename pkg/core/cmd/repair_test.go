@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -39,7 +40,8 @@ func TestRunRepair(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock.RemoveLockFunc = func() error { return tt.mockError }
 
-			err := RunRepair(eng, tt.action)
+			var buf bytes.Buffer
+			err := RunRepair(eng, &buf, tt.action)
 			if (err != nil) != tt.wantError {
 				t.Errorf("RunRepair(%s) error = %v, wantError %v", tt.action, err, tt.wantError)
 			}

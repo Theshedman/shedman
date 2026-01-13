@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/pkg/core"
 )
@@ -82,19 +81,15 @@ func TestRunInstall_Group(t *testing.T) {
 		return nil
 	}
 
-	// We need a dummy cobra command for context
-	cmd := &cobra.Command{}
-	// Set default flags
-	cmd.Flags().Bool("quiet", true, "")
-	cmd.Flags().Bool("yes", true, "")
-	cmd.Flags().Bool("dry-run", false, "")
-
 	var buf bytes.Buffer
-	// Call RunInstall with @base group
-	// Note: We need a cfg. Passing generic default config.
-	// But GroupRegistry needs to be initialized. NewGroupRegistryWithConfig(cfg) will default to DefaultGroups if config file missing.
+	// Create InstallFlags
+	flags := InstallFlags{
+		Quiet:  true,
+		Yes:    true,
+		DryRun: false,
+	}
 
-	err := RunInstall(eng, cmd, []string{"@base"}, &buf, config.Default())
+	err := RunInstall(eng, []string{"@base"}, flags, &buf, config.Default())
 	if err != nil {
 		t.Fatalf("RunInstall failed: %v", err)
 	}

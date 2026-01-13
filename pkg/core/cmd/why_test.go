@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 )
@@ -72,7 +73,8 @@ func TestRunWhy(t *testing.T) {
 				},
 			}
 
-			err := RunWhy(deps, tt.pkg, tt.tree)
+			var buf bytes.Buffer
+			err := RunWhy(deps, &buf, tt.pkg, tt.tree)
 			if (err != nil) != tt.wantError {
 				t.Errorf("RunWhy() error = %v, wantError %v", err, tt.wantError)
 			}

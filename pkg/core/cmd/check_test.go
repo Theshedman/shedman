@@ -1,7 +1,9 @@
 package cmd
 
 import (
-	"errors"
+	"bytes"   // Added for new tests
+	"fmt"     // Added for new tests
+	"strings" // Added for new tests
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -11,26 +13,37 @@ func TestRunCheck(t *testing.T) {
 	mock := &MockBackend{}
 	eng := core.NewEngineWithBackend(mock)
 
-	checkCalled := false
+	// Mock CheckDatabase
 	mock.CheckDatabaseFunc = func() error {
-		checkCalled = true
 		return nil
 	}
 
-	err := eng.CheckDatabase()
+	var buf bytes.Buffer
+	err := RunCheck(eng, &buf)
 	if err != nil {
-		t.Errorf("CheckDatabase error = %v", err)
-	}
-	if !checkCalled {
-		t.Error("CheckDatabase was not called")
+		t.Fatalf("RunCheck failed: %v", err)
 	}
 
-	// Test error prop
-	mock.CheckDatabaseFunc = func() error {
-		return errors.New("db error")
+	if !strings.Contains(buf.String(), "database is consistent") {
+		t.Errorf("Expected success message, got: %s", buf.String())
 	}
-	err = eng.CheckDatabase()
+}
+
+func TestRunCheck_Failure(t *testing.T) {
+	mock := &MockBackend{}
+	eng := core.NewEngineWithBackend(mock)
+
+	mock.CheckDatabaseFunc = func() error {
+		return fmt.Errorf("missing dependencies")
+	}
+
+	var buf bytes.Buffer
+	err := RunCheck(eng, &buf)
 	if err == nil {
-		t.Error("Expected error from CheckDatabase")
+		t.Fatal("Expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "database check failed") {
+		t.Errorf("Expected error message 'database check failed', got: %v", err)
 	}
 }

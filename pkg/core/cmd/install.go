@@ -35,8 +35,23 @@ var InstallCmd = &cobra.Command{
 			cfg = config.Default()
 		}
 
+		// Populate flags
+		flags := InstallFlags{
+			Needed:       installNeeded,
+			AsDeps:       installAsDeps,
+			AsExplicit:   installAsExplicit,
+			DownloadOnly: installDownloadOnly,
+			Overwrite:    installOverwrite,
+			FromAUR:      installFromAUR,
+			FromOfficial: installFromOfficial,
+			FromShedOS:   installFromShedOS,
+		}
+		flags.Quiet, _ = cmd.Flags().GetBool("quiet")
+		flags.Yes, _ = cmd.Flags().GetBool("yes")
+		flags.DryRun, _ = cmd.Flags().GetBool("dry-run")
+
 		// Determine source based on flags
-		source := determineSource()
+		source := determineSource(flags)
 
 		// Query packages from appropriate database
 		backend, err := selectDatabase(source, cfg)
@@ -45,12 +60,27 @@ var InstallCmd = &cobra.Command{
 		}
 
 		eng := core.NewEngineWithBackend(backend)
-		return RunInstall(eng, cmd, args, os.Stdout, cfg)
+		return RunInstall(eng, args, flags, cmd.OutOrStdout(), cfg)
 	},
 }
 
+// InstallFlags holds command-line flags for install
+type InstallFlags struct {
+	Needed       bool
+	AsDeps       bool
+	AsExplicit   bool
+	DownloadOnly bool
+	Overwrite    string
+	FromAUR      bool
+	FromOfficial bool
+	FromShedOS   bool
+	Quiet        bool
+	Yes          bool
+	DryRun       bool
+}
+
 // RunInstall executes the install command logic
-func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer, cfg *config.Config) error {
+func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer, cfg *config.Config) error {
 	backend := eng.GetOfficialBackend()
 	if backend == nil {
 		return core.ErrBackendNotFound
@@ -61,25 +91,25 @@ func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer
 	for _, arg := range args {
 		// Handle groups
 		if len(arg) > 0 && arg[0] == '@' {
-			output.Info("Resolving group %s...", arg)
+			fmt.Fprintf(w, "Resolving group %s...\n", arg)
 			registry := core.NewGroupRegistryWithConfig(cfg)
 			expanded, err := registry.ExpandGroups([]string{arg})
 			if err != nil {
-				output.Error("Failed to expand group %s: %v", arg, err)
+				fmt.Fprintf(w, "Failed to expand group %s: %v\n", arg, err)
 				continue
 			}
 
 			for _, p := range expanded {
-				// Add to args to be processed (simple way) or handle directly
 				// Helper: process expanded packages
+
 				// Fetch package info
 				info, err := backend.Info(p)
 				if err != nil {
-					output.Error("Failed to query package %s (from group %s): %v", p, arg, err)
+					fmt.Fprintf(w, "Failed to query package %s (from group %s): %v\n", p, arg, err)
 					continue
 				}
 				if info == nil {
-					output.Error("Package %s (from group %s) not found", p, arg)
+					fmt.Fprintf(w, "Package %s (from group %s) not found\n", p, arg)
 					continue
 				}
 				pkgs = append(pkgs, *info)
@@ -94,18 +124,18 @@ func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer
 		// Look up package info
 		info, err := backend.Info(pkgName)
 		if err != nil {
-			output.Error("Failed to query package %s: %v", pkgName, err)
+			fmt.Fprintf(w, "Failed to query package %s: %v\n", pkgName, err)
 			continue
 		}
 		if info == nil {
-			output.Error("Package not found: %s", pkgName)
+			fmt.Fprintf(w, "Package not found: %s\n", pkgName)
 			continue
 		}
 
-		// If version requested, check match (simplified logic)
+		// If version requested, check match
+
 		if req.Version != "" && info.Version != req.Version {
-			output.Warning("Requested version %s but found %s", req.Version, info.Version)
-			output.Warning("Requested version %s but found %s", req.Version, info.Version)
+			fmt.Fprintf(w, "Warning: Requested version %s but found %s\n", req.Version, info.Version)
 			// Continue with found version
 		}
 
@@ -117,9 +147,7 @@ func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer
 	}
 
 	// Show what we're installing using summary table
-	quiet, _ := cmd.Flags().GetBool("quiet")
-	yes, _ := cmd.Flags().GetBool("yes")
-	if !quiet {
+	if !flags.Quiet {
 		summary := output.NewInstallSummaryTable()
 		for _, pkg := range pkgs {
 			status := "install"
@@ -137,7 +165,7 @@ func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer
 		summary.Print()
 
 		// Confirmation prompt
-		if !yes && cfg.General.Confirm {
+		if !flags.Yes && cfg.General.Confirm {
 			if !output.Confirm("Proceed with installation?", output.ConfirmOptions{Default: true}) {
 				return fmt.Errorf("installation cancelled")
 			}
@@ -146,20 +174,19 @@ func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer
 
 	// Build install options
 	opts := core.InstallOptions{
-		Needed:       installNeeded,
-		AsDeps:       installAsDeps,
-		AsExplicit:   installAsExplicit || (!installAsDeps),
-		NoConfirm:    yes,
-		DownloadOnly: installDownloadOnly,
-		Overwrite:    installOverwrite,
+		Needed:       flags.Needed,
+		AsDeps:       flags.AsDeps,
+		AsExplicit:   flags.AsExplicit || (!flags.AsDeps),
+		NoConfirm:    flags.Yes,
+		DownloadOnly: flags.DownloadOnly,
+		Overwrite:    flags.Overwrite,
 	}
 
 	// Dry-run mode
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	if dryRun {
-		cmd.Println("\nDry-run mode - would execute:")
+	if flags.DryRun {
+		fmt.Fprintln(w, "\nDry-run mode - would execute:")
 		for _, pkg := range pkgs {
-			cmd.Printf("  Install %s from %s\n", pkg.Name, pkg.Source)
+			fmt.Fprintf(w, "  Install %s from %s\n", pkg.Name, pkg.Source)
 		}
 		return nil
 	}
@@ -169,7 +196,7 @@ func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer
 		return err
 	}
 
-	if !quiet {
+	if !flags.Quiet {
 		fmt.Fprintln(w, "Installation complete.")
 	}
 
@@ -181,9 +208,8 @@ func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer
 
 func handlePostInstall(eng *core.Engine, pkgs []core.PackageInfo, w io.Writer) {
 	// Check for configuration updates
-	fmt.Fprintln(w, "Checking for configuration updates...")
-
 	backend := eng.GetOfficialBackend()
+
 	engine := CreateConfigEngine()
 
 	for _, pkg := range pkgs {
@@ -211,14 +237,14 @@ func handlePostInstall(eng *core.Engine, pkgs []core.PackageInfo, w io.Writer) {
 }
 
 // determineSource returns the forced source based on flags, or empty for auto
-func determineSource() string {
-	if installFromAUR {
+func determineSource(flags InstallFlags) string {
+	if flags.FromAUR {
 		return "aur"
 	}
-	if installFromOfficial {
+	if flags.FromOfficial {
 		return "official"
 	}
-	if installFromShedOS {
+	if flags.FromShedOS {
 		return "shedos"
 	}
 	return "" // Auto-detect
@@ -227,7 +253,6 @@ func determineSource() string {
 // selectDatabase returns the appropriate backend based on source
 func selectDatabase(source string, cfg *config.Config) (core.OfficialBackend, error) {
 	// Verify backend is available
-
 	// Use factory to get main backend
 	backend, err := DetectBackendWithConfig(nil)
 	if err != nil {

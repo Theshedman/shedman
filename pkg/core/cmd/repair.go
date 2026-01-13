@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/output"
@@ -23,7 +24,7 @@ var RepairCmd = &cobra.Command{
 		}
 
 		if repairLock {
-			if err := RunRepair(eng, "lock"); err != nil {
+			if err := RunRepair(eng, cmd.OutOrStdout(), "lock"); err != nil {
 				output.Error("Failed to remove lock: %v", err)
 			} else {
 				output.Success("Lock file removed.")
@@ -41,10 +42,10 @@ func init() {
 }
 
 // RunRepair executes repair actions
-func RunRepair(eng *core.Engine, action string) error {
+func RunRepair(eng *core.Engine, w io.Writer, action string) error {
 	switch action {
 	case "lock":
-		output.Info("Removing stale lock file...")
+		fmt.Fprintln(w, "Removing stale lock file...")
 		return eng.RepairLock()
 	default:
 		return fmt.Errorf("unknown repair action: %s", action)

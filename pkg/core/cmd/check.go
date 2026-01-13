@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/output"
+	"github.com/theshedman/shedman/pkg/core"
 )
 
 // CheckCmd represents the check command
@@ -13,25 +16,26 @@ var CheckCmd = &cobra.Command{
 	
 Example:
   shedman check`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		eng, err := NewEngineWithConfig(nil)
 		if err != nil {
-			output.Error("Failed to initialize engine: %v", err)
-			return
+			return fmt.Errorf("failed to initialize engine: %w", err)
 		}
 
-		output.Info("Checking package database consistency...")
-		if err := eng.CheckDatabase(); err != nil {
-			output.Error("Database check failed: %v", err)
-			// Don't return error to cobra to avoid duplicate usage printing,
-			// but we should exit non-zero if real app.
-			// Cobra handles Run errors by printing usage. We prefer standardized output.
-			return
-		}
-		output.Success("Package database is consistent")
+		return RunCheck(eng, cmd.OutOrStdout())
 	},
 }
 
 func init() {
 	// No specific flags for check command yet
+}
+
+// RunCheck executes the check logic
+func RunCheck(eng *core.Engine, w io.Writer) error {
+	fmt.Fprintln(w, "Checking package database consistency...")
+	if err := eng.CheckDatabase(); err != nil {
+		return fmt.Errorf("database check failed: %w", err)
+	}
+	fmt.Fprintln(w, "Package database is consistent")
+	return nil
 }

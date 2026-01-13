@@ -63,49 +63,7 @@ func RunFiles(eng *core.Engine, w io.Writer, query string, search bool) error {
 	}
 
 	// List files of a package
-	// Iterate backends to find one that supports FileProvider and has the package
-	// Or just any FileProvider? GetPackageFiles usually requires package to be installed or known.
-
-	// Try official backend first
-	if ob := eng.GetOfficialBackend(); ob != nil {
-		if fp, ok := ob.(core.FileProvider); ok {
-			files, err := fp.GetPackageFiles(query)
-			if err == nil {
-				printFiles(w, query, files)
-				return nil
-			}
-			// If error is PackageNotFound, try other backends?
-			// If generic error, return it?
-		}
-	}
-
-	// Try to find ANY backend that supports this
-	// But Engine doesn't expose ListBackends list directly?
-	// Wait, we used ListBackends in Search and it failed.
-	// Engine hides backends slice (private).
-	// We should add GetPackageFiles to Engine if we want to support this properly.
-	// OR: utilize that we are inside `pkg/core/cmd` and `Engine` struct fields are private to `package core`.
-	// Use `core` package? `Engine` is in `pkg/core` (package core).
-	// `files.go` is in `package cmd`. It CANNOT access `eng.backends`.
-
-	// So we can ONLY use exposed methods.
-	// Exposed: `GetOfficialBackend`, `SearchFiles`, `GetFileOwner`.
-	// `GetPackageFiles` is NOT exposed on Engine.
-
-	// Current `files.go` implementation only used OfficialBackend!
-	// So we stick to that for now to satisfy existing logic, but handle type assertion safely.
-
-	ob := eng.GetOfficialBackend()
-	if ob == nil {
-		return core.ErrBackendNotFound
-	}
-
-	fp, ok := ob.(core.FileProvider)
-	if !ok {
-		return fmt.Errorf("backend does not support file listing")
-	}
-
-	files, err := fp.GetPackageFiles(query)
+	files, err := eng.GetPackageFiles(query)
 	if err != nil {
 		return fmt.Errorf("failed to list files for %s: %w", query, err)
 	}

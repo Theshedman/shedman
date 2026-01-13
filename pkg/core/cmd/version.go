@@ -1,6 +1,11 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
+	"io"
+
+	"github.com/spf13/cobra"
+)
 
 var (
 	Version   = "dev"
@@ -13,8 +18,13 @@ var VersionCmd = &cobra.Command{
 	Short: "Prints the current version of the shedman package manager",
 	Long:  "Prints the current version of the shedman packange manager",
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Println("shedman version", Version)
-		cmd.Println("Build Date:", BuildDate)
-		cmd.Println("Git Commit:", GitCommit)
+		RunVersion(cmd.OutOrStdout())
 	},
+}
+
+// RunVersion executes the version logic
+func RunVersion(w io.Writer) {
+	fmt.Fprintln(w, "shedman version", Version)
+	fmt.Fprintln(w, "Build Date:", BuildDate)
+	fmt.Fprintln(w, "Git Commit:", GitCommit)
 }
