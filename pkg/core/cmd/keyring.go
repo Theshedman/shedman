@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -21,7 +21,6 @@ func init() {
 	KeyringCmd.AddCommand(newKeyringRemoveCmd())
 	KeyringCmd.AddCommand(newKeyringRefreshCmd())
 	KeyringCmd.AddCommand(newKeyringImportCmd())
-	// Keep init separately if needed, or maybe just 'keyring init'
 	KeyringCmd.AddCommand(newKeyringInitCmd())
 }
 
@@ -29,11 +28,12 @@ func newKeyringListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List trusted keys",
-		Run: func(cmd *cobra.Command, args []string) {
-			eng := mustGetEngine()
-			if err := RunKeyringList(eng); err != nil {
-				output.Error("Failed to list keys: %v", err)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			eng, err := NewEngineWithConfig(nil)
+			if err != nil {
+				return fmt.Errorf("failed to initialize engine: %w", err)
 			}
+			return RunKeyringList(eng, cmd.OutOrStdout())
 		},
 	}
 }
@@ -43,13 +43,16 @@ func newKeyringAddCmd() *cobra.Command {
 		Use:   "add [keyid]",
 		Short: "Add a key by ID",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			eng := mustGetEngine()
-			if err := RunKeyringAdd(eng, args[0]); err != nil {
-				output.Error("Failed to add key: %v", err)
-			} else {
-				output.Success("Key %s added.", args[0])
+		RunE: func(cmd *cobra.Command, args []string) error {
+			eng, err := NewEngineWithConfig(nil)
+			if err != nil {
+				return fmt.Errorf("failed to initialize engine: %w", err)
 			}
+			if err := RunKeyringAdd(eng, cmd.OutOrStdout(), args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Key %s added.\n", args[0])
+			return nil
 		},
 	}
 }
@@ -59,13 +62,16 @@ func newKeyringRemoveCmd() *cobra.Command {
 		Use:   "remove [keyid]",
 		Short: "Remove a key by ID",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			eng := mustGetEngine()
-			if err := RunKeyringRemove(eng, args[0]); err != nil {
-				output.Error("Failed to remove key: %v", err)
-			} else {
-				output.Success("Key %s removed.", args[0])
+		RunE: func(cmd *cobra.Command, args []string) error {
+			eng, err := NewEngineWithConfig(nil)
+			if err != nil {
+				return fmt.Errorf("failed to initialize engine: %w", err)
 			}
+			if err := RunKeyringRemove(eng, cmd.OutOrStdout(), args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Key %s removed.\n", args[0])
+			return nil
 		},
 	}
 }
@@ -74,13 +80,16 @@ func newKeyringRefreshCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "refresh",
 		Short: "Refresh keys from keyservers",
-		Run: func(cmd *cobra.Command, args []string) {
-			eng := mustGetEngine()
-			if err := RunKeyringRefresh(eng); err != nil {
-				output.Error("Failed to refresh keys: %v", err)
-			} else {
-				output.Success("Keys refreshed.")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			eng, err := NewEngineWithConfig(nil)
+			if err != nil {
+				return fmt.Errorf("failed to initialize engine: %w", err)
 			}
+			if err := RunKeyringRefresh(eng, cmd.OutOrStdout()); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Keys refreshed.")
+			return nil
 		},
 	}
 }
@@ -90,13 +99,16 @@ func newKeyringImportCmd() *cobra.Command {
 		Use:   "import [file]",
 		Short: "Import key from file",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			eng := mustGetEngine()
-			if err := RunKeyringImport(eng, args[0]); err != nil {
-				output.Error("Failed to import key: %v", err)
-			} else {
-				output.Success("Key imported from %s.", args[0])
+		RunE: func(cmd *cobra.Command, args []string) error {
+			eng, err := NewEngineWithConfig(nil)
+			if err != nil {
+				return fmt.Errorf("failed to initialize engine: %w", err)
 			}
+			if err := RunKeyringImport(eng, cmd.OutOrStdout(), args[0]); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Key imported from %s.\n", args[0])
+			return nil
 		},
 	}
 }
@@ -105,61 +117,54 @@ func newKeyringInitCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Initialize keyring",
-		Run: func(cmd *cobra.Command, args []string) {
-			eng := mustGetEngine()
-			if err := RunKeyringInit(eng); err != nil {
-				output.Error("Keyring init failed: %v", err)
-			} else {
-				output.Success("Keyring initialized.")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			eng, err := NewEngineWithConfig(nil)
+			if err != nil {
+				return fmt.Errorf("failed to initialize engine: %w", err)
 			}
+			if err := RunKeyringInit(eng, cmd.OutOrStdout()); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "Keyring initialized.")
+			return nil
 		},
 	}
 }
 
-// Helper to avoid repetition
-func mustGetEngine() *core.Engine {
-	eng, err := NewEngineWithConfig(nil)
-	if err != nil {
-		output.Error("Failed to initialize engine: %v", err)
-		return nil // Should exit or panic in real app, but output.Error might not exit
-	}
-	return eng
-}
-
 // Logic Functions
 
-func RunKeyringInit(eng *core.Engine) error {
-	output.Info("Initializing keyring...")
+func RunKeyringInit(eng *core.Engine, w io.Writer) error {
+	fmt.Fprintln(w, "Initializing keyring...")
 	return eng.KeyringInit()
 }
 
-func RunKeyringRefresh(eng *core.Engine) error {
-	output.Info("Refreshing keys...")
+func RunKeyringRefresh(eng *core.Engine, w io.Writer) error {
+	fmt.Fprintln(w, "Refreshing keys...")
 	return eng.KeyringRefresh()
 }
 
-func RunKeyringList(eng *core.Engine) error {
+func RunKeyringList(eng *core.Engine, w io.Writer) error {
 	keys, err := eng.KeyringList()
 	if err != nil {
 		return err
 	}
 	for _, k := range keys {
-		fmt.Println(k)
+		fmt.Fprintln(w, k)
 	}
 	return nil
 }
 
-func RunKeyringAdd(eng *core.Engine, keyID string) error {
-	output.Info("Adding key %s...", keyID)
+func RunKeyringAdd(eng *core.Engine, w io.Writer, keyID string) error {
+	fmt.Fprintf(w, "Adding key %s...\n", keyID)
 	return eng.KeyringAdd(keyID)
 }
 
-func RunKeyringRemove(eng *core.Engine, keyID string) error {
-	output.Info("Removing key %s...", keyID)
+func RunKeyringRemove(eng *core.Engine, w io.Writer, keyID string) error {
+	fmt.Fprintf(w, "Removing key %s...\n", keyID)
 	return eng.KeyringRemove(keyID)
 }
 
-func RunKeyringImport(eng *core.Engine, path string) error {
-	output.Info("Importing key from %s...", path)
+func RunKeyringImport(eng *core.Engine, w io.Writer, path string) error {
+	fmt.Fprintf(w, "Importing key from %s...\n", path)
 	return eng.KeyringImport(path)
 }

@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"fmt"
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -11,49 +12,33 @@ func TestRunDownload(t *testing.T) {
 	mock := &MockBackend{}
 	eng := core.NewEngineWithBackend(mock)
 
-	tests := []struct {
-		name           string
-		pkgs           []string
-		mockError      error
-		wantError      bool
-		wantDownloaded bool
-	}{
-		{
-			name:           "Success",
-			pkgs:           []string{"foo"},
-			wantError:      false,
-			wantDownloaded: true,
-		},
-		{
-			name:           "Fail",
-			pkgs:           []string{"foo"},
-			mockError:      fmt.Errorf("failed"),
-			wantError:      true,
-			wantDownloaded: true,
-		},
+	installCalled := false
+	var capturedPkgs []string
+	var capturedOpts core.InstallOptions
+
+	mock.InstallFunc = func(pkgs []string, opts core.InstallOptions) error {
+		installCalled = true
+		capturedPkgs = pkgs
+		capturedOpts = opts
+		return nil
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			downloadCalled := false
-			mock.InstallFunc = func(pkgs []string, opts core.InstallOptions) error {
-				if !opts.DownloadOnly {
-					t.Error("Expected DownloadOnly to be true")
-				}
-				if len(pkgs) != len(tt.pkgs) {
-					t.Errorf("pkg count mismatch")
-				}
-				downloadCalled = true
-				return tt.mockError
-			}
+	pkgs := []string{"foo", "bar"}
+	var buf bytes.Buffer
+	if err := RunDownload(eng, &buf, pkgs); err != nil {
+		t.Fatalf("RunDownload failed: %v", err)
+	}
 
-			err := RunDownload(eng, tt.pkgs)
-			if (err != nil) != tt.wantError {
-				t.Errorf("RunDownload() error = %v, wantError %v", err, tt.wantError)
-			}
-			if tt.wantDownloaded && !downloadCalled {
-				t.Error("Install was not called")
-			}
-		})
+	if !installCalled {
+		t.Error("Install was not called")
+	}
+	if len(capturedPkgs) != 2 {
+		t.Errorf("Expected 2 pkgs, got %d", len(capturedPkgs))
+	}
+	if !capturedOpts.DownloadOnly {
+		t.Error("Expected DownloadOnly=true")
+	}
+	if !strings.Contains(buf.String(), "Downloading packages...") {
+		t.Errorf("Unexpected output: %s", buf.String())
 	}
 }

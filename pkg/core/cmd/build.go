@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"os"
+	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -21,19 +21,15 @@ var BuildCmd = &cobra.Command{
 	Short: "Build package from PKGBUILD",
 	Long:  `Build a package from a PKGBUILD file in the specified directory (defaulting to current directory). Wraps makepkg.`,
 	Args:  cobra.RangeArgs(0, 1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dir := "."
 		if len(args) > 0 {
 			dir = args[0]
 		}
 
-		// Ensure we are in the directory if it's not .
-		// Use absolute path
-
 		eng, err := NewEngineWithConfig(nil)
 		if err != nil {
-			output.Error("Failed to initialize engine: %v", err)
-			return
+			return fmt.Errorf("failed to initialize engine: %w", err)
 		}
 
 		// Default options for makepkg usually include -s (syncdeps)
@@ -45,15 +41,11 @@ var BuildCmd = &cobra.Command{
 			SynDeps:   buildSynDeps,
 		}
 
-		// If user didn't specify anything, rely on flag defaults
-		// makepkg -si is common. Let's rely on flags.
-		// If flags are all false, we just run makepkg (build only).
-
-		if err := RunBuild(eng, dir, opts); err != nil {
-			output.Error("Build failed: %v", err)
-			os.Exit(1)
+		if err := RunBuild(eng, cmd.OutOrStdout(), dir, opts); err != nil {
+			return err
 		}
-		output.Success("Build completed successfully.")
+		fmt.Fprintln(cmd.OutOrStdout(), "Build completed successfully.")
+		return nil
 	},
 }
 
@@ -65,7 +57,7 @@ func init() {
 }
 
 // RunBuild executes the build logic
-func RunBuild(eng *core.Engine, dir string, opts core.BuildOptions) error {
-	output.Info("Building package in %s...", dir)
+func RunBuild(eng *core.Engine, w io.Writer, dir string, opts core.BuildOptions) error {
+	fmt.Fprintf(w, "Building package in %s...\n", dir)
 	return eng.Build(dir, opts)
 }

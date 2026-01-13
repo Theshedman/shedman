@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -21,11 +23,12 @@ func TestRunMark(t *testing.T) {
 		return nil
 	}
 
-	// Test --asdeps
-	err := eng.SetInstallReason("vim", core.InstallReasonDependency)
-	if err != nil {
-		t.Errorf("SetInstallReason error = %v", err)
+	// Test --as-deps
+	var buf bytes.Buffer
+	if err := RunMark(eng, &buf, "vim", true, false); err != nil {
+		t.Fatalf("RunMark failed: %v", err)
 	}
+
 	if !markCalled {
 		t.Error("SetInstallReason was not called")
 	}
@@ -35,15 +38,19 @@ func TestRunMark(t *testing.T) {
 	if capturedReason != core.InstallReasonDependency {
 		t.Errorf("Expected reason dependency, got %v", capturedReason)
 	}
+	if !strings.Contains(buf.String(), "Marking vim as dependency") {
+		t.Errorf("Unexpected output: %s", buf.String())
+	}
 
 	// Reset
 	markCalled = false
+	buf.Reset()
 
-	// Test --asexplicit
-	err = eng.SetInstallReason("nano", core.InstallReasonExplicit)
-	if err != nil {
-		t.Errorf("SetInstallReason error = %v", err)
+	// Test --as-explicit
+	if err := RunMark(eng, &buf, "nano", false, true); err != nil {
+		t.Fatalf("RunMark failed: %v", err)
 	}
+
 	if !markCalled {
 		t.Error("SetInstallReason was not called")
 	}
@@ -52,5 +59,8 @@ func TestRunMark(t *testing.T) {
 	}
 	if capturedReason != core.InstallReasonExplicit {
 		t.Errorf("Expected reason explicit, got %v", capturedReason)
+	}
+	if !strings.Contains(buf.String(), "Marking nano as explicit") {
+		t.Errorf("Unexpected output: %s", buf.String())
 	}
 }

@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -20,41 +22,48 @@ Example:
   shedman mark neovim --as-explicit
   shedman mark libgit2 --as-deps`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		eng, err := NewEngineWithConfig(nil)
 		if err != nil {
-			output.Error("Failed to initialize engine: %v", err)
-			return
+			return fmt.Errorf("failed to initialize engine: %w", err)
 		}
 
 		if !markAsDeps && !markAsExplicit {
-			output.Error("Must specify either --as-deps or --as-explicit")
-			return
+			return fmt.Errorf("must specify either --as-deps or --as-explicit")
 		}
 		if markAsDeps && markAsExplicit {
-			output.Error("Cannot specify both --as-deps and --as-explicit")
-			return
+			return fmt.Errorf("cannot specify both --as-deps and --as-explicit")
 		}
 
 		pkgName := args[0]
-		var reason core.InstallReason
-		var reasonStr string
 
-		if markAsDeps {
-			reason = core.InstallReasonDependency
-			reasonStr = "dependency"
-		} else {
-			reason = core.InstallReasonExplicit
-			reasonStr = "explicit"
+		if err := RunMark(eng, cmd.OutOrStdout(), pkgName, markAsDeps, markAsExplicit); err != nil {
+			return err
 		}
-
-		output.Info("Marking %s as %s...", pkgName, reasonStr)
-		if err := eng.SetInstallReason(pkgName, reason); err != nil {
-			output.Error("Failed to mark package: %v", err)
-			return
-		}
-		output.Success("Package marked successfully")
+		return nil
 	},
+}
+
+// RunMark executes the mark logic
+func RunMark(eng *core.Engine, w io.Writer, pkgName string, asDeps, asExplicit bool) error {
+	var reason core.InstallReason
+	var reasonStr string
+
+	if asDeps {
+		reason = core.InstallReasonDependency
+		reasonStr = "dependency"
+	} else {
+		// asExplicit is implied true if asDeps is false based on caller check, but let's be safe
+		reason = core.InstallReasonExplicit
+		reasonStr = "explicit"
+	}
+
+	fmt.Fprintf(w, "Marking %s as %s...\n", pkgName, reasonStr)
+	if err := eng.SetInstallReason(pkgName, reason); err != nil {
+		return fmt.Errorf("failed to mark package: %w", err)
+	}
+	fmt.Fprintln(w, "Package marked successfully")
+	return nil
 }
 
 func init() {

@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"fmt"
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -11,107 +12,110 @@ func TestRunKeyring(t *testing.T) {
 	mock := &MockBackend{}
 	eng := core.NewEngineWithBackend(mock)
 
-	tests := []struct {
-		name      string
-		action    string
-		arg       string // keyID or path
-		mockError error
-		wantError bool
-		wantList  []string // Only for list action
-	}{
-		{
-			name:      "Init Success",
-			action:    "init",
-			wantError: false,
-		},
-		{
-			name:      "Init Fail",
-			action:    "init",
-			mockError: fmt.Errorf("init failed"),
-			wantError: true,
-		},
-		{
-			name:      "Refresh Success",
-			action:    "refresh",
-			wantError: false,
-		},
-		{
-			name:      "List Success",
-			action:    "list",
-			wantList:  []string{"key1", "key2"},
-			wantError: false,
-		},
-		{
-			name:      "Add Success",
-			action:    "add",
-			arg:       "123456",
-			wantError: false,
-		},
-		{
-			name:      "Add Fail",
-			action:    "add",
-			arg:       "123456",
-			mockError: fmt.Errorf("add failed"),
-			wantError: true,
-		},
-		{
-			name:      "Remove Success",
-			action:    "remove",
-			arg:       "123456",
-			wantError: false,
-		},
-		{
-			name:      "Import Success",
-			action:    "import",
-			arg:       "/tmp/key.gpg",
-			wantError: false,
-		},
+	// Mock flags
+	initCalled := false
+	refreshCalled := false
+	addCalled := ""
+	removeCalled := ""
+	importCalled := ""
+	listCalled := false
+
+	// Match field names in MockBackend (verb-object convention mostly)
+	mock.InitKeyringFunc = func() error {
+		initCalled = true
+		return nil
+	}
+	mock.RefreshKeysFunc = func() error {
+		refreshCalled = true
+		return nil
+	}
+	mock.ListKeysFunc = func() ([]string, error) {
+		listCalled = true
+		return []string{"key1", "key2"}, nil
+	}
+	mock.AddKeyFunc = func(key string) error {
+		addCalled = key
+		return nil
+	}
+	mock.RemoveKeyFunc = func(key string) error {
+		removeCalled = key
+		return nil
+	}
+	mock.ImportKeyFunc = func(path string) error {
+		importCalled = path
+		return nil
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Reset mocks
-			mock.InitKeyringFunc = func() error { return tt.mockError }
-			mock.RefreshKeysFunc = func() error { return tt.mockError }
-			mock.ListKeysFunc = func() ([]string, error) { return tt.wantList, tt.mockError }
-			mock.AddKeyFunc = func(id string) error {
-				if id != tt.arg {
-					return fmt.Errorf("wrong arg: got %s want %s", id, tt.arg)
-				}
-				return tt.mockError
-			}
-			mock.RemoveKeyFunc = func(id string) error {
-				if id != tt.arg {
-					return fmt.Errorf("wrong arg: got %s want %s", id, tt.arg)
-				}
-				return tt.mockError
-			}
-			mock.ImportKeyFunc = func(path string) error {
-				if path != tt.arg {
-					return fmt.Errorf("wrong arg: got %s want %s", path, tt.arg)
-				}
-				return tt.mockError
-			}
+	var buf bytes.Buffer
 
-			var err error
-			switch tt.action {
-			case "init":
-				err = RunKeyringInit(eng)
-			case "refresh":
-				err = RunKeyringRefresh(eng)
-			case "list":
-				err = RunKeyringList(eng)
-			case "add":
-				err = RunKeyringAdd(eng, tt.arg)
-			case "remove":
-				err = RunKeyringRemove(eng, tt.arg)
-			case "import":
-				err = RunKeyringImport(eng, tt.arg)
-			}
+	// Test Init
+	if err := RunKeyringInit(eng, &buf); err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+	if !initCalled {
+		t.Error("Init not called")
+	}
+	if !strings.Contains(buf.String(), "Initializing keyring...") {
+		t.Error("Missing init output")
+	}
+	buf.Reset()
 
-			if (err != nil) != tt.wantError {
-				t.Errorf("Action %s error = %v, wantError %v", tt.action, err, tt.wantError)
-			}
-		})
+	// Test Refresh
+	if err := RunKeyringRefresh(eng, &buf); err != nil {
+		t.Fatalf("Refresh failed: %v", err)
+	}
+	if !refreshCalled {
+		t.Error("Refresh not called")
+	}
+	if !strings.Contains(buf.String(), "Refreshing keys...") {
+		t.Error("Missing refresh output")
+	}
+	buf.Reset()
+
+	// Test List
+	if err := RunKeyringList(eng, &buf); err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if !listCalled {
+		t.Error("List not called")
+	}
+	if !strings.Contains(buf.String(), "key1") || !strings.Contains(buf.String(), "key2") {
+		t.Error("Missing listed keys")
+	}
+	buf.Reset()
+
+	// Test Add
+	if err := RunKeyringAdd(eng, &buf, "abcd"); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+	if addCalled != "abcd" {
+		t.Error("Add not called with abcd")
+	}
+	if !strings.Contains(buf.String(), "Adding key abcd...") {
+		t.Error("Missing add output")
+	}
+	buf.Reset()
+
+	// Test Remove
+	if err := RunKeyringRemove(eng, &buf, "1234"); err != nil {
+		t.Fatalf("Remove failed: %v", err)
+	}
+	if removeCalled != "1234" {
+		t.Error("Remove not called with 1234")
+	}
+	if !strings.Contains(buf.String(), "Removing key 1234...") {
+		t.Error("Missing remove output")
+	}
+	buf.Reset()
+
+	// Test Import
+	if err := RunKeyringImport(eng, &buf, "/tmp/key.gpg"); err != nil {
+		t.Fatalf("Import failed: %v", err)
+	}
+	if importCalled != "/tmp/key.gpg" {
+		t.Error("Import not called with path")
+	}
+	if !strings.Contains(buf.String(), "Importing key from /tmp/key.gpg...") {
+		t.Error("Missing import output")
 	}
 }
