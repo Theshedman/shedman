@@ -79,6 +79,11 @@ func init() {
 	rootCmd.AddCommand(commands.BuildCmd)
 	rootCmd.AddCommand(commands.KeyringCmd)
 	rootCmd.AddCommand(commands.RepairCmd)
+	rootCmd.AddCommand(commands.FilesCmd)
+	rootCmd.AddCommand(commands.MarkCmd)
+	rootCmd.AddCommand(commands.SizeCmd)
+	rootCmd.AddCommand(commands.CheckCmd)
+	rootCmd.AddCommand(commands.DownloadCmd)
 	rootCmd.AddCommand(configcmd.ConfigCmd)
 
 	// Global flags
