@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"bytes"
+	"strings"
 	"testing"
+
+	"github.com/theshedman/shedman/pkg/core"
 )
 
 func TestSyncCommand_Exists(t *testing.T) {
@@ -38,8 +42,28 @@ func TestSyncCommand_ShortDescription(t *testing.T) {
 	}
 }
 
-/*
-func TestSyncCommand_Run_DryRun(t *testing.T) {
-	// Requires mocking backends or config, skipping complex logic for unit test
+func TestRunSync(t *testing.T) {
+	mock := &MockBackend{}
+	eng := core.NewEngineWithBackend(mock)
+
+	syncCalled := false
+	mock.SyncFunc = func() error {
+		syncCalled = true
+		return nil
+	}
+
+	var buf bytes.Buffer
+	// RunSync(eng, writer)
+	if err := RunSync(eng, &buf); err != nil {
+		t.Fatalf("RunSync failed: %v", err)
+	}
+
+	if !syncCalled {
+		t.Error("Backend.Sync was not called")
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Synchronizing package databases") {
+		t.Errorf("Expected output to contain 'Synchronizing package databases', got: %s", output)
+	}
 }
-*/

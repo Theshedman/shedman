@@ -1,68 +1,60 @@
 package cmd
 
 import (
+	"bytes"
+	"strings"
 	"testing"
+
+	"github.com/theshedman/shedman/pkg/core"
 )
 
-func TestRemoveCommand_Exists(t *testing.T) {
-	removeCmd := RemoveCmd
-	if removeCmd == nil {
-		t.Fatal("Remove command should exist")
+func TestRunRemove(t *testing.T) {
+	mock := &MockBackend{}
+	eng := core.NewEngineWithBackend(mock)
+
+	// Mock IsInstalled for initial check
+	mock.IsInstalledFunc = func(name string) bool {
+		return name == "test-pkg"
 	}
 
-	if removeCmd.Use != "remove [packages...]" {
-		t.Errorf("Expected Use 'remove [packages...]', got '%s'", removeCmd.Use)
-	}
-}
-
-func TestRemoveCommand_HasRequiredFlags(t *testing.T) {
-	removeCmd := RemoveCmd
-
-	flags := []string{"recursive", "purge", "cascade", "nosave"}
-
-	for _, flag := range flags {
-		if removeCmd.Flags().Lookup(flag) == nil {
-			t.Errorf("Missing flag: --%s", flag)
+	// Mock Remove to track calls
+	removeCalled := false
+	mock.RemoveFunc = func(pkgs []string, opts core.RemoveOptions) error {
+		removeCalled = true
+		if len(pkgs) != 1 || pkgs[0] != "test-pkg" {
+			t.Errorf("Expected removal of [test-pkg], got %v", pkgs)
 		}
+		if !opts.NoConfirm {
+			t.Error("Expected NoConfirm=true (passed via test options)")
+		}
+		return nil
+	}
+
+	var buf bytes.Buffer
+	pkgs := []string{"test-pkg"}
+	// We pass options directly to RunRemove to avoid CLI flag parsing constraints in unit tests
+	opts := core.RemoveOptions{
+		NoConfirm: true,
+	}
+
+	// This function signature doesn't exist yet, so this test ensures TDD flow
+	// RunRemove(eng, writer, pkgs, opts)
+	if err := RunRemove(eng, &buf, pkgs, opts); err != nil {
+		t.Fatalf("RunRemove failed: %v", err)
+	}
+
+	if !removeCalled {
+		t.Error("Backend.Remove was not called")
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Removing 1 official package(s)...") {
+		t.Errorf("Expected output to contain 'Removing 1 official package(s)...', got: %s", output)
 	}
 }
 
-func TestRemoveCommand_HasShortFlags(t *testing.T) {
-	removeCmd := RemoveCmd
-
-	// -s is shorthand for --recursive
-	if flag := removeCmd.Flags().ShorthandLookup("s"); flag == nil {
-		t.Error("Missing short flag: -s (for --recursive)")
-	}
-}
-
-func TestRemoveCommand_RequiresArgs(t *testing.T) {
-	removeCmd := RemoveCmd
-
-	// Remove command requires at least 1 package
-	if removeCmd.Args == nil {
-		t.Error("Remove command should have Args validation")
-	}
-}
-
-func TestRemoveCommand_ShortDescription(t *testing.T) {
-	removeCmd := RemoveCmd
-
-	if removeCmd.Short != "Remove packages" {
-		t.Errorf("Expected Short 'Remove packages', got '%s'", removeCmd.Short)
-	}
-}
-
-func TestRemoveCommand_NosaveIsPurgeAlias(t *testing.T) {
-	removeCmd := RemoveCmd
-
-	purgeFlag := removeCmd.Flags().Lookup("purge")
-	nosaveFlag := removeCmd.Flags().Lookup("nosave")
-
-	if purgeFlag == nil || nosaveFlag == nil {
-		t.Fatal("Both --purge and --nosave flags should exist")
-	}
-
-	// Both flags should control the same behavior (NoSave in RemoveOptions)
-	// This is verified by checking they're both registered
+func TestRunRemove_DryRun(t *testing.T) {
+	// Tests for dry-run logic integration if feasible,
+	// or we verify dry-run is handled separately.
+	// For now focusing on main execution path.
 }

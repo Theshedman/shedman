@@ -189,6 +189,13 @@ var DefaultGroups = map[string]PackageGroup{
 			"mate", "mate-extra",
 		},
 	},
+	"shedos-pantheon": {
+		Name:        "shedos-pantheon",
+		Description: "ShedOS with PANTHEON desktop",
+		Packages: []string{
+			"pantheon",
+		},
+	},
 }
 
 // GroupsConfig represents the groups.toml configuration file

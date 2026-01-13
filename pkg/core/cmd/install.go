@@ -72,7 +72,7 @@ func RunInstall(eng *core.Engine, cmd *cobra.Command, args []string, w io.Writer
 			for _, p := range expanded {
 				// Add to args to be processed (simple way) or handle directly
 				// Helper: process expanded packages
-				// We need to fetch info for them.
+				// Fetch package info
 				info, err := backend.Info(p)
 				if err != nil {
 					output.Error("Failed to query package %s (from group %s): %v", p, arg, err)
@@ -252,7 +252,7 @@ func executeInstall(pacmanBackend core.OfficialBackend, cfg *config.Config, pkgs
 		}
 	}
 
-	// Determine if we need pacman backend
+	// Check if pacman backend required
 	needsPacman := len(official) > 0 || len(shedos) > 0
 
 	if needsPacman {
