@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -18,17 +18,16 @@ var OrphansCmd = &cobra.Command{
 	Use:   "orphans",
 	Short: "Manage orphaned packages (unused dependencies)",
 	Long:  `List or remove packages that were installed as dependencies but are no longer required by any installed package.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		eng, err := NewEngineWithConfig(nil)
 		if err != nil {
-			output.Error("Failed to initialize engine: %v", err)
-			return
+			return fmt.Errorf("failed to initialize engine: %w", err)
 		}
 
-		if err := RunOrphans(eng, removeOrphans); err != nil {
-			output.Error("Orphans operation failed: %v", err)
-			return
+		if err := RunOrphans(eng, cmd.OutOrStdout(), removeOrphans); err != nil {
+			return fmt.Errorf("orphans operation failed: %w", err)
 		}
+		return nil
 	},
 }
 
@@ -37,29 +36,29 @@ func init() {
 }
 
 // RunOrphans executes the orphans logic
-func RunOrphans(eng *core.Engine, remove bool) error {
-	output.Info("Searching for orphans...")
+func RunOrphans(eng *core.Engine, w io.Writer, remove bool) error {
+	fmt.Fprintln(w, "Searching for orphans...")
 	orphans, err := eng.ListOrphans()
 	if err != nil {
 		return fmt.Errorf("failed to list orphans: %w", err)
 	}
 
 	if len(orphans) == 0 {
-		output.Success("No orphans found.")
+		fmt.Fprintln(w, "No orphans found.")
 		return nil
 	}
 
 	if remove {
-		output.Info("Found %d orphans: %s", len(orphans), strings.Join(orphans, " "))
+		fmt.Fprintf(w, "Found %d orphans: %s\n", len(orphans), strings.Join(orphans, " "))
 		if err := eng.RemoveOrphans(orphans); err != nil {
 			return fmt.Errorf("removal failed: %w", err)
 		}
-		output.Success("Orphans removed.")
+		fmt.Fprintln(w, "Orphans removed.")
 	} else {
 		for _, pkg := range orphans {
-			fmt.Println(pkg)
+			fmt.Fprintln(w, pkg)
 		}
-		output.Info("\nUse --remove to uninstall them.")
+		fmt.Fprintln(w, "\nUse --remove to uninstall them.")
 	}
 	return nil
 }

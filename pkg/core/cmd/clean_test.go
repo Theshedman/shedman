@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -63,7 +64,7 @@ func TestRunClean(t *testing.T) {
 				return tt.mockError
 			}
 
-			err := RunClean(eng, tt.all, tt.keep)
+			err := RunClean(eng, &bytes.Buffer{}, tt.all, tt.keep)
 			if (err != nil) != tt.wantError {
 				t.Errorf("RunClean() error = %v, wantError %v", err, tt.wantError)
 			}

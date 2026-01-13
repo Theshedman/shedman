@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -58,7 +58,7 @@ var DoctorCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		eng, err := NewEngineWithConfig(nil)
 		if err != nil {
-			output.Error("FAILED (%v)", err)
+			fmt.Printf("FAILED (%v)\n", err)
 		}
 
 		// Override default repairs with engine based repairs where possible
@@ -69,7 +69,7 @@ var DoctorCmd = &cobra.Command{
 			}
 		}
 
-		RunDoctor(eng, defaultChecks, repairs, doctorFix)
+		RunDoctor(eng, cmd.OutOrStdout(), defaultChecks, repairs, doctorFix)
 	},
 }
 
@@ -78,91 +78,107 @@ func init() {
 }
 
 // RunDoctor executes health checks
-func RunDoctor(eng *core.Engine, checks DoctorChecks, repairs DoctorRepairs, fix bool) {
-	output.Info("Running system health checks...\n")
+func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs DoctorRepairs, fix bool) {
+	fmt.Fprintln(w, "Running system health checks...")
+	fmt.Fprintln(w)
 	hasIssues := false
 
+	// Helper to print styled status (simple text for now to match writer)
+	printStatus := func(msg string, isError bool, isWarning bool) {
+		if isError {
+			fmt.Fprintf(w, "FAILED (%s)\n", msg)
+		} else if isWarning {
+			fmt.Fprintf(w, "WARNING (%s)\n", msg)
+		} else {
+			fmt.Fprintf(w, "OK (%s)\n", msg)
+		}
+	}
+	// Simple OK
+	printOK := func() {
+		fmt.Fprintln(w, "OK")
+	}
+
 	// 1. Check Engine/Backend
-	fmt.Print("Checking Package Backend... ")
+	fmt.Fprint(w, "Checking Package Backend... ")
 	if eng == nil {
-		output.Error("FAILED (Engine Init)")
+		printStatus("Engine Init", true, false)
 		hasIssues = true
 	} else {
 		backend := eng.GetOfficialBackend()
 		if backend != nil {
-			output.Success("OK (%s)", backend.Name())
+			printStatus(backend.Name(), false, false)
 		} else {
-			output.Warning("WARNING (No official backend detected)")
+			printStatus("No official backend detected", false, true)
 			hasIssues = true
 		}
 	}
 
 	// 2. Check Lock File
-	fmt.Print("Checking Pacman Lock... ")
+	fmt.Fprint(w, "Checking Pacman Lock... ")
 	if checks.CheckLockFile() {
-		output.Error("FAILED (Lock file exists: /var/lib/pacman/db.lck)")
+		printStatus("Lock file exists: /var/lib/pacman/db.lck", true, false)
 		hasIssues = true
 		if fix {
-			output.Info("  Attempting to remove lock file...")
+			fmt.Fprintln(w, "  Attempting to remove lock file...")
 			if err := repairs.RemoveLock(); err != nil {
-				output.Error("  Failed to remove lock: %v", err)
+				fmt.Fprintf(w, "  Failed to remove lock: %v\n", err)
 			} else {
-				output.Success("  Lock file removed.")
+				fmt.Fprintln(w, "  Lock file removed.")
 			}
 		}
 	} else {
-		output.Success("OK")
+		printOK()
 	}
 
 	// 3. Check Internet Connectivity
-	fmt.Print("Checking Connectivity... ")
+	fmt.Fprint(w, "Checking Connectivity... ")
 	if checks.CheckConnection() {
-		output.Success("OK")
+		printOK()
 	} else {
-		output.Warning("WARNING (Cannot reach archlinux.org)")
+		printStatus("Cannot reach archlinux.org", false, true)
 		hasIssues = true
 	}
 
 	// 4. Check Disk Space (Root)
-	fmt.Print("Checking Disk Space... ")
+	fmt.Fprint(w, "Checking Disk Space... ")
 	freeGB := checks.CheckDiskSpace("/")
 	if freeGB < 1.0 {
-		output.Error("FAILED (Only %.1fGB free on /)", freeGB)
+		printStatus(fmt.Sprintf("Only %.1fGB free on /", freeGB), true, false)
 		hasIssues = true
 	} else {
-		output.Success("OK (%.1fGB free)", freeGB)
+		printStatus(fmt.Sprintf("%.1fGB free", freeGB), false, false)
 	}
 
 	// 5. Check Failed Services
-	fmt.Print("Checking Failed Services... ")
+	fmt.Fprint(w, "Checking Failed Services... ")
 	failed := checks.CheckServices()
 	if len(failed) > 0 {
-		output.Warning("WARNING (%d failed units)", len(failed))
+		printStatus(fmt.Sprintf("%d failed units", len(failed)), false, true)
 		for _, unit := range failed {
-			fmt.Printf("  - %s\n", unit)
+			fmt.Fprintf(w, "  - %s\n", unit)
 		}
 		hasIssues = true
 		if fix {
-			output.Info("  Attempting to reset failed services...")
+			fmt.Fprintln(w, "  Attempting to reset failed services...")
 			if err := repairs.ResetFailedServices(); err != nil {
-				output.Error("  Failed to reset services: %v", err)
+				fmt.Fprintf(w, "  Failed to reset services: %v\n", err)
 			} else {
-				output.Success("  Services reset.")
+				fmt.Fprintln(w, "  Services reset.")
 			}
 		}
 	} else {
-		output.Success("OK")
+		printOK()
 	}
 
-	fmt.Println()
+	fmt.Fprintln(w)
 	if hasIssues {
 		if fix {
-			output.Warning("Doctor attempted to fix issues. Please re-run to verify.")
+			fmt.Fprintln(w, "Doctor attempted to fix issues. Please re-run to verify.")
 		} else {
-			output.Warning("Doctor found issues. Run with --fix to attempt repairs.")
+			fmt.Fprintln(w, "Doctor found issues. Run with --fix to attempt repairs.")
 		}
 	} else {
-		output.Success("Your system looks verify healthy!")
+		fmt.Fprintln(w, "Your system looks verify healthy!")
 	}
 }
 

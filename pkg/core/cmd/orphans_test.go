@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -65,13 +67,26 @@ func TestRunOrphans(t *testing.T) {
 				return tt.removeError
 			}
 
-			err := RunOrphans(eng, tt.remove)
+			var buf bytes.Buffer
+			err := RunOrphans(eng, &buf, tt.remove)
 			if (err != nil) != tt.wantError {
 				t.Errorf("RunOrphans() error = %v, wantError %v", err, tt.wantError)
 			}
 			if tt.remove && len(tt.orphans) > 0 && tt.listError == nil {
 				if !calledRemove {
 					t.Error("RemoveOrphans should be called")
+				}
+			}
+			// Add basic output assertions?
+			if !tt.wantError && len(tt.orphans) > 0 {
+				if tt.remove {
+					if !strings.Contains(buf.String(), "Orphans removed") {
+						t.Errorf("Expected success msg, got: %s", buf.String())
+					}
+				} else {
+					if !strings.Contains(buf.String(), "Use --remove") {
+						t.Errorf("Expected usage hint, got: %s", buf.String())
+					}
 				}
 			}
 		})

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -29,11 +31,19 @@ func TestRunDoctor(t *testing.T) {
 	}
 
 	t.Run("Perfect Health", func(t *testing.T) {
-		RunDoctor(mockEng, perfectChecks, mocks, false)
+		var buf bytes.Buffer
+		RunDoctor(mockEng, &buf, perfectChecks, mocks, false)
+		if !strings.Contains(buf.String(), "OK") {
+			t.Error("Expected OK output")
+		}
 	})
 
 	t.Run("Failing Health No Fix", func(t *testing.T) {
-		RunDoctor(mockEng, failingChecks, mocks, false)
+		var buf bytes.Buffer
+		RunDoctor(mockEng, &buf, failingChecks, mocks, false)
+		if !strings.Contains(buf.String(), "FAILED") {
+			t.Error("Expected FAILED output")
+		}
 	})
 
 	t.Run("Failing Health With Fix", func(t *testing.T) {
@@ -52,7 +62,8 @@ func TestRunDoctor(t *testing.T) {
 		}
 
 		// We expect lock removal and service reset
-		RunDoctor(mockEng, failingChecks, fixMocks, true)
+		var buf bytes.Buffer
+		RunDoctor(mockEng, &buf, failingChecks, fixMocks, true)
 
 		if !lockRemoved {
 			t.Error("Expected lock removal")
@@ -60,9 +71,16 @@ func TestRunDoctor(t *testing.T) {
 		if !servicesReset {
 			t.Error("Expected services reset")
 		}
+		if !strings.Contains(buf.String(), "Lock file removed") {
+			t.Error("Expected fix output")
+		}
 	})
 
 	t.Run("Nil Engine", func(t *testing.T) {
-		RunDoctor(nil, perfectChecks, mocks, false)
+		var buf bytes.Buffer
+		RunDoctor(nil, &buf, perfectChecks, mocks, false)
+		if !strings.Contains(buf.String(), "FAILED (Engine Init)") {
+			t.Error("Expected Engine Init failure")
+		}
 	})
 }

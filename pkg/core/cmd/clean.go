@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/spf13/cobra"
-	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -16,18 +18,20 @@ var CleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Clean the package cache",
 	Long:  `Remove uninstalled or all packages from the cache to free up disk space. Use --keep to retain recent versions.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		eng, err := NewEngineWithConfig(nil)
 		if err != nil {
-			output.Error("Failed to initialize engine: %v", err)
-			return
+			return fmt.Errorf("failed to initialize engine: %w", err)
 		}
 
-		if err := RunClean(eng, cleanAll, cleanKeep); err != nil {
-			output.Error("Clean failed: %v", err)
-			return
+		if err := RunClean(eng, cmd.OutOrStdout(), cleanAll, cleanKeep); err != nil {
+			// output.Error handles printing but we return error here for RunE
+			return fmt.Errorf("clean failed: %w", err)
 		}
-		output.Success("Cache cleaned successfully.")
+
+		fmt.Println("Cache cleaned successfully.") // Or write to stdout via success middleware?
+		// But RunClean writes to 'w'. If success message is specific to CLI, we print it here.
+		return nil
 	},
 }
 
@@ -37,8 +41,8 @@ func init() {
 }
 
 // RunClean executes the clean logic
-func RunClean(eng *core.Engine, all bool, keep int) error {
-	output.Info("Cleaning package cache...")
+func RunClean(eng *core.Engine, w io.Writer, all bool, keep int) error {
+	fmt.Fprintln(w, "Cleaning package cache...")
 	opts := core.CleanOptions{
 		All:  all,
 		Keep: keep,
