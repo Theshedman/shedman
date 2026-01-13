@@ -13,6 +13,15 @@ import (
 
 // NewEngineWithConfig creates an Engine with backends auto-detected from config.
 func NewEngineWithConfig(cfg *config.Config) (*core.Engine, error) {
+	if cfg == nil {
+		var err error
+		cfg, err = config.LoadDefault()
+		if err != nil {
+			// If loading fails, fallback to defaults
+			cfg = config.Default()
+		}
+	}
+
 	e := core.NewEngine()
 
 	officialBackend, err := DetectBackendWithConfig(&cfg.Backend)

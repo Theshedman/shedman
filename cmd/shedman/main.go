@@ -69,6 +69,16 @@ func init() {
 	rootCmd.AddCommand(commands.SyncCmd)
 	rootCmd.AddCommand(commands.UpdateCmd)
 	rootCmd.AddCommand(commands.InfoCmd)
+	rootCmd.AddCommand(commands.CleanCmd)
+	rootCmd.AddCommand(commands.OrphansCmd)
+	rootCmd.AddCommand(commands.OwnsCmd)
+	rootCmd.AddCommand(commands.DoctorCmd)
+	rootCmd.AddCommand(commands.HistoryCmd)
+	rootCmd.AddCommand(commands.WhyCmd)
+	rootCmd.AddCommand(commands.VerifyCmd)
+	rootCmd.AddCommand(commands.BuildCmd)
+	rootCmd.AddCommand(commands.KeyringCmd)
+	rootCmd.AddCommand(commands.RepairCmd)
 	rootCmd.AddCommand(configcmd.ConfigCmd)
 
 	// Global flags
