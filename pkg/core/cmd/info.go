@@ -64,8 +64,7 @@ func RunInfo(eng *core.Engine, w io.Writer, pkgName string, asJson bool) error {
 	}
 
 	// Render Text Output to Writer
-	// Manual formatting to match output package
-	// We mimic output.PrintInfoKV logic but writing to w.
+	// Mimic output.PrintInfoKV to writing to w.
 	printKV(w, "Name", info.Name)
 	printKV(w, "Version", info.Version)
 	printKV(w, "Description", info.Description)

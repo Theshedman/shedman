@@ -136,26 +136,10 @@ Examples:
 
 // RunSearch executes the search logic
 func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) error {
-	// 1. Execute Search via Engine (aggregates results from all added backends)
+
+	// Helper for official backend detection
+
 	var results []SearchResult
-
-	// Engine.Search returns []core.PackageInfo
-	// Note: We might need to iterate backends manually if Engine.Search doesn't provide enough control
-	// or missing "Official" vs "AUR" source distinction (Engine aggregates).
-	// core.PackageInfo HAS Source field.
-
-	// If "Installed Only" is requested, searching might work differently (e.g. searching installed set).
-	// Engine.Search usually searches REMOTE databases.
-	// We might need to handle "Installed" search separately if not covered by Engine.Search.
-	// But let's assume Engine.Search queries backends.
-
-	// Wait, we need to check if we should search "Installed Packages" explicitly.
-	// Standard Engine.Search searches what backend provides.
-	// OfficialBackend.Search searches Repos.
-	// To search INSTALLED, we need GetInstalledPackages() and filter.
-
-	// Let's iterate manually here to replicate original detailed behavior or trust Engine?
-	// The original code handled installed specially.
 
 	aggregated := make([]core.PackageInfo, 0)
 
@@ -165,25 +149,15 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 		aggregated = append(aggregated, pkgs...)
 	}
 
-	// If Installed flag or SearchAll, and we want to search local db:
-	// Does Engine have 'SearchInstalled'? No.
-	// We might need to call eng.GetInstalledPackages() and filter.
-	if opts.Official || opts.Installed || (!opts.Official && !opts.AUR && !opts.ShedOS) { // "All" logic
-		// This logic is getting complex re-implementing inside RunSearch.
-		// Simplifying: Use available backends to check installed status.
-		// For SearchInstalled only:
-		if opts.Installed {
-			// Clear aggregated if only installed requested? Or merge?
-			// CLI says: --installed "Search installed packages only".
-			// So if --installed is set, logic implies ONLY installed.
-			// Currently our engine setup allows adding remote backends.
-			// We should probably filter results.
+	if opts.Installed {
+		var installedOnly []core.PackageInfo
+		for _, p := range aggregated {
+			if eng.IsInstalled(p.Name) {
+				installedOnly = append(installedOnly, p)
+			}
 		}
+		aggregated = installedOnly
 	}
-
-	// We'll stick to simple logic: Convert aggregated PackageInfo to SearchResult
-	// We need 'Installed' boolean. Engine doesn't populate that by default in Search(), only name/version/source.
-	// We need to check IsInstalled(name).
 
 	// Check installed status
 
@@ -232,11 +206,6 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 			installedMarker = " ✓"
 		}
 
-		// We skipping color for now or use output.Colorize if wanted?
-		// output.Colorize writes strings.
-		// Since we write to 'w', we can't use global logger directly but formatting strings is fine.
-		// We'll keep it simple: no color or simple text. Test expects text.
-
 		fmt.Fprintf(w, " 📦 %s %s %s%s\n", name, version, source, installedMarker)
 	}
 	fmt.Fprintf(w, "\nFound %d package(s)\n", len(results))
@@ -244,9 +213,7 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 	return nil
 }
 
-// Helper for official backend detection (copied/imported from remove.go or common?)
-// Since it's in same package `cmd`, `DetectBackendWithConfig` (from remove.go or imported) should be available?
-// `DetectBackendWithConfig` is in `pkg/core/types.go` (exported). Yes.
+// Helper for official backend detection
 
 func init() {
 	SearchCmd.Flags().BoolVar(&searchOfficial, "official", false, "Search official repositories only")

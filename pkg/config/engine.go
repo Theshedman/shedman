@@ -31,10 +31,9 @@ func NewConfigEngine(state StateManager, backup BackupManager, differ *Differ, r
 
 // Apply applies a single configuration file from source to target
 func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
-	// 1. Load State
-
-	// 2. Calculate Hashes
+	// Calculate Hashes
 	// New (Incoming Package)
+
 	newHash, err := e.Differ.CalculateHash(sourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to hash source: %w", err)
@@ -58,7 +57,8 @@ func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
 		baseHash = state.Hash
 	}
 
-	// 3. Decision Matrix
+	// Decision Matrix
+
 	action := ActionNoop
 
 	if !targetExists {
@@ -91,7 +91,8 @@ func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
 		}
 	}
 
-	// 4. Execute Action
+	// Execute Action
+
 	switch action {
 	case ActionUpdate:
 		// Backup and overwrite
