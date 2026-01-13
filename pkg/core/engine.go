@@ -266,3 +266,233 @@ func (e *Engine) Search(query string) ([]PackageInfo, error) {
 	wg.Wait()
 	return allResults, nil
 }
+
+// CleanCache cleans the package cache.
+func (e *Engine) CleanCache(opts CleanOptions) error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if m, ok := e.officialBackend.(Maintainer); ok {
+		return m.CleanCache(opts)
+	}
+	return fmt.Errorf("backend %s does not support cache cleaning", e.officialBackend.Name())
+}
+
+// ListOrphans lists orphaned packages.
+func (e *Engine) ListOrphans() ([]string, error) {
+	if e.officialBackend == nil {
+		return nil, ErrBackendNotFound
+	}
+	if m, ok := e.officialBackend.(Maintainer); ok {
+		return m.ListOrphans()
+	}
+	return nil, fmt.Errorf("backend %s does not support listing orphans", e.officialBackend.Name())
+}
+
+// RemoveOrphans removes orphaned packages.
+func (e *Engine) RemoveOrphans(pkgs []string) error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if m, ok := e.officialBackend.(Maintainer); ok {
+		return m.RemoveOrphans(pkgs)
+	}
+	return fmt.Errorf("backend %s does not support removing orphans", e.officialBackend.Name())
+}
+
+// GetFileOwner returns the package that owns a file.
+func (e *Engine) GetFileOwner(path string) (string, error) {
+	// Try official backend
+	if e.officialBackend != nil {
+		if fp, ok := e.officialBackend.(FileProvider); ok {
+			// We updated interface to include GetFileOwner
+			if owner, err := fp.GetFileOwner(path); err == nil {
+				return owner, nil
+			}
+		}
+	}
+	// Try other backends
+	for _, b := range e.backends {
+		if fp, ok := b.(FileProvider); ok {
+			if owner, err := fp.GetFileOwner(path); err == nil {
+				return owner, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no package owns %s", path)
+}
+
+// SearchFiles searches for files in the package database.
+func (e *Engine) SearchFiles(query string) ([]string, error) {
+	// Try official backend
+	if e.officialBackend != nil {
+		if fp, ok := e.officialBackend.(FileProvider); ok {
+			if files, err := fp.SearchFiles(query); err == nil {
+				return files, nil
+			}
+		}
+	}
+	// Try other backends
+	for _, b := range e.backends {
+		if fp, ok := b.(FileProvider); ok {
+			if files, err := fp.SearchFiles(query); err == nil {
+				return files, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+// VerifyAll verifies all packages.
+func (e *Engine) VerifyAll() (map[string][]string, error) {
+	if e.officialBackend == nil {
+		return nil, ErrBackendNotFound
+	}
+	if v, ok := e.officialBackend.(Verifier); ok {
+		return v.VerifyAll()
+	}
+	return nil, fmt.Errorf("backend %s does not support verification", e.officialBackend.Name())
+}
+
+// VerifyPackage verifies a single package.
+func (e *Engine) VerifyPackage(pkgName string) ([]string, error) {
+	if e.officialBackend == nil {
+		return nil, ErrBackendNotFound
+	}
+	if v, ok := e.officialBackend.(Verifier); ok {
+		return v.VerifyPackage(pkgName)
+	}
+	return nil, fmt.Errorf("backend %s does not support verification", e.officialBackend.Name())
+}
+
+// Build builds a package from a directory.
+func (e *Engine) Build(dir string, opts BuildOptions) error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if b, ok := e.officialBackend.(Builder); ok {
+		return b.Build(dir, opts)
+	}
+	return fmt.Errorf("backend %s does not support building", e.officialBackend.Name())
+}
+
+// KeyringInit initializes the keyring.
+func (e *Engine) KeyringInit() error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if k, ok := e.officialBackend.(KeyManager); ok {
+		return k.InitKeyring()
+	}
+	return fmt.Errorf("backend %s does not support keyring management", e.officialBackend.Name())
+}
+
+// KeyringRefresh refreshes keys.
+func (e *Engine) KeyringRefresh() error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if k, ok := e.officialBackend.(KeyManager); ok {
+		return k.RefreshKeys()
+	}
+	return fmt.Errorf("backend %s does not support keyring management", e.officialBackend.Name())
+}
+
+// KeyringList lists keys.
+func (e *Engine) KeyringList() ([]string, error) {
+	if e.officialBackend == nil {
+		return nil, ErrBackendNotFound
+	}
+	if k, ok := e.officialBackend.(KeyManager); ok {
+		return k.ListKeys()
+	}
+	return nil, fmt.Errorf("backend %s does not support keyring management", e.officialBackend.Name())
+}
+
+// KeyringAdd adds a GPG key.
+func (e *Engine) KeyringAdd(keyID string) error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if k, ok := e.officialBackend.(KeyManager); ok {
+		return k.AddKey(keyID)
+	}
+	return fmt.Errorf("backend %s does not support keyring management", e.officialBackend.Name())
+}
+
+// KeyringRemove removes a GPG key.
+func (e *Engine) KeyringRemove(keyID string) error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if k, ok := e.officialBackend.(KeyManager); ok {
+		return k.RemoveKey(keyID)
+	}
+	return fmt.Errorf("backend %s does not support keyring management", e.officialBackend.Name())
+}
+
+// KeyringImport imports a GPG key from file.
+func (e *Engine) KeyringImport(path string) error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if k, ok := e.officialBackend.(KeyManager); ok {
+		return k.ImportKey(path)
+	}
+	return fmt.Errorf("backend %s does not support keyring management", e.officialBackend.Name())
+}
+
+// RepairLock removes the lock file.
+func (e *Engine) RepairLock() error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if r, ok := e.officialBackend.(Repairer); ok {
+		return r.RemoveLock()
+	}
+	return fmt.Errorf("backend %s does not support repair", e.officialBackend.Name())
+}
+
+// ListGroups lists available package groups.
+func (e *Engine) ListGroups() ([]string, error) {
+	if e.officialBackend == nil {
+		return nil, ErrBackendNotFound
+	}
+	if g, ok := e.officialBackend.(GroupManager); ok {
+		return g.ListGroups()
+	}
+	return nil, fmt.Errorf("backend %s does not support group management", e.officialBackend.Name())
+}
+
+// GetGroupPackages returns packages in a group.
+func (e *Engine) GetGroupPackages(group string) ([]string, error) {
+	if e.officialBackend == nil {
+		return nil, ErrBackendNotFound
+	}
+	if g, ok := e.officialBackend.(GroupManager); ok {
+		return g.GetGroupPackages(group)
+	}
+	return nil, fmt.Errorf("backend %s does not support group management", e.officialBackend.Name())
+}
+
+// SetInstallReason sets the install reason for a package.
+func (e *Engine) SetInstallReason(pkg string, reason InstallReason) error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if dm, ok := e.officialBackend.(DatabaseManager); ok {
+		return dm.SetInstallReason(pkg, reason)
+	}
+	return fmt.Errorf("backend %s does not support database management", e.officialBackend.Name())
+}
+
+// CheckDatabase checks the package database for internal consistency.
+func (e *Engine) CheckDatabase() error {
+	if e.officialBackend == nil {
+		return ErrBackendNotFound
+	}
+	if dm, ok := e.officialBackend.(DatabaseManager); ok {
+		return dm.CheckDatabase()
+	}
+	return fmt.Errorf("backend %s does not support database management", e.officialBackend.Name())
+}

@@ -12,6 +12,15 @@ const (
 	PackageTypeArch = "arch" // Native Arch .pkg.tar.zst
 )
 
+// InstallReason denotes the reason a package was installed.
+type InstallReason int
+
+// InstallReason constants matches libalpm logic.
+const (
+	InstallReasonExplicit   InstallReason = 0
+	InstallReasonDependency InstallReason = 1
+)
+
 // PackageInfo holds metadata about a package
 type PackageInfo struct {
 	Name          string

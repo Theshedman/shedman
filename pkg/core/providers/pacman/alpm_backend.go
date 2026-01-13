@@ -2,6 +2,9 @@ package pacman
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
 
 	libalpm "github.com/Jguer/go-alpm/v2"
 	"github.com/theshedman/shedman/internal/alpm"
@@ -448,34 +451,371 @@ func (b *AlpmBackend) addAllPackagesForUpgrade() (int, error) {
 
 // // InstallLocal installs a local package file by converting to .shed format.
 // // Supports .pkg.tar.zst, .pkg.tar.xz, .pkg.tar.gz, and .shed formats.
-// func (b *AlpmBackend) InstallLocal(path string, opts core.InstallOptions) error {
-// 	// Detect package format
-// 	format := convert.DetectPackageFormat(path)
 //
-// 	var shedPath string
-// 	var err error
+//	func (b *AlpmBackend) InstallLocal(path string, opts core.InstallOptions) error {
+//		// Detect package format
+//		format := convert.DetectPackageFormat(path)
 //
-// 	switch format {
-// 	case "shed":
-// 		// Already .shed format, use directly
-// 		shedPath = path
+//		var shedPath string
+//		var err error
 //
-// 	case "pacman-zst", "pacman-xz", "pacman-gz":
-// 		// Convert pacman package to .shed format
-// 		converter := convert.NewPackageConverter()
-// 		shedPath, err = converter.ConvertPacmanToShed(path)
-// 		if err != nil {
-// 			return fmt.Errorf("failed to convert package: %w", err)
-// 		}
+//		switch format {
+//		case "shed":
+//			// Already .shed format, use directly
+//			shedPath = path
 //
-// 	default:
-// 		return fmt.Errorf("unsupported package format: %s", format)
-// 	}
+//		case "pacman-zst", "pacman-xz", "pacman-gz":
+//			// Convert pacman package to .shed format
+//			converter := convert.NewPackageConverter()
+//			shedPath, err = converter.ConvertPacmanToShed(path)
+//			if err != nil {
+//				return fmt.Errorf("failed to convert package: %w", err)
+//			}
 //
-// 	// Install the .shed package
-// 	if err := convert.InstallShed(shedPath); err != nil {
-// 		return fmt.Errorf("shed installation failed: %w", err)
-// 	}
+//		default:
+//			return fmt.Errorf("unsupported package format: %s", format)
+//		}
 //
-// 	return nil
-// }
+//		// Install the .shed package
+//		if err := convert.InstallShed(shedPath); err != nil {
+//			return fmt.Errorf("shed installation failed: %w", err)
+//		}
+//
+//		return nil
+//	}
+//
+// GetFileOwner returns the owner of a file (via pacman -Qoq)
+func (b *AlpmBackend) GetFileOwner(path string) (string, error) {
+	output, err := b.executor.Output("pacman", "-Qoq", path)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// CleanCache cleans the package cache (via pacman -Sc/Scc or paccache)
+func (b *AlpmBackend) CleanCache(opts core.CleanOptions) error {
+	// If Keep > 0, use paccache
+	if opts.Keep > 0 && !opts.All {
+		// paccache -rk <n>
+		return b.executor.Run(b.sudoPath, "paccache", "-rk", fmt.Sprintf("%d", opts.Keep))
+	}
+
+	args := []string{"-Sc"}
+	if opts.All {
+		args = []string{"-Scc"}
+	}
+	// Add noconfirm for automation if possible, but -Sc usually asks interactively.
+	// If we provide --noconfirm to pacman, it answers yes to all.
+	args = append(args, "--noconfirm")
+
+	// Interactive execution connected to Stdin/Stdout
+	return b.executor.Run(b.sudoPath, append([]string{"pacman"}, args...)...)
+}
+
+// ListOrphans lists orphaned packages (via pacman -Qdtq)
+func (b *AlpmBackend) ListOrphans() ([]string, error) {
+	output, err := b.executor.Output("pacman", "-Qdtq")
+	if err != nil {
+		// pacman returns exit code 1 if no orphans found
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	return strings.Fields(string(output)), nil
+}
+
+// RemoveOrphans removes orphaned packages recursively (via pacman -Rns)
+func (b *AlpmBackend) RemoveOrphans(pkgs []string) error {
+	if len(pkgs) == 0 {
+		return nil
+	}
+	args := append([]string{"-Rns"}, pkgs...)
+	// Interactive
+	return b.executor.Run(b.sudoPath, append([]string{"pacman"}, args...)...)
+}
+
+// VerifyAll verifies all packages (via pacman -Qkk)
+func (b *AlpmBackend) VerifyAll() (map[string][]string, error) {
+	output, err := b.executor.Output("pacman", "-Qkk")
+	if err != nil {
+		// pacman returns exit code 1 if any issues found
+		if _, ok := err.(*exec.ExitError); !ok {
+			return nil, err
+		}
+	}
+
+	results := make(map[string][]string)
+	lines := strings.Split(string(output), "\n")
+	var pendingIssues []string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Check if it's a summary line: "pkg: N total files, X altered files"
+		if idx := strings.Index(line, ": "); idx > 0 {
+			// Potential summary or issue
+			prefix := line[:idx]
+			detail := line[idx+2:]
+
+			if strings.Contains(detail, "total files") && strings.Contains(detail, "altered file") {
+				// It's a summary line
+				pkgName := prefix
+				// If we have pending issues, they belong to this package
+				// Note: Strict check reports "0 altered files" but mismatch counts as altered
+
+				if len(pendingIssues) > 0 {
+					results[pkgName] = pendingIssues
+					pendingIssues = nil
+				}
+				continue
+			}
+		}
+
+		// If not summary line, check if it looks like an issue
+		if strings.Contains(line, "mismatch") || strings.Contains(line, "missing") || strings.Contains(line, "altered file") {
+			pendingIssues = append(pendingIssues, line)
+		}
+	}
+
+	return results, nil
+}
+
+// VerifyPackage verifies a single package (via pacman -Qkk)
+func (b *AlpmBackend) VerifyPackage(pkgName string) ([]string, error) {
+	// pacman -Qkk <pkg>
+	// Output is roughly:
+	// backup file: /etc/sudoers (Modification time mismatch)
+	// foo: 226 total files, 1 altered file
+	// We want to capture the "altered file" lines.
+	output, err := b.executor.Output("pacman", "-Qkk", pkgName)
+	if err != nil {
+		// If check fails (files missing), pacman returns non-zero.
+		// We should still try to parse output if available, or return error if completely failed.
+		// But usually exit code 1 means "some files altered/missing".
+		if _, ok := err.(*exec.ExitError); !ok {
+			return nil, err
+		}
+	}
+
+	var issues []string
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		// Typical output for error: "warning: /path/to/file (Reason)"
+		// or "backup file: /path (Reason)"
+		// or just "pkg: N total files, X altered files" (summary)
+
+		// Filter for lines indicating issues.
+		// "mismatch", "missing", "altered"
+		if strings.Contains(line, "mismatch") || strings.Contains(line, "missing") || strings.Contains(line, "altered file") {
+			// Exclude summary line "pkg: N total files, X altered files"
+			if !strings.Contains(line, "total files") {
+				issues = append(issues, strings.TrimSpace(line))
+			}
+		}
+	}
+
+	return issues, nil
+}
+
+// Build builds a package from source using makepkg
+func (b *AlpmBackend) Build(dir string, opts core.BuildOptions) error {
+	// makepkg command
+	args := []string{}
+
+	if opts.Clean {
+		args = append(args, "-c")
+	}
+	if opts.Install {
+		args = append(args, "-i")
+	}
+	if opts.SynDeps {
+		args = append(args, "-s")
+	}
+	if opts.NoConfirm {
+		args = append(args, "--noconfirm")
+	}
+
+	cmd := exec.Command("makepkg", args...)
+	if dir != "" && dir != "." {
+		cmd.Dir = dir
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	return cmd.Run()
+}
+
+// Repairer implementation
+
+// RemoveLock removes the pacman lock file
+func (b *AlpmBackend) RemoveLock() error {
+	// Usually /var/lib/pacman/db.lck
+	lockFile := "/var/lib/pacman/db.lck"
+	// Using sudo rm -f to ensure it's removed and no error if missing
+	return b.executor.Run(b.sudoPath, "rm", "-f", lockFile)
+}
+
+// KeyManager implementation
+
+// InitKeyring initializes the keyring (pacman-key --init and --populate)
+func (b *AlpmBackend) InitKeyring() error {
+	if err := b.executor.Run(b.sudoPath, "pacman-key", "--init"); err != nil {
+		return err
+	}
+	// Typically populate is also needed for archlinux
+	return b.executor.Run(b.sudoPath, "pacman-key", "--populate", "archlinux")
+}
+
+// RefreshKeys refreshes keys from keyservers
+func (b *AlpmBackend) RefreshKeys() error {
+	return b.executor.Run(b.sudoPath, "pacman-key", "--refresh-keys")
+}
+
+// ListKeys lists keys in the keyring
+func (b *AlpmBackend) ListKeys() ([]string, error) {
+	// Try running without sudo first
+	output, err := b.executor.Output("pacman-key", "--list-keys")
+	if err != nil {
+		// Try with sudo
+		outSudo, errSudo := b.executor.Output(b.sudoPath, "pacman-key", "--list-keys")
+		if errSudo != nil {
+			return nil, err
+		}
+		output = outSudo
+	}
+
+	return strings.Split(strings.TrimSpace(string(output)), "\n"), nil
+}
+
+// AddKey adds a key by ID (pacman-key --recv-keys)
+func (b *AlpmBackend) AddKey(keyID string) error {
+	return b.executor.Run(b.sudoPath, "pacman-key", "--recv-keys", keyID)
+}
+
+// RemoveKey removes a key by ID (pacman-key --delete)
+func (b *AlpmBackend) RemoveKey(keyID string) error {
+	// Remove key by ID
+	// RealExecutor handles stdin for interactive confirmation
+	return b.executor.Run(b.sudoPath, "pacman-key", "--delete", keyID)
+}
+
+// ImportKey imports a key from file (pacman-key --add)
+func (b *AlpmBackend) ImportKey(path string) error {
+	return b.executor.Run(b.sudoPath, "pacman-key", "--add", path)
+}
+
+// GroupManager implementation
+
+// ListGroups lists all available package groups (via pacman -Sg)
+func (b *AlpmBackend) ListGroups() ([]string, error) {
+	// pacman -Sg lists all groups:
+	// group1
+	// group2
+	// ...
+	output, err := b.executor.Output("pacman", "-Sg")
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	var groups []string
+	seen := make(map[string]bool)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Output format: "group pkg"
+		// Deduplicate group names (first column)
+
+		parts := strings.Fields(line)
+		if len(parts) > 0 {
+			groupName := parts[0]
+			if !seen[groupName] {
+				groups = append(groups, groupName)
+				seen[groupName] = true
+			}
+		}
+	}
+	return groups, nil
+}
+
+// SearchFiles searches for files in the package database (via pacman -F)
+func (b *AlpmBackend) SearchFiles(query string) ([]string, error) {
+	// pacman -F <file>
+	// Output format:
+	// core/pacman 6.0.0-1
+	//     usr/bin/pacman
+	// extra/package ...
+	// Requires pacman files db to be synced (pacman -Fy)
+	output, err := b.executor.Output("pacman", "-F", query)
+	if err != nil {
+		// pacman -F returns 1 if not found
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return nil, nil // Not found
+		}
+		return nil, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	var results []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			results = append(results, line)
+		}
+	}
+	return results, nil
+}
+func (b *AlpmBackend) GetGroupPackages(group string) ([]string, error) {
+	// pacman -Sq <group> lists only package names, one per line
+	output, err := b.executor.Output("pacman", "-Sq", group)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	var pkgs []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			pkgs = append(pkgs, line)
+		}
+	}
+	// If group doesn't exist, pacman -Sq returns error usually.
+	if len(pkgs) == 0 {
+		return nil, fmt.Errorf("group %s not found or empty", group)
+	}
+	return pkgs, nil
+}
+
+// DatabaseManager implementation
+
+// SetInstallReason sets the install reason for a package via pacman -D
+func (b *AlpmBackend) SetInstallReason(pkg string, reason core.InstallReason) error {
+	args := []string{"-D"}
+	if reason == core.InstallReasonDependency {
+		args = append(args, "--asdeps")
+	} else {
+		args = append(args, "--asexplicit")
+	}
+	args = append(args, pkg)
+
+	return b.executor.Run(b.sudoPath, append([]string{"pacman"}, args...)...)
+}
+
+// CheckDatabase checks the package database for internal consistency (via pacman -Dk)
+func (b *AlpmBackend) CheckDatabase() error {
+	return b.executor.Run(b.sudoPath, "pacman", "-Dk")
+}

@@ -384,3 +384,248 @@ func (b *Backend) InstallLocal(path string, opts core.InstallOptions) error {
 	args = append(args, path)
 	return b.executor.Run(b.sudoPath, append([]string{b.binaryPath}, args...)...)
 }
+
+// GetFileOwner returns the owner of a file
+func (b *Backend) GetFileOwner(path string) (string, error) {
+	// Use -Qoq for quiet output (just package name) to avoid parsing issues
+	output, err := b.executor.Output(b.binaryPath, "-Qoq", path)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// CleanCache cleans the package cache
+func (b *Backend) CleanCache(opts core.CleanOptions) error {
+	if opts.Keep > 0 && !opts.All {
+		return b.executor.Run(b.sudoPath, "paccache", "-rk", fmt.Sprintf("%d", opts.Keep))
+	}
+
+	args := []string{"-Sc"}
+	if opts.All {
+		args = []string{"-Scc"}
+	}
+	args = append(args, "--noconfirm")
+
+	return b.executor.Run(b.sudoPath, append([]string{b.binaryPath}, args...)...)
+}
+
+// ListOrphans lists orphaned packages
+func (b *Backend) ListOrphans() ([]string, error) {
+	// -Qdtq: Query Deps(Orphans) Quiet
+	output, err := b.executor.Output(b.binaryPath, "-Qdtq")
+	if err != nil {
+		// pacman returns exit code 1 if no orphans found
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	return strings.Fields(string(output)), nil
+}
+
+// RemoveOrphans removes orphaned packages recursively
+func (b *Backend) RemoveOrphans(pkgs []string) error {
+	if len(pkgs) == 0 {
+		return nil
+	}
+	args := append([]string{"-Rns"}, pkgs...)
+	return b.executor.Run(b.sudoPath, append([]string{b.binaryPath}, args...)...)
+}
+
+// VerifyAll verifies all packages
+func (b *Backend) VerifyAll() (map[string][]string, error) {
+	output, err := b.executor.Output(b.binaryPath, "-Qkk")
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); !ok {
+			return nil, err
+		}
+	}
+
+	results := make(map[string][]string)
+	lines := strings.Split(string(output), "\n")
+	var pendingIssues []string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if idx := strings.Index(line, ": "); idx > 0 {
+			prefix := line[:idx]
+			detail := line[idx+2:]
+
+			if strings.Contains(detail, "total files") && strings.Contains(detail, "altered file") {
+				pkgName := prefix
+				if len(pendingIssues) > 0 {
+					results[pkgName] = pendingIssues
+					pendingIssues = nil
+				}
+				continue
+			}
+		}
+
+		if strings.Contains(line, "mismatch") || strings.Contains(line, "missing") || strings.Contains(line, "altered file") {
+			pendingIssues = append(pendingIssues, line)
+		}
+	}
+
+	return results, nil
+}
+
+// VerifyPackage verifies a single package
+func (b *Backend) VerifyPackage(pkgName string) ([]string, error) {
+	output, err := b.executor.Output(b.binaryPath, "-Qkk", pkgName)
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); !ok {
+			return nil, err
+		}
+	}
+
+	var issues []string
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if (strings.Contains(line, "mismatch") || strings.Contains(line, "missing") || strings.Contains(line, "altered file")) && !strings.Contains(line, "total files") {
+			issues = append(issues, strings.TrimSpace(line))
+		}
+	}
+
+	return issues, nil
+}
+
+// Build builds a package
+func (b *Backend) Build(dir string, opts core.BuildOptions) error {
+	// Not supporting build in pure pacman wrapper yet (requires makepkg)
+	return fmt.Errorf("build not supported in this backend (use alpm backend)")
+}
+
+// KeyManager implementation
+
+func (b *Backend) InitKeyring() error {
+	// Shell out to pacman-key similarly
+	return b.executor.Run(b.sudoPath, "pacman-key", "--init")
+}
+
+func (b *Backend) RefreshKeys() error {
+	return b.executor.Run(b.sudoPath, "pacman-key", "--refresh-keys")
+}
+
+func (b *Backend) ListKeys() ([]string, error) {
+	output, err := b.executor.Output(b.binaryPath+"-key", "--list-keys")
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(strings.TrimSpace(string(output)), "\n"), nil
+}
+
+func (b *Backend) AddKey(keyID string) error {
+	return b.executor.Run(b.sudoPath, "pacman-key", "--recv-keys", keyID)
+}
+
+func (b *Backend) RemoveKey(keyID string) error {
+	return b.executor.Run(b.sudoPath, "pacman-key", "--delete", keyID)
+}
+
+func (b *Backend) ImportKey(path string) error {
+	return b.executor.Run(b.sudoPath, "pacman-key", "--add", path)
+}
+
+// Repairer implementation
+
+func (b *Backend) RemoveLock() error {
+	lockFile := "/var/lib/pacman/db.lck"
+	return b.executor.Run(b.sudoPath, "rm", "-f", lockFile)
+}
+
+// SearchFiles searches for files in the package database (via pacman -F)
+func (b *Backend) SearchFiles(query string) ([]string, error) {
+	output, err := b.executor.Output(b.binaryPath, "-F", query)
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	var results []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			results = append(results, line)
+		}
+	}
+	return results, nil
+}
+
+// GroupManager implementation
+
+func (b *Backend) ListGroups() ([]string, error) {
+	output, err := b.executor.Output(b.binaryPath, "-Sg")
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	var groups []string
+	seen := make(map[string]bool)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) > 0 {
+			groupName := parts[0]
+			if !seen[groupName] {
+				groups = append(groups, groupName)
+				seen[groupName] = true
+			}
+		}
+	}
+	return groups, nil
+}
+
+func (b *Backend) GetGroupPackages(group string) ([]string, error) {
+	output, err := b.executor.Output(b.binaryPath, "-Sq", group)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	var pkgs []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			pkgs = append(pkgs, line)
+		}
+	}
+	if len(pkgs) == 0 {
+		return nil, fmt.Errorf("group %s not found or empty", group)
+	}
+	return pkgs, nil
+}
+
+// DatabaseManager implementation
+
+func (b *Backend) SetInstallReason(pkg string, reason core.InstallReason) error {
+	args := []string{"-D"}
+	if reason == core.InstallReasonDependency {
+		args = append(args, "--asdeps")
+	} else {
+		args = append(args, "--asexplicit")
+	}
+	args = append(args, pkg)
+
+	return b.executor.Run(b.sudoPath, append([]string{b.binaryPath}, args...)...)
+}
+
+// CheckDatabase checks the package database for internal consistency (via pacman -Dk)
+func (b *Backend) CheckDatabase() error {
+	return b.executor.Run(b.sudoPath, b.binaryPath, "-Dk")
+}

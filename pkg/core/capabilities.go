@@ -32,4 +32,66 @@ type LocalInstaller interface {
 // FileProvider is the capability to list files owned by a package.
 type FileProvider interface {
 	GetPackageFiles(pkgName string) ([]string, error)
+	GetFileOwner(path string) (string, error)
+	SearchFiles(query string) ([]string, error)
+}
+
+// CleanOptions holds options for cache cleaning.
+type CleanOptions struct {
+	All  bool // Remove all files from cache (pacman -Scc)
+	Keep int  // Number of recent versions to keep (paccache -rk)
+}
+
+// Maintainer is the capability to perform system maintenance.
+type Maintainer interface {
+	CleanCache(opts CleanOptions) error
+	ListOrphans() ([]string, error)
+	RemoveOrphans(pkgs []string) error
+}
+
+// Verifier is the capability to verify package integrity.
+type Verifier interface {
+	// VerifyAll returns map of pkgName -> list of errors
+	VerifyAll() (map[string][]string, error)
+	VerifyPackage(pkgName string) ([]string, error)
+}
+
+// Builder is the capability to build packages from source.
+type Builder interface {
+	Build(dir string, opts BuildOptions) error
+}
+
+// BuildOptions holds options for building.
+type BuildOptions struct {
+	Clean     bool
+	Install   bool
+	NoConfirm bool
+	SynDeps   bool
+}
+
+// KeyManager is the capability to manage cryptographic keys.
+type KeyManager interface {
+	InitKeyring() error
+	RefreshKeys() error
+	ListKeys() ([]string, error)
+	AddKey(keyID string) error
+	RemoveKey(keyID string) error
+	ImportKey(path string) error
+}
+
+// GroupManager is the capability to manage package groups.
+type GroupManager interface {
+	ListGroups() ([]string, error)
+	GetGroupPackages(group string) ([]string, error)
+}
+
+// Repairer is the capability to repair the package database/system.
+type Repairer interface {
+	RemoveLock() error
+}
+
+// DatabaseManager is the capability to manage package database metadata.
+type DatabaseManager interface {
+	SetInstallReason(pkg string, reason InstallReason) error
+	CheckDatabase() error
 }
