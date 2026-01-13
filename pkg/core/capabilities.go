@@ -95,3 +95,37 @@ type DatabaseManager interface {
 	SetInstallReason(pkg string, reason InstallReason) error
 	CheckDatabase() error
 }
+
+// Exporter is the capability to export package lists.
+type Exporter interface {
+	ListExplicitPackages() ([]string, error)
+}
+
+// Importer is the capability to import package lists.
+type Importer interface {
+	InstallFromList(path string) error
+}
+
+// SecurityScanner is the capability to audit installed packages for security vulnerabilities.
+type SecurityScanner interface {
+	Audit() ([]string, error)
+}
+
+// PackageDiff represents a pending update difference.
+type PackageDiff struct {
+	Name         string
+	OldVersion   string
+	NewVersion   string
+	DownloadSize int64
+	SizeDelta    int64
+	CVEs         []string
+	Pacnew       bool
+}
+
+// Differ is the capability to show pending update differences.
+type Differ interface {
+	Diff() ([]PackageDiff, error)
+} // Or just reuse Install, but a dedicated method might be cleaner for stdin/file handling if backend supports it.
+// Actually, `Install` generally takes a list of strings. Import might just parse file and call Install.
+// But a dedicated backend method allows `pacman -S --needed - < file` optimization if possible.
+// Let's keep it simple: Importer interface might not be strictly needed if `Install` suffices, but `ListExplicit` definitely is.

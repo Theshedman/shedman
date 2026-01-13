@@ -629,3 +629,134 @@ func (b *Backend) SetInstallReason(pkg string, reason core.InstallReason) error 
 func (b *Backend) CheckDatabase() error {
 	return b.executor.Run(b.sudoPath, b.binaryPath, "-Dk")
 }
+
+// ListExplicitPackages lists all explicitly installed packages (native + foreign).
+func (b *Backend) ListExplicitPackages() ([]string, error) {
+	// -Qqe lists all explicitly installed packages
+	output, err := b.executor.Output(b.binaryPath, "-Qqe")
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	var result []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result, nil
+}
+
+// Audit checks for security vulnerabilities using arch-audit.
+func (b *Backend) Audit() ([]string, error) {
+	// Check if arch-audit is available
+	if _, err := exec.LookPath("arch-audit"); err != nil {
+		return nil, fmt.Errorf("arch-audit not found: please install 'arch-audit' to use this feature")
+	}
+
+	// Run arch-audit
+	output, err := b.executor.Output("arch-audit")
+	// arch-audit exits non-zero if vulnerabilities found?
+	// Man page says: "Returns 0 if no vulnerable packages found, >0 otherwise."
+	// So err != nil means we might have found vulnerabilities.
+
+	outStr := string(output)
+	if err != nil && outStr == "" {
+		// Real error executing
+		return nil, err
+	}
+	// If output has content, it lists vulnerabilities.
+
+	lines := strings.Split(outStr, "\n")
+	var result []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result, nil
+}
+
+// Diff returns pending update differences.
+func (b *Backend) Diff() ([]core.PackageDiff, error) {
+	// 1. Get updates (pacman -Qu)
+	output, err := b.executor.Output(b.binaryPath, "-Qu")
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return []core.PackageDiff{}, nil
+		}
+		return nil, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	var diffs []core.PackageDiff
+
+	// 2. Get CVEs map
+	cveMap := make(map[string][]string)
+	if _, err := exec.LookPath("arch-audit"); err == nil {
+		// Use -f for machine readable output
+		out, err := b.executor.Output("arch-audit", "-f", "%n|%c")
+		if err == nil {
+			for _, line := range strings.Split(string(out), "\n") {
+				parts := strings.Split(line, "|")
+				if len(parts) == 2 {
+					cves := strings.Split(parts[1], ",")
+					var cleanCVEs []string
+					for _, c := range cves {
+						if strings.TrimSpace(c) != "" {
+							cleanCVEs = append(cleanCVEs, strings.TrimSpace(c))
+						}
+					}
+					cveMap[parts[0]] = cleanCVEs
+				}
+			}
+		}
+	}
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Format: name old -> new
+		parts := strings.Fields(line)
+		if len(parts) >= 4 {
+			name := parts[0]
+			oldVer := parts[1]
+			newVer := parts[3]
+
+			d := core.PackageDiff{
+				Name:       name,
+				OldVersion: oldVer,
+				NewVersion: newVer,
+				CVEs:       cveMap[name],
+			}
+
+			// Get sizes
+			if out, err := b.executor.Output(b.binaryPath, "-Si", name); err == nil {
+				d.DownloadSize = parsePacmanSize(string(out), "Download Size")
+				newInstalledSize := parsePacmanSize(string(out), "Installed Size")
+
+				if outQi, err := b.executor.Output(b.binaryPath, "-Qi", name); err == nil {
+					oldInstalledSize := parsePacmanSize(string(outQi), "Installed Size")
+					d.SizeDelta = newInstalledSize - oldInstalledSize
+				}
+			}
+
+			// Check Pacnew potential (backup file modified)
+			if out, err := b.executor.Output(b.binaryPath, "-Qii", name); err == nil {
+				if strings.Contains(string(out), "MODIFIED") {
+					d.Pacnew = true
+				}
+			}
+
+			diffs = append(diffs, d)
+		}
+	}
+
+	return diffs, nil
+}

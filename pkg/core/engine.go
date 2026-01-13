@@ -300,7 +300,32 @@ func (e *Engine) RemoveOrphans(pkgs []string) error {
 	return fmt.Errorf("backend %s does not support removing orphans", e.officialBackend.Name())
 }
 
-// GetFileOwner returns the package that owns a file.
+// GetPackageFiles returns the files owned by a package.
+func (e *Engine) GetPackageFiles(pkgName string) ([]string, error) {
+	// 1. Try official backend
+	if e.officialBackend != nil {
+		if fp, ok := e.officialBackend.(FileProvider); ok {
+			if files, err := fp.GetPackageFiles(pkgName); err == nil {
+				return files, nil
+			}
+		}
+	}
+
+	// 2. Try other backends
+	for _, b := range e.backends {
+		if b == e.officialBackend {
+			continue
+		}
+		if fp, ok := b.(FileProvider); ok {
+			if files, err := fp.GetPackageFiles(pkgName); err == nil {
+				return files, nil
+			}
+		}
+	}
+
+	return nil, ErrPackageNotFound
+}
+
 func (e *Engine) GetFileOwner(path string) (string, error) {
 	// Try official backend
 	if e.officialBackend != nil {
@@ -495,4 +520,37 @@ func (e *Engine) CheckDatabase() error {
 		return dm.CheckDatabase()
 	}
 	return fmt.Errorf("backend %s does not support database management", e.officialBackend.Name())
+}
+
+// ListExplicitPackages lists explicitly installed packages.
+func (e *Engine) ListExplicitPackages() ([]string, error) {
+	if e.officialBackend == nil {
+		return nil, ErrBackendNotFound
+	}
+	if ex, ok := e.officialBackend.(Exporter); ok {
+		return ex.ListExplicitPackages()
+	}
+	return nil, fmt.Errorf("backend %s does not support exporting", e.officialBackend.Name())
+}
+
+// Audit checks for security vulnerabilities.
+func (e *Engine) Audit() ([]string, error) {
+	if e.officialBackend == nil {
+		return nil, ErrBackendNotFound
+	}
+	if s, ok := e.officialBackend.(SecurityScanner); ok {
+		return s.Audit()
+	}
+	return nil, fmt.Errorf("backend %s does not support security auditing", e.officialBackend.Name())
+}
+
+// Diff returns pending update differences.
+func (e *Engine) Diff() ([]PackageDiff, error) {
+	if e.officialBackend == nil {
+		return nil, ErrBackendNotFound
+	}
+	if d, ok := e.officialBackend.(Differ); ok {
+		return d.Diff()
+	}
+	return nil, fmt.Errorf("backend %s does not support diffing", e.officialBackend.Name())
 }

@@ -10,4 +10,7 @@ type OfficialBackend interface {
 	Upgradable
 	LocalInstaller
 	FileProvider
+	Exporter
+	SecurityScanner
+	Differ
 }

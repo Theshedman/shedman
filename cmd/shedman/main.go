@@ -84,7 +84,11 @@ func init() {
 	rootCmd.AddCommand(commands.MarkCmd)
 	rootCmd.AddCommand(commands.SizeCmd)
 	rootCmd.AddCommand(commands.CheckCmd)
+	rootCmd.AddCommand(commands.DiffCmd)
 	rootCmd.AddCommand(commands.DownloadCmd)
+	rootCmd.AddCommand(commands.ExportCmd)
+	rootCmd.AddCommand(commands.ImportCmd)
+	rootCmd.AddCommand(commands.SecurityCmd)
 	rootCmd.AddCommand(configcmd.ConfigCmd)
 
 	// Global flags
