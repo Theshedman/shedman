@@ -286,7 +286,27 @@ func (m *mockInstallBackend) IsInstalled(name string) bool               { retur
 func (m *mockInstallBackend) GetInstalledPackages() ([]PackageInfo, error) {
 	return nil, nil
 }
-func (m *mockInstallBackend) GetPackageFiles(name string) ([]string, error) { return nil, nil }
+func (m *mockInstallBackend) GetPackageFiles(name string) ([]string, error)           { return nil, nil }
+func (m *mockInstallBackend) GetFileOwner(path string) (string, error)                { return "", nil }
+func (m *mockInstallBackend) SearchFiles(query string) ([]string, error)              { return nil, nil }
+func (m *mockInstallBackend) ListGroups() ([]string, error)                           { return nil, nil }
+func (m *mockInstallBackend) GetGroupPackages(group string) ([]string, error)         { return nil, nil }
+func (m *mockInstallBackend) SetInstallReason(pkg string, reason InstallReason) error { return nil }
+func (m *mockInstallBackend) CheckDatabase() error                                    { return nil }
+func (m *mockInstallBackend) CleanCache(opts CleanOptions) error                      { return nil }
+func (m *mockInstallBackend) ListOrphans() ([]string, error)                          { return nil, nil }
+func (m *mockInstallBackend) RemoveOrphans(pkgs []string) error                       { return nil }
+func (m *mockInstallBackend) VerifyAll() (map[string][]string, error)                 { return nil, nil }
+func (m *mockInstallBackend) VerifyPackage(pkg string) ([]string, error)              { return nil, nil }
+func (m *mockInstallBackend) Build(dir string, opts BuildOptions) error               { return nil }
+func (m *mockInstallBackend) RemoveLock() error                                       { return nil }
+func (m *mockInstallBackend) InitKeyring() error                                      { return nil }
+func (m *mockInstallBackend) RefreshKeys() error                                      { return nil }
+func (m *mockInstallBackend) ListKeys() ([]string, error)                             { return nil, nil }
+func (m *mockInstallBackend) AddKey(keyID string) error                               { return nil }
+func (m *mockInstallBackend) RemoveKey(keyID string) error                            { return nil }
+func (m *mockInstallBackend) ImportKey(path string) error                             { return nil }
+
 func (m *mockInstallBackend) InstallLocal(path string, opts InstallOptions) error {
 	m.installCalled = true
 	if m.installLocalFunc != nil {

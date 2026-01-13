@@ -18,7 +18,7 @@ func TestTransaction_TrackCreate_Rollback(t *testing.T) {
 	// 1. Track Create
 	tx.TrackCreate(file)
 
-	// 2. Actually create it (simulate install)
+	// 2. Create package (simulate install)
 	if err := os.WriteFile(file, []byte("content"), 0644); err != nil {
 		t.Fatalf("WriteFile failed: %v", err)
 	}
