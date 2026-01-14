@@ -123,7 +123,7 @@ func (b *SnapperBackend) Restore(id string, opts RestoreOptions) error {
 	_, err := b.exec.Output("snapper", "rollback", id)
 	return err
 }
-func (b *SnapperBackend) Prune(opts PruneOptions) error             { return nil }
-func (b *SnapperBackend) Push(id string, target RemoteTarget) error { return nil }
-func (b *SnapperBackend) Pull(id string, source RemoteTarget) error { return nil }
-func (b *SnapperBackend) Diff(id1, id2 string) (DiffResult, error)  { return DiffResult{}, nil }
+func (b *SnapperBackend) Prune(opts PruneOptions) error                                 { return nil }
+func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error { return nil }
+func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error { return nil }
+func (b *SnapperBackend) Diff(id1, id2 string) (DiffResult, error)                      { return DiffResult{}, nil }

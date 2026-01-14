@@ -44,10 +44,10 @@ func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error
 		ID:          fmt.Sprintf("rsync-%d", time.Now().Unix()),
 	}, nil
 }
-func (b *RsyncBackend) List(opts ListOptions) ([]Snapshot, error)    { return nil, nil }
-func (b *RsyncBackend) Delete(id string) error                       { return nil }
-func (b *RsyncBackend) Restore(id string, opts RestoreOptions) error { return nil }
-func (b *RsyncBackend) Prune(opts PruneOptions) error                { return nil }
-func (b *RsyncBackend) Push(id string, target RemoteTarget) error    { return nil }
-func (b *RsyncBackend) Pull(id string, source RemoteTarget) error    { return nil }
-func (b *RsyncBackend) Diff(id1, id2 string) (DiffResult, error)     { return DiffResult{}, nil }
+func (b *RsyncBackend) List(opts ListOptions) ([]Snapshot, error)                     { return nil, nil }
+func (b *RsyncBackend) Delete(id string) error                                        { return nil }
+func (b *RsyncBackend) Restore(id string, opts RestoreOptions) error                  { return nil }
+func (b *RsyncBackend) Prune(opts PruneOptions) error                                 { return nil }
+func (b *RsyncBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error { return nil }
+func (b *RsyncBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error { return nil }
+func (b *RsyncBackend) Diff(id1, id2 string) (DiffResult, error)                      { return DiffResult{}, nil }

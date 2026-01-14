@@ -34,7 +34,13 @@ var SnapshotRemotePushCmd = &cobra.Command{
 			Path: path,
 		}
 
-		return RunSnapshotRemotePush(engine, args[0], target, cmd.OutOrStdout())
+		opts := snapshot.RemoteOptions{
+			Compress:  snapshotRemoteCompress,
+			Bandwidth: snapshotRemoteBandwidth,
+			Delete:    snapshotRemoteDelete,
+		}
+
+		return RunSnapshotRemotePush(engine, args[0], target, opts, cmd.OutOrStdout())
 	},
 }
 
@@ -58,39 +64,61 @@ var SnapshotRemotePullCmd = &cobra.Command{
 			Path: path,
 		}
 
-		return RunSnapshotRemotePull(engine, args[0], source, cmd.OutOrStdout())
+		opts := snapshot.RemoteOptions{
+			Compress:  snapshotRemoteCompress,
+			Bandwidth: snapshotRemoteBandwidth,
+			Delete:    snapshotRemoteDelete,
+		}
+
+		return RunSnapshotRemotePull(engine, args[0], source, opts, cmd.OutOrStdout())
 	},
 }
 
 func init() {
 	SnapshotRemoteCmd.AddCommand(SnapshotRemotePushCmd)
 	SnapshotRemoteCmd.AddCommand(SnapshotRemotePullCmd)
+
+	// Flags for Push
+	SnapshotRemotePushCmd.Flags().BoolVar(&snapshotRemoteCompress, "compress", true, "Enable compression")
+	SnapshotRemotePushCmd.Flags().BoolVar(&snapshotRemoteDelete, "delete", false, "Delete extraneous files on destination")
+	SnapshotRemotePushCmd.Flags().IntVar(&snapshotRemoteBandwidth, "bwlimit", 0, "Bandwidth limit in KB/s")
+
+	// Flags for Pull
+	SnapshotRemotePullCmd.Flags().BoolVar(&snapshotRemoteCompress, "compress", true, "Enable compression")
+	SnapshotRemotePullCmd.Flags().BoolVar(&snapshotRemoteDelete, "delete", false, "Delete extraneous files on local (cautious usage)")
+	SnapshotRemotePullCmd.Flags().IntVar(&snapshotRemoteBandwidth, "bwlimit", 0, "Bandwidth limit in KB/s")
 }
+
+var (
+	snapshotRemoteCompress  bool
+	snapshotRemoteDelete    bool
+	snapshotRemoteBandwidth int
+)
 
 // Logic
 
-func RunSnapshotRemotePush(engine *core.Engine, id string, target snapshot.RemoteTarget, w io.Writer) error {
+func RunSnapshotRemotePush(engine *core.Engine, id string, target snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")
 	}
 
 	fmt.Fprintf(w, "Pushing snapshot %s to %s...\n", id, target.Name)
-	if err := mgr.Push(id, target); err != nil {
+	if err := mgr.Push(id, target, opts); err != nil {
 		return fmt.Errorf("push failed: %w", err)
 	}
 	fmt.Fprintln(w, "Push successful.")
 	return nil
 }
 
-func RunSnapshotRemotePull(engine *core.Engine, id string, source snapshot.RemoteTarget, w io.Writer) error {
+func RunSnapshotRemotePull(engine *core.Engine, id string, source snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")
 	}
 
 	fmt.Fprintf(w, "Pulling snapshot %s from %s...\n", id, source.Name)
-	if err := mgr.Pull(id, source); err != nil {
+	if err := mgr.Pull(id, source, opts); err != nil {
 		return fmt.Errorf("pull failed: %w", err)
 	}
 	fmt.Fprintln(w, "Pull successful.")

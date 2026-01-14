@@ -54,6 +54,13 @@ type RemoteTarget struct {
 	Path string // specific path or bucket
 }
 
+// RemoteOptions options for remote operations
+type RemoteOptions struct {
+	Compress  bool
+	Bandwidth int // KB/s
+	Delete    bool
+}
+
 // Manager defines the core snapshot operations
 type Manager interface {
 	// CRUD
@@ -64,8 +71,9 @@ type Manager interface {
 	Prune(opts PruneOptions) error
 
 	// Remote Capabilities
-	Push(id string, target RemoteTarget) error
-	Pull(id string, source RemoteTarget) error
+	// Remote Capabilities
+	Push(id string, target RemoteTarget, opts RemoteOptions) error
+	Pull(id string, source RemoteTarget, opts RemoteOptions) error
 
 	// Comparison
 	Diff(id1, id2 string) (DiffResult, error)

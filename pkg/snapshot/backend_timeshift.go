@@ -58,10 +58,10 @@ func (b *TimeshiftBackend) Create(desc string, opts CreateOptions) (*Snapshot, e
 }
 
 // Stubs for other interface methods
-func (b *TimeshiftBackend) List(opts ListOptions) ([]Snapshot, error)    { return nil, nil }
-func (b *TimeshiftBackend) Delete(id string) error                       { return nil }
-func (b *TimeshiftBackend) Restore(id string, opts RestoreOptions) error { return nil }
-func (b *TimeshiftBackend) Prune(opts PruneOptions) error                { return nil }
-func (b *TimeshiftBackend) Push(id string, target RemoteTarget) error    { return nil }
-func (b *TimeshiftBackend) Pull(id string, source RemoteTarget) error    { return nil }
-func (b *TimeshiftBackend) Diff(id1, id2 string) (DiffResult, error)     { return DiffResult{}, nil }
+func (b *TimeshiftBackend) List(opts ListOptions) ([]Snapshot, error)                     { return nil, nil }
+func (b *TimeshiftBackend) Delete(id string) error                                        { return nil }
+func (b *TimeshiftBackend) Restore(id string, opts RestoreOptions) error                  { return nil }
+func (b *TimeshiftBackend) Prune(opts PruneOptions) error                                 { return nil }
+func (b *TimeshiftBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error { return nil }
+func (b *TimeshiftBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error { return nil }
+func (b *TimeshiftBackend) Diff(id1, id2 string) (DiffResult, error)                      { return DiffResult{}, nil }
