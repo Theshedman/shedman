@@ -21,12 +21,20 @@ var SnapshotRestoreCmd = &cobra.Command{
 		}
 
 		opts := snapshot.RestoreOptions{
-			// Add flags here if needed (e.g. packages only)
+			PackagesOnly: snapshotRestorePackagesOnly,
+			ConfigsOnly:  snapshotRestoreConfigsOnly,
+			HomeOnly:     snapshotRestoreHomeOnly,
 		}
 
 		return RunSnapshotRestore(engine, args, opts, cmd.OutOrStdout())
 	},
 }
+
+var (
+	snapshotRestorePackagesOnly bool
+	snapshotRestoreConfigsOnly  bool
+	snapshotRestoreHomeOnly     bool
+)
 
 // RunSnapshotRestore executes the snapshot restore logic
 func RunSnapshotRestore(engine *core.Engine, args []string, opts snapshot.RestoreOptions, w io.Writer) error {
@@ -47,5 +55,7 @@ func RunSnapshotRestore(engine *core.Engine, args []string, opts snapshot.Restor
 }
 
 func init() {
-	// Add flags
+	SnapshotRestoreCmd.Flags().BoolVar(&snapshotRestorePackagesOnly, "packages-only", false, "Restore only packages")
+	SnapshotRestoreCmd.Flags().BoolVar(&snapshotRestoreConfigsOnly, "configs-only", false, "Restore only configurations")
+	SnapshotRestoreCmd.Flags().BoolVar(&snapshotRestoreHomeOnly, "home-only", false, "Restore only home directory files")
 }

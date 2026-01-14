@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/pkg/core"
@@ -18,15 +19,42 @@ var SnapshotPruneCmd = &cobra.Command{
 			return err
 		}
 
-		// Parse flags for options (keep-last, keep-scheduled, older-than)
-		// For now simple default options or parsed from flags
+		// Parse duration if provided
+		var duration time.Duration
+		if snapshotPruneOlderThan != "" {
+			// user might pass "7d", "24h". time.ParseDuration supports h, m, s.
+			// "d" is not supported by standard lib, needs simple conversion
+			// For now let's assumes standard Go duration strings or handle simple "d"
+			d := snapshotPruneOlderThan
+			// Simple day handling
+			if len(d) > 1 && d[len(d)-1] == 'd' {
+				days := 0
+				fmt.Sscanf(d, "%dd", &days)
+				duration = time.Duration(days) * 24 * time.Hour
+			} else {
+				var err error
+				duration, err = time.ParseDuration(d)
+				if err != nil {
+					return fmt.Errorf("invalid duration format for --older-than: %v", err)
+				}
+			}
+		}
+
 		opts := snapshot.PruneOptions{
-			KeepLast: 5, // Default example
+			KeepLast:      snapshotPruneKeepLast,
+			KeepScheduled: snapshotPruneKeepScheduled,
+			OlderThan:     duration,
 		}
 
 		return RunSnapshotPrune(engine, opts, cmd.OutOrStdout())
 	},
 }
+
+var (
+	snapshotPruneKeepLast      int
+	snapshotPruneKeepScheduled int
+	snapshotPruneOlderThan     string
+)
 
 func RunSnapshotPrune(engine *core.Engine, opts snapshot.PruneOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
@@ -43,6 +71,8 @@ func RunSnapshotPrune(engine *core.Engine, opts snapshot.PruneOptions, w io.Writ
 }
 
 func init() {
-	// Add flags: --keep-last, --older-than, etc.
+	SnapshotPruneCmd.Flags().IntVar(&snapshotPruneKeepLast, "keep-last", 0, "Number of recent snapshots to keep")
+	SnapshotPruneCmd.Flags().IntVar(&snapshotPruneKeepScheduled, "keep-scheduled", 0, "Number of scheduled snapshots to keep")
+	SnapshotPruneCmd.Flags().StringVar(&snapshotPruneOlderThan, "older-than", "", "Delete snapshots older than duration (e.g. 24h, 7d)")
 	SnapshotCmd.AddCommand(SnapshotPruneCmd)
 }
