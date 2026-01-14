@@ -15,8 +15,8 @@ var (
 
 var VersionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Prints the current version of the shedman package manager",
-	Long:  "Prints the current version of the shedman packange manager",
+	Short: "Prints the current version",
+	Long:  "Prints the current version",
 	Run: func(cmd *cobra.Command, args []string) {
 		RunVersion(cmd.OutOrStdout())
 	},

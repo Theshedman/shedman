@@ -19,8 +19,8 @@ func TestVersionCommand_Exists(t *testing.T) {
 func TestVersionCommand_ShortDescription(t *testing.T) {
 	versionCmd := VersionCmd
 
-	if versionCmd.Short != "Prints the current version of the shedman package manager" {
-		t.Errorf("Expected Short 'Prints the current version of the shedman package manager', got '%s'", versionCmd.Short)
+	if versionCmd.Short != "Prints the current version" {
+		t.Errorf("Expected Short 'Prints the current version', got '%s'", versionCmd.Short)
 	}
 }
 
