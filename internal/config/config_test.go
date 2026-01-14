@@ -1,12 +1,12 @@
 package config_test
 
 import (
-"os"
-"path/filepath"
-"testing"
-"time"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
 
-"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/config"
 )
 
 func TestConfig_Default(t *testing.T) {
@@ -70,6 +70,44 @@ parallel_downloads = 10
 	}
 }
 
+func TestConfig_Load_SnapshotKeys(t *testing.T) {
+	tmpDir := filepath.Join(os.TempDir(), "shedman-snapshot-test")
+	defer os.RemoveAll(tmpDir)
+	os.MkdirAll(tmpDir, 0755)
+
+	configPath := filepath.Join(tmpDir, "config.toml")
+	configContent := `
+[snapshot]
+scheduled = true
+schedule = "daily"
+keep_scheduled = 5
+auto_push = true
+auto_push_remote = "r2"
+`
+	os.WriteFile(configPath, []byte(configContent), 0644)
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if !cfg.Snapshot.Scheduled {
+		t.Error("Expected scheduled=true")
+	}
+	if cfg.Snapshot.Schedule != "daily" {
+		t.Errorf("Expected schedule=daily, got %s", cfg.Snapshot.Schedule)
+	}
+	if cfg.Snapshot.KeepScheduled != 5 {
+		t.Errorf("Expected keep_scheduled=5, got %d", cfg.Snapshot.KeepScheduled)
+	}
+	if !cfg.Snapshot.AutoPush {
+		t.Error("Expected auto_push=true")
+	}
+	if cfg.Snapshot.AutoPushRemote != "r2" {
+		t.Errorf("Expected auto_push_remote=r2, got %s", cfg.Snapshot.AutoPushRemote)
+	}
+}
+
 func TestConfig_Load_FileNotExists_ReturnsDefault(t *testing.T) {
 	cfg, err := config.Load("/nonexistent/path/config.toml")
 	if err != nil {
@@ -99,6 +137,9 @@ func TestConfig_AllSections(t *testing.T) {
 	}
 	if cfg.Snapshot.KeepLocal != 10 {
 		t.Error("Snapshot section missing")
+	}
+	if cfg.Snapshot.Schedule != "weekly" {
+		t.Error("Snapshot default schedule incorrect")
 	}
 	if cfg.Notifications.Enabled != true {
 		t.Error("Notifications section missing")

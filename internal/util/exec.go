@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"os/exec"
 )
 
@@ -18,5 +19,12 @@ type RealExecutor struct{}
 
 func (e *RealExecutor) Output(name string, args ...string) ([]byte, error) {
 	cmd := exec.Command(name, args...)
-	return cmd.Output()
+	out, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("%w: %s", err, string(exitErr.Stderr))
+		}
+		return nil, err
+	}
+	return out, nil
 }

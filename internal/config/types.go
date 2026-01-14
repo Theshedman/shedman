@@ -58,18 +58,26 @@ type BootConfig struct {
 
 // SnapshotConfig holds snapshot and backup settings
 type SnapshotConfig struct {
-	AutoBeforeUpdate  bool     `toml:"auto_before_update"`
-	KeepLocal         int      `toml:"keep_local"`
-	DefaultRemote     string   `toml:"default_remote"`
-	Encrypt           bool     `toml:"encrypt"`
-	ScheduleEnabled   bool     `toml:"schedule_enabled"`
-	ScheduleFrequency string   `toml:"schedule_frequency"`
-	ScheduleDays      []string `toml:"schedule_days"`
-	ScheduleTime      string   `toml:"schedule_time"`
-	ScheduleToRemote  bool     `toml:"schedule_to_remote"`
-	RequireACPower    bool     `toml:"require_ac_power"`
-	RequireWifi       bool     `toml:"require_wifi"`
-	NotifyOnComplete  bool     `toml:"notify_on_complete"`
+	AutoBeforeUpdate bool   `toml:"auto_before_update"`
+	KeepLocal        int    `toml:"keep_local"`
+	DefaultRemote    string `toml:"default_remote"`
+	Backend          string `toml:"backend"` // "auto", "snapper", "timeshift", "rsync"
+	Encrypt          bool   `toml:"encrypt"`
+
+	// Scheduling
+	Scheduled     bool   `toml:"scheduled"`      // Guide key: scheduled
+	Schedule      string `toml:"schedule"`       // Guide key: schedule
+	KeepScheduled int    `toml:"keep_scheduled"` // Guide key: keep_scheduled
+
+	// Remote Sync
+	AutoPush       bool     `toml:"auto_push"`        // Guide key: auto_push
+	AutoPushRemote string   `toml:"auto_push_remote"` // Guide key: auto_push_remote
+	ScheduleDays   []string `toml:"schedule_days"`
+	ScheduleTime   string   `toml:"schedule_time"`
+
+	RequireACPower   bool `toml:"require_ac_power"`
+	RequireWifi      bool `toml:"require_wifi"`
+	NotifyOnComplete bool `toml:"notify_on_complete"`
 }
 
 // NotificationConfig holds notification settings
