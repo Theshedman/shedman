@@ -129,6 +129,16 @@ shedman snapshot restore <snapshot-id>
 
 # Push to cloud storage
 shedman snapshot push <snapshot-id> --remote s3
+
+# Schedule automatic snapshots
+shedman snapshot schedule enable
+
+# Manage encryption keys
+shedman snapshot key generate "My Key"
+
+# Compare snapshots
+shedman snapshot diff <id1> <id2>
+
 ```
 
 ### Service Management (svc)
