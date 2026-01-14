@@ -74,7 +74,6 @@ var HistoryCmd = &cobra.Command{
 	},
 }
 
-// RunHistory executes the history parsing logic
 func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 	var transactions []Transaction
 	scanner := bufio.NewScanner(r)
@@ -88,15 +87,11 @@ func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 			continue
 		}
 
-		// Extract date
-		// [2023...0] ...
 		endBracket := strings.Index(line, "]")
 		if endBracket < 2 {
 			continue
 		}
 		dateStr := line[1:endBracket]
-		// Try parsing date
-		// Pacman log format is ISO8601-ish: 2006-01-02T15:04:05-0700
 		t, err := time.Parse("2006-01-02T15:04:05-0700", dateStr)
 		if err != nil {
 			continue
@@ -106,9 +101,6 @@ func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 			continue
 		}
 
-		// Parse Action
-		// [ALPM] action package (version)
-		// Find [ALPM]
 		alpmIdx := strings.Index(line, "[ALPM]")
 		if alpmIdx == -1 {
 			continue
@@ -124,10 +116,6 @@ func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 		pkgName := parts[1]
 		version := parts[2]
 
-		// Handle "upgraded package (1.0 -> 2.0)"
-		// Keep version string as is (e.g. "1.0 -> 2.0")
-
-		// Filter action
 		if action != "installed" && action != "upgraded" && action != "removed" && action != "reinstalled" {
 			continue
 		}
@@ -136,7 +124,6 @@ func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 			continue
 		}
 
-		// Cleanup version
 		version = strings.Trim(strings.Join(parts[2:], " "), "()")
 
 		transactions = append(transactions, Transaction{
@@ -151,9 +138,7 @@ func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 		return err
 	}
 
-	// Reverse and limit logic applied in loop
 	var displayed []Transaction
-	// Iterate backwards to show newest first
 	count := 0
 	for i := len(transactions) - 1; i >= 0; i-- {
 		displayed = append(displayed, transactions[i])
@@ -169,7 +154,6 @@ func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 		return enc.Encode(displayed)
 	}
 
-	// Text Output
 	for _, tx := range displayed {
 		fmt.Fprintf(w, "[%s] %s %s %s\n", tx.Date.Format("2006-01-02 15:04"), tx.Action, tx.Package, tx.Version)
 	}

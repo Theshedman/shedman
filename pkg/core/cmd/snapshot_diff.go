@@ -23,7 +23,6 @@ var SnapshotDiffCmd = &cobra.Command{
 	},
 }
 
-// RunSnapshotDiff executes the snapshot diff logic
 func RunSnapshotDiff(engine *core.Engine, id1, id2 string, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
@@ -42,7 +41,6 @@ func RunSnapshotDiff(engine *core.Engine, id1, id2 string, w io.Writer) error {
 
 	fmt.Fprintf(w, "Diff between %s and %s:\n", id1, id2)
 
-	// Create table
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 
 	if len(diff.Added) > 0 {

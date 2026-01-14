@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"encoding/csv"
 	"fmt"
 	"strings"
 	"time"
@@ -70,25 +71,29 @@ func (b *SnapperBackend) List(opts ListOptions) ([]Snapshot, error) {
 		return nil, fmt.Errorf("snapper list failed: %w", err)
 	}
 
+	r := csv.NewReader(strings.NewReader(string(out)))
+	records, err := r.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse snapper CSV: %w", err)
+	}
+
 	var snapshots []Snapshot
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "number,") {
+	for _, record := range records {
+		if len(record) < 5 {
+			continue
+		}
+		if record[0] == "number" || record[0] == "#" {
 			continue
 		}
 
-		parts := strings.Split(line, ",")
-		if len(parts) < 5 {
-			continue
-		}
+		id := strings.TrimSpace(record[0])
+		typ := strings.TrimSpace(record[1])
+		dateStr := strings.TrimSpace(record[2])
+		sizeStr := strings.TrimSpace(record[3])
+		desc := strings.TrimSpace(record[4])
 
-		id := strings.TrimSpace(parts[0])
-		typ := strings.TrimSpace(parts[1])
-		dateStr := strings.TrimSpace(parts[2])
-		sizeStr := strings.TrimSpace(parts[3])
-		desc := strings.Join(parts[4:], ",")
-		desc = strings.Trim(desc, "\"") // Remove quotes if present
+		if id == "0" && typ == "single" {
+		}
 
 		var ts time.Time
 		if t, err := time.Parse("2006-01-02 15:04:05", dateStr); err == nil {
@@ -123,7 +128,73 @@ func (b *SnapperBackend) Restore(id string, opts RestoreOptions) error {
 	_, err := b.exec.Output("snapper", "rollback", id)
 	return err
 }
-func (b *SnapperBackend) Prune(opts PruneOptions) error                                 { return nil }
-func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error { return nil }
-func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error { return nil }
-func (b *SnapperBackend) Diff(id1, id2 string) (DiffResult, error)                      { return DiffResult{}, nil }
+func (b *SnapperBackend) Prune(opts PruneOptions) error {
+	snaps, err := b.List(ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	// This is a naive implementation:
+	if opts.KeepLast > 0 && len(snaps) > opts.KeepLast {
+		// Identify deletion candidates
+		// Assume sorted chronological.
+		toDelete := snaps[:len(snaps)-opts.KeepLast]
+		for _, s := range toDelete {
+			// Skip snapshot 0 (current)
+			if s.ID == "0" {
+				continue
+			}
+			if err := b.Delete(s.ID); err != nil {
+				return fmt.Errorf("failed to prune snapshot %s: %w", s.ID, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error {
+	return fmt.Errorf("snapper backend does not support direct push yet")
+}
+
+func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error {
+	return fmt.Errorf("snapper backend does not support direct pull yet")
+
+}
+
+func (b *SnapperBackend) Diff(id1, id2 string) (DiffResult, error) {
+	// snapper status id1..id2
+	args := []string{"status", fmt.Sprintf("%s..%s", id1, id2)}
+
+	out, err := b.exec.Output("snapper", args...)
+	if err != nil {
+		return DiffResult{}, fmt.Errorf("snapper diff failed: %w", err)
+	}
+
+	// Parse output:
+	// + File
+	// - File
+	// c File
+
+	res := DiffResult{}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	for _, line := range lines {
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		status := parts[0]
+		file := strings.Join(parts[1:], " ")
+
+		if strings.HasPrefix(status, "+") {
+			res.Added = append(res.Added, file)
+		} else if strings.HasPrefix(status, "-") {
+			res.Removed = append(res.Removed, file)
+		} else if strings.HasPrefix(status, "c") {
+			res.Modified = append(res.Modified, file)
+		}
+	}
+
+	return res, nil
+}

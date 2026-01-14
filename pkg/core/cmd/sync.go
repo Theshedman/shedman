@@ -60,13 +60,7 @@ By default, syncs all databases. Use flags to sync specific sources:
 				if syncAUR {
 					return core.ErrAURNotAvailable
 				}
-				// Skip silently on non-Arch unless debug
-				debug, _ := cmd.Flags().GetBool("debug")
-				if debug {
-					output.Warning("Skipping AUR sync: not on Arch-based system")
-				}
 			} else {
-				// Need pkgCache for AUR
 				pkgCache := core.NewPackageFileCacheWithBackend(24*time.Hour, nil)
 				backendList = append(backendList, aur.New(pkgCache))
 			}
@@ -111,7 +105,6 @@ By default, syncs all databases. Use flags to sync specific sources:
 	},
 }
 
-// RunSync executes the sync logic
 func RunSync(eng *core.Engine, w io.Writer) error {
 	fmt.Fprintln(w, "Synchronizing package databases...")
 	return eng.Sync()

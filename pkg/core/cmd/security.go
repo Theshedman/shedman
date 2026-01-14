@@ -22,7 +22,7 @@ This requires the underlying backend to support security auditing.`,
 	},
 }
 
-// RunSecurity executes the security audit logic.
+// RunSecurity performs a security audit
 func RunSecurity(eng *core.Engine, w io.Writer) error {
 	issues, err := eng.Audit()
 	if err != nil {

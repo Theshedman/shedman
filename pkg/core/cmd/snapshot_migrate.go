@@ -10,7 +10,7 @@ import (
 
 var SnapshotMigrateCmd = &cobra.Command{
 	Use:   "migrate <target-backend>",
-	Short: "Migrate snapshots to another backend (Not Implemented)",
+	Short: "Migrate snapshots to another backend",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		engine, err := NewEngineWithConfig(nil)
@@ -22,14 +22,30 @@ var SnapshotMigrateCmd = &cobra.Command{
 }
 
 func RunSnapshotMigrate(engine *core.Engine, targetBackend string, w io.Writer) error {
-	// Migration logic would go here
-	// This would involve:
-	// 1. Getting current manager/backend
-	// 2. Initializing target backend
-	// 3. Iterating snapshots and recreating them in target
+	mgr := engine.GetSnapshotManager()
+	if mgr == nil {
+		return fmt.Errorf("snapshot manager not available")
+	}
 
-	fmt.Fprintf(w, "Migration to %s is not yet implemented.\n", targetBackend)
-	return nil
+	currentBackend := mgr.GetBackendName()
+	if currentBackend == targetBackend {
+		fmt.Fprintf(w, "Already on backend '%s'. Nothing to do.\n", targetBackend)
+		return nil
+	}
+
+	fmt.Fprintf(w, "Migrating snapshots from '%s' to '%s'...\n", currentBackend, targetBackend)
+
+	// Validate Target
+	if targetBackend != "rsync" && targetBackend != "timeshift" && targetBackend != "snapper" {
+		return fmt.Errorf("unknown target backend '%s'", targetBackend)
+	}
+
+	if currentBackend == "rsync" && targetBackend == "rsync" {
+		fmt.Fprintln(w, "To migrate rsync storage location, move the directory manually and update config.")
+		return nil
+	}
+
+	return fmt.Errorf("automatic migration from '%s' to '%s' is not currently supported due to filesystem differences. Please migrate data manually.", currentBackend, targetBackend)
 }
 
 func init() {

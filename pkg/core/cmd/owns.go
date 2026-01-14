@@ -29,7 +29,6 @@ var OwnsCmd = &cobra.Command{
 	},
 }
 
-// RunOwns executes the owns logic
 func RunOwns(eng *core.Engine, w io.Writer, path string) error {
 	owner, err := eng.GetFileOwner(path)
 	if err != nil {

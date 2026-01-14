@@ -183,7 +183,7 @@ func (c *PackageFileCache) CheckConflicts(files []string, excludePackage string)
 					FilePath: f,
 					Package1: owner,
 					Package2: excludePackage,
-					Type:     FileConflictOwnership, // Assuming ownership conflict
+					Type:     FileConflictOwnership,
 				})
 			}
 		}

@@ -50,10 +50,8 @@ var InstallCmd = &cobra.Command{
 		flags.Yes, _ = cmd.Flags().GetBool("yes")
 		flags.DryRun, _ = cmd.Flags().GetBool("dry-run")
 
-		// Determine source based on flags
 		source := determineSource(flags)
 
-		// Query packages from appropriate database
 		backend, err := selectDatabase(source, cfg)
 		if err != nil {
 			return fmt.Errorf("failed to initialize backend: %w", err)
@@ -79,14 +77,12 @@ type InstallFlags struct {
 	DryRun       bool
 }
 
-// RunInstall executes the install command logic
 func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer, cfg *config.Config) error {
 	backend := eng.GetOfficialBackend()
 	if backend == nil {
 		return core.ErrBackendNotFound
 	}
 
-	// Parse package requests
 	var pkgs []core.PackageInfo
 	for _, arg := range args {
 		// Handle groups
@@ -100,7 +96,6 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 			}
 
 			for _, p := range expanded {
-				// Helper: process expanded packages
 
 				// Fetch package info
 				info, err := backend.Info(p)
@@ -117,11 +112,9 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 			continue
 		}
 
-		// Parse package spec (name@version)
 		req := core.ParsePackageRequest(arg)
 		pkgName := req.Name
 
-		// Look up package info
 		info, err := backend.Info(pkgName)
 		if err != nil {
 			fmt.Fprintf(w, "Failed to query package %s: %v\n", pkgName, err)
@@ -132,11 +125,8 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 			continue
 		}
 
-		// If version requested, check match
-
 		if req.Version != "" && info.Version != req.Version {
 			fmt.Fprintf(w, "Warning: Requested version %s but found %s\n", req.Version, info.Version)
-			// Continue with found version
 		}
 
 		pkgs = append(pkgs, *info)
@@ -172,7 +162,6 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 		}
 	}
 
-	// Build install options
 	opts := core.InstallOptions{
 		Needed:       flags.Needed,
 		AsDeps:       flags.AsDeps,
@@ -182,7 +171,6 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 		Overwrite:    flags.Overwrite,
 	}
 
-	// Dry-run mode
 	if flags.DryRun {
 		fmt.Fprintln(w, "\nDry-run mode - would execute:")
 		for _, pkg := range pkgs {
@@ -309,12 +297,10 @@ func executeInstall(pacmanBackend core.OfficialBackend, cfg *config.Config, pkgs
 
 	// Install AUR packages
 	if len(aur) > 0 {
-		// Use factory
 		ai := CreateAURInstaller(cfg)
 		for _, pkg := range aur {
-			// Install AUR package using helper
-			// Note: AUR installer handles dependency resolution internally
-			if err := ai.Install(pkg.Name); err != nil {
+			opts := core.AUROptionsFromConfig(cfg)
+			if err := ai.Install(pkg.Name, opts); err != nil {
 				return fmt.Errorf("AUR install failed for %s: %w", pkg.Name, err)
 			}
 		}

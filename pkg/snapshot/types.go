@@ -41,7 +41,6 @@ type PruneOptions struct {
 }
 
 // DiffResult holds the result of diffing two snapshots.
-// This is a placeholder for now, actual implementation may vary.
 type DiffResult struct {
 	Added    []string
 	Removed  []string

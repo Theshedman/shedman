@@ -214,7 +214,7 @@ func (e *Engine) Upgrade(pkgs []string, opts UpgradeOptions) error {
 		if e.officialBackend == nil {
 			return ErrBackendNotFound
 		}
-		// Fallback to official backend if no generic Upgrader found (though official usually implements it)
+		// Fallback to official backend
 		return e.officialBackend.Upgrade(pkgs, opts)
 	}
 
@@ -364,7 +364,6 @@ func (e *Engine) GetFileOwner(path string) (string, error) {
 	// Try official backend
 	if e.officialBackend != nil {
 		if fp, ok := e.officialBackend.(FileProvider); ok {
-			// We updated interface to include GetFileOwner
 			if owner, err := fp.GetFileOwner(path); err == nil {
 				return owner, nil
 			}

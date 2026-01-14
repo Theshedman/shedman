@@ -34,7 +34,6 @@ func (m *MockBackend) Install(pkgs []string, opts core.InstallOptions) error {
 	return nil
 }
 
-// Stubs
 func (m *MockBackend) IsInstalled(name string) bool                             { return false }
 func (m *MockBackend) InstallLocal(path string, opts core.InstallOptions) error { return nil }
 func (m *MockBackend) Remove(pkgs []string, opts core.RemoveOptions) error      { return nil }

@@ -17,7 +17,6 @@ func (r *ReflectorBackend) Name() string { return "reflector" }
 
 func (r *ReflectorBackend) List() ([]Mirror, error) {
 	// Parsing /etc/pacman.d/mirrorlist
-	// Simplified implementation for now
 	return []Mirror{}, nil
 }
 

@@ -50,8 +50,6 @@ func TestSnapshotScheduleCmd(t *testing.T) {
 		},
 	}
 	// Need to set scheduler on engine.
-	// We haven't added SetScheduler to Engine yet!
-	// Will address this in implementation.
 	engine.SetScheduler(mockSch)
 
 	buf := new(bytes.Buffer)

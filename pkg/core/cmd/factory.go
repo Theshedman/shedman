@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -18,8 +19,7 @@ func NewEngineWithConfig(cfg *config.Config) (*core.Engine, error) {
 		var err error
 		cfg, err = config.LoadDefault()
 		if err != nil {
-			// If loading fails, fallback to defaults
-			cfg = config.Default()
+			return nil, fmt.Errorf("failed to load state: %w", err)
 		}
 	}
 
@@ -30,7 +30,6 @@ func NewEngineWithConfig(cfg *config.Config) (*core.Engine, error) {
 		e.SetOfficialBackend(officialBackend)
 	}
 
-	// Initialize Snapshot Manager
 	snapFactory := snapshot.NewFactory(cfg)
 	if snapMgr, err := snapFactory.GetManager(); err == nil {
 		e.SetSnapshotManager(snapMgr)
@@ -41,7 +40,6 @@ func NewEngineWithConfig(cfg *config.Config) (*core.Engine, error) {
 
 // DetectBackendWithConfig detects backend based on config.
 func DetectBackendWithConfig(cfg *config.BackendConfig) (core.OfficialBackend, error) {
-	// Only pacman supported for now
 	return CreatePacmanBackend(cfg)
 }
 
@@ -57,7 +55,7 @@ func CreatePacmanBackend(cfg *config.BackendConfig) (core.OfficialBackend, error
 // CreateAURInstaller creates an AUR installer with backend.
 func CreateAURInstaller(cfg *config.Config) *core.AURInstaller {
 	// Detect backend
-	backend, _ := DetectBackendWithConfig(&cfg.Backend)
+	backend, _ := DetectBackendWithConfig(nil) // Best effort
 	return core.NewAURInstallerWithBackend(cfg, backend)
 }
 

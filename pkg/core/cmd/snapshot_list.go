@@ -32,7 +32,6 @@ var SnapshotListCmd = &cobra.Command{
 	},
 }
 
-// RunSnapshotList executes the snapshot listing logic
 func RunSnapshotList(engine *core.Engine, opts snapshot.ListOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
@@ -53,7 +52,7 @@ func RunSnapshotList(engine *core.Engine, opts snapshot.ListOptions, w io.Writer
 	fmt.Fprintln(tw, "ID\tTIMESTAMP\tBACKEND\tSIZE\tDESCRIPTION")
 
 	for _, snap := range snapshots {
-		ts := snap.Timestamp.Format(time.RFC3339)		
+		ts := snap.Timestamp.Format(time.RFC3339)
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
 			snap.ID,
 			ts,

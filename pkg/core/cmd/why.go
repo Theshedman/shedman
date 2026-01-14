@@ -45,7 +45,6 @@ func init() {
 	WhyCmd.Flags().BoolVar(&whyTree, "tree", false, "Show forward dependency tree instead of reverse")
 }
 
-// RunWhy executes the why logic
 func RunWhy(deps WhyDeps, w io.Writer, pkg string, tree bool) error {
 	// Check for pactree
 	if _, err := deps.LookPath("pactree"); err != nil {

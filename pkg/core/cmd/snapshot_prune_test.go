@@ -12,7 +12,6 @@ import (
 func TestSnapshotPruneCmd(t *testing.T) {
 	// Setup
 	engine := core.NewEngine()
-	// Shared mock already has Prune stub returning nil
 	mock := &MockSnapshotManager{}
 	engine.SetSnapshotManager(mock)
 

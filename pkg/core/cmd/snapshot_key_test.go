@@ -66,7 +66,7 @@ func TestSnapshotKeyCmd(t *testing.T) {
 
 	buf := new(bytes.Buffer)
 
-	// Test Generate directly via logic function
+	// Test Generate
 	args := []string{"Test Key"}
 	if err := RunSnapshotKeyGenerate(engine, args, buf); err != nil {
 		t.Fatalf("Generate execution failed: %v", err)

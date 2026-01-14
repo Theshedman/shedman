@@ -14,10 +14,8 @@ func TestSnapshotRestoreCmd(t *testing.T) {
 	engine := core.NewEngine()
 	// Using MockSnapshotManager defined in snapshot_create_test.go
 	// We need to support RestoreFunc in it.
-	// Assume we'll add it there first or parallelly.
 	// But since we can't easily rely on parallel file edits for shared structs in mocks without rebuild,
 	// I'll define a local mock or ensure the shared mock is updated.
-	// I'll assume I update the shared mock in `snapshot_create_test.go` first or simultaneously.
 
 	restoredID := ""
 	mockMgr := &MockSnapshotManager{

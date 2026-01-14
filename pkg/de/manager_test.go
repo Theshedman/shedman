@@ -49,7 +49,6 @@ func (m *MockBackend) Remove(pkgs []string, opts core.RemoveOptions) error {
 	return nil
 }
 
-// Stubs for other interface methods
 func (m *MockBackend) InstallLocal(path string, opts core.InstallOptions) error { return nil }
 func (m *MockBackend) Upgrade(pkgs []string, opts core.UpgradeOptions) error    { return nil }
 func (m *MockBackend) Search(query string) ([]core.PackageInfo, error)          { return nil, nil }
@@ -102,7 +101,6 @@ func TestManager_Switch(t *testing.T) {
 	}
 
 	// Verify gnome-shell removed (simplistic logic check)
-	// In reality this might be complex, but let's check if hyprland is installed
 	installedHypr := false
 	for _, p := range mock.installed {
 		if p == "hyprland" {

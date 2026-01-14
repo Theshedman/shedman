@@ -131,8 +131,6 @@ func newKeyringInitCmd() *cobra.Command {
 	}
 }
 
-// Logic Functions
-
 func RunKeyringInit(eng *core.Engine, w io.Writer) error {
 	fmt.Fprintln(w, "Initializing keyring...")
 	return eng.KeyringInit()

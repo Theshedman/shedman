@@ -23,11 +23,6 @@ func NewWithBackend(b NotifierBackend) *Notifier {
 	}
 }
 
-// Check checks for updates (Stub for future logic)
-func (n *Notifier) Check() error {
-	return nil
-}
-
 // Notify sends a notification
 func (n *Notifier) Notify(title, message, level string) error {
 	if n.backend == nil {

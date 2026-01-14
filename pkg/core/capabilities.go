@@ -126,6 +126,5 @@ type PackageDiff struct {
 type Differ interface {
 	Diff() ([]PackageDiff, error)
 } // Or just reuse Install, but a dedicated method might be cleaner for stdin/file handling if backend supports it.
-// Actually, `Install` generally takes a list of strings. Import might just parse file and call Install.
+// Install installs the capability.
 // But a dedicated backend method allows `pacman -S --needed - < file` optimization if possible.
-// Let's keep it simple: Importer interface might not be strictly needed if `Install` suffices, but `ListExplicit` definitely is.

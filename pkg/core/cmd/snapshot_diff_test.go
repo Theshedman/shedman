@@ -12,11 +12,7 @@ import (
 func TestSnapshotDiffCmd(t *testing.T) {
 	// Setup
 	engine := core.NewEngine()
-	mock := &MockSnapshotManager{
-		// Inject mock behavior via field assignment if available,
-		// otherwise we rely on default stub or wait for update.
-		// Assuming MockSnapshotManager structure from snapshot_create_test.go is active in this package.
-	}
+	mock := &MockSnapshotManager{}
 
 	// Dynamically assign function if the field exists (it should based on previous edits)
 	mock.DiffFunc = func(id1, id2 string) (snapshot.DiffResult, error) {

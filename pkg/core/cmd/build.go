@@ -32,8 +32,7 @@ var BuildCmd = &cobra.Command{
 			return fmt.Errorf("failed to initialize engine: %w", err)
 		}
 
-		// Default options for makepkg usually include -s (syncdeps)
-		// We expose explicit flags override.
+		// Default options for makepkg
 		opts := core.BuildOptions{
 			Clean:     buildClean,
 			Install:   buildInstall,
@@ -56,7 +55,6 @@ func init() {
 	BuildCmd.Flags().BoolVar(&buildNoConfirm, "noconfirm", false, "Do not ask for confirmation")
 }
 
-// RunBuild executes the build logic
 func RunBuild(eng *core.Engine, w io.Writer, dir string, opts core.BuildOptions) error {
 	fmt.Fprintf(w, "Building package in %s...\n", dir)
 	return eng.Build(dir, opts)

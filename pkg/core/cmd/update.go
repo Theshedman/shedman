@@ -40,7 +40,7 @@ This command is equivalent to 'pacman -Syu' but handles all configured backends 
 			}
 
 			opts := core.UpgradeOptions{
-				Refresh:      false, // We sync manually
+				Refresh:      false,
 				NoConfirm:    updateYes,
 				IgnorePkgs:   updateIgnore,
 				IgnoreGroups: updateIgnoreGroup,
@@ -71,7 +71,6 @@ This command is equivalent to 'pacman -Syu' but handles all configured backends 
 	return cmd
 }
 
-// RunUpdate executes the update logic
 func RunUpdate(eng *core.Engine, w io.Writer, pkgs []string, opts core.UpgradeOptions) error {
 	fmt.Fprintln(w, "Synchronizing package databases...")
 

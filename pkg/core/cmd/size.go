@@ -27,7 +27,6 @@ var SizeCmd = &cobra.Command{
 	},
 }
 
-// RunSize executes the size logic
 func RunSize(eng *core.Engine, pkg string) error {
 	info, err := eng.Info(pkg)
 	if err != nil {

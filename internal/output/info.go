@@ -8,6 +8,5 @@ import (
 // It aligns keys and applies standard formatting.
 func PrintInfoKV(key, value string) {
 	// Simple aligned output: Key : Value
-	// TODO: Add colors if cfg.Color is enabled (passed via context or global)
 	fmt.Printf("%-18s : %s\n", key, value)
 }

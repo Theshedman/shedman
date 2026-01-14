@@ -43,7 +43,7 @@ Usage:
 	},
 }
 
-// RunImport executes the import logic.
+// RunImport imports packages from a file
 func RunImport(eng *core.Engine, w io.Writer, r io.Reader) error {
 	var pkgs []string
 	scanner := bufio.NewScanner(r)

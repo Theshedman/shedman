@@ -252,7 +252,7 @@ func TestAURInstaller_Install(t *testing.T) {
 	}
 	ai.SetBackend(mockBackend)
 
-	err := ai.Install("test-pkg")
+	err := ai.Install("test-pkg", DefaultAUROptions())
 	if err != nil {
 		t.Fatalf("Install failed: %v", err)
 	}

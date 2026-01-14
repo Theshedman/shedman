@@ -61,25 +61,21 @@ func ParsePacmanConf(path string) (*PacmanConf, error) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 
-		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 
-		// Check for section header
 		if match := sectionRe.FindStringSubmatch(line); match != nil {
 			section := match[1]
 			if section == "options" {
 				currentRepo = nil
 			} else {
-				// New repository section
 				currentRepo = &RepoConfig{Name: section}
 				conf.Repositories = append(conf.Repositories, *currentRepo)
 			}
 			continue
 		}
 
-		// Parse key = value or key
 		parts := strings.SplitN(line, "=", 2)
 		key := strings.TrimSpace(parts[0])
 		var value string
@@ -88,7 +84,6 @@ func ParsePacmanConf(path string) (*PacmanConf, error) {
 		}
 
 		if currentRepo == nil {
-			// Options section
 			switch key {
 			case "RootDir":
 				conf.RootDir = value
@@ -114,7 +109,6 @@ func ParsePacmanConf(path string) (*PacmanConf, error) {
 				conf.SigLevel = value
 			}
 		} else {
-			// Repository section
 			idx := len(conf.Repositories) - 1
 			switch key {
 			case "Server":
@@ -123,7 +117,6 @@ func ParsePacmanConf(path string) (*PacmanConf, error) {
 				conf.Repositories[idx].SigLevel = value
 			case "Include":
 				conf.Repositories[idx].Include = value
-				// Parse included mirrorlist
 				servers := parseMirrorlist(value, conf.Repositories[idx].Name)
 				conf.Repositories[idx].Servers = append(conf.Repositories[idx].Servers, servers...)
 			}
@@ -157,7 +150,6 @@ func parseMirrorlist(path, repoName string) []string {
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) == 2 {
 				server := strings.TrimSpace(parts[1])
-				// Replace $repo and $arch placeholders
 				server = strings.ReplaceAll(server, "$repo", repoName)
 				servers = append(servers, server)
 			}
@@ -189,12 +181,10 @@ func DefaultPacmanConf() *PacmanConf {
 // GetArchitecture returns the resolved architecture
 func (c *PacmanConf) GetArchitecture() string {
 	if c.Architecture == "auto" {
-		// Detect architecture
 		arch, err := os.ReadFile("/proc/sys/kernel/arch")
 		if err == nil {
 			return strings.TrimSpace(string(arch))
 		}
-		// Fallback to uname
 		return "x86_64"
 	}
 	return c.Architecture

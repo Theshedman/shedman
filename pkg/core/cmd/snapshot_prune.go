@@ -22,11 +22,7 @@ var SnapshotPruneCmd = &cobra.Command{
 		// Parse duration if provided
 		var duration time.Duration
 		if snapshotPruneOlderThan != "" {
-			// user might pass "7d", "24h". time.ParseDuration supports h, m, s.
-			// "d" is not supported by standard lib, needs simple conversion
-			// For now let's assumes standard Go duration strings or handle simple "d"
 			d := snapshotPruneOlderThan
-			// Simple day handling
 			if len(d) > 1 && d[len(d)-1] == 'd' {
 				days := 0
 				fmt.Sscanf(d, "%dd", &days)

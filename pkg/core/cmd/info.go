@@ -45,7 +45,6 @@ func NewInfoCmd() *cobra.Command {
 	return cmd
 }
 
-// RunInfo executes the info logic
 func RunInfo(eng *core.Engine, w io.Writer, pkgName string, asJson bool) error {
 	info, err := eng.Info(pkgName)
 	if err != nil {
@@ -87,6 +86,6 @@ func printKV(w io.Writer, key string, value string) {
 	if value == "" {
 		return
 	}
-	// Align keys: assume max key length ~15
+	// Align keys
 	fmt.Fprintf(w, "%-15s : %s\n", key, value)
 }

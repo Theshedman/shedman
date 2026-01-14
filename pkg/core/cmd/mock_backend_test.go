@@ -148,8 +148,6 @@ func (m *MockBackend) Search(query string) ([]core.PackageInfo, error) {
 	return nil, nil
 }
 
-// Maintainer implementation
-
 func (m *MockBackend) CleanCache(opts core.CleanOptions) error {
 	if m.CleanCacheFunc != nil {
 		return m.CleanCacheFunc(opts)
@@ -213,8 +211,6 @@ func (m *MockBackend) Build(dir string, opts core.BuildOptions) error {
 	}
 	return nil
 }
-
-// KeyManager implementation
 
 func (m *MockBackend) InitKeyring() error {
 	if m.InitKeyringFunc != nil {
@@ -316,8 +312,6 @@ func (m *MockBackend) Audit() ([]string, error) {
 	}
 	return nil, nil
 }
-
-// Differ implementation
 
 func (m *MockBackend) Diff() ([]core.PackageDiff, error) {
 	if m.DiffFunc != nil {

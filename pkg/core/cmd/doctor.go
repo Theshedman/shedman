@@ -83,7 +83,7 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	fmt.Fprintln(w)
 	hasIssues := false
 
-	// Helper to print styled status (simple text for now to match writer)
+	// Helper to print styled status
 	printStatus := func(msg string, isError bool, isWarning bool) {
 		if isError {
 			fmt.Fprintf(w, "FAILED (%s)\n", msg)

@@ -19,7 +19,6 @@ func TestRunFilesList(t *testing.T) {
 		return nil, core.ErrPackageNotFound
 	}
 
-	// Helper to capture verify files listing (via engine interface directly for now)
 	files, err := eng.GetOfficialBackend().GetPackageFiles("vim")
 	if err != nil {
 		t.Errorf("GetPackageFiles(vim) error = %v", err)

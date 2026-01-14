@@ -40,8 +40,6 @@ var SnapshotKeyListCmd = &cobra.Command{
 	},
 }
 
-// Logic implementations
-
 func RunSnapshotKeyGenerate(engine *core.Engine, args []string, w io.Writer) error {
 	km := engine.GetKeyManager()
 	if km == nil {
@@ -83,5 +81,4 @@ func RunSnapshotKeyList(engine *core.Engine, w io.Writer) error {
 func init() {
 	SnapshotKeyCmd.AddCommand(SnapshotKeyGenerateCmd)
 	SnapshotKeyCmd.AddCommand(SnapshotKeyListCmd)
-	// Add others (Export, Import, Delete) similarly later
 }

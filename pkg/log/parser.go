@@ -47,21 +47,10 @@ func Parse(path string) ([]Transaction, error) {
 		} else if message == "transaction completed" {
 			if currentTx != nil {
 				currentTx.Success = true
-				// Determine main action based on packages
-				if currentTx.Action == "" && len(currentTx.Packages) > 0 {
-					// Heuristic: take action from first package entry if possible,
-					// but we didn't store action per package in Transaction struct (just list of strings).
-					// Better parsing needed for full fidelity, but for list view this is okay.
-					// Let's rely on what we set during package parsing lines.
-				}
 				txs = append(txs, *currentTx)
 				currentTx = nil
 			}
 		} else if currentTx != nil {
-			// Inside transaction
-			// Check for installed/removed/upgraded
-			// "installed <pkg> (<ver>)"
-			// "removed <pkg> (<ver>)"
 			if len(message) > 10 && message[:10] == "installed " {
 				currentTx.Packages = append(currentTx.Packages, message[10:])
 				if currentTx.Action == "" {

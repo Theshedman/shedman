@@ -37,7 +37,6 @@ var SnapshotCreateCmd = &cobra.Command{
 	},
 }
 
-// RunSnapshotCreate executes the snapshot creation logic
 func RunSnapshotCreate(engine *core.Engine, args []string, opts snapshot.CreateOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {

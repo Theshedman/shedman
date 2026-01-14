@@ -35,7 +35,6 @@ func init() {
 	OrphansCmd.Flags().BoolVar(&removeOrphans, "remove", false, "Remove found orphans")
 }
 
-// RunOrphans executes the orphans logic
 func RunOrphans(eng *core.Engine, w io.Writer, remove bool) error {
 	fmt.Fprintln(w, "Searching for orphans...")
 	orphans, err := eng.ListOrphans()

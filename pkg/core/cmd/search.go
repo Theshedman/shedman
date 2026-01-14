@@ -124,7 +124,6 @@ Examples:
 	},
 }
 
-// RunSearch executes the search logic
 func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) error {
 
 	var results []SearchResult
@@ -167,7 +166,7 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 			return nil
 		}
 		fmt.Fprintln(w, "No packages found.")
-		return nil // Or error?
+		return nil
 	}
 
 	if opts.JSON {

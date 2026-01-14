@@ -17,7 +17,15 @@ func TestTimeshiftBackend_Create(t *testing.T) {
 			if args[0] != "--create" {
 				t.Errorf("Expected flag '--create', got '%s'", args[0])
 			}
-			return []byte("Snapshot created successfully"), nil
+			// Return valid JSON
+			jsonOut := `{
+				"name": "2023-01-01_12-00-00",
+				"comments": "timeshift test",
+				"created": 1672574400,
+				"tags": "ondemand",
+				"type": "rsync"
+			}`
+			return []byte(jsonOut), nil
 		},
 	}
 
@@ -30,6 +38,10 @@ func TestTimeshiftBackend_Create(t *testing.T) {
 
 	if snap.Description != "timeshift test" {
 		t.Errorf("Expected description 'timeshift test', got '%s'", snap.Description)
+	}
+	// ID maps to "name" in JSON
+	if snap.ID != "2023-01-01_12-00-00" {
+		t.Errorf("Expected ID '2023-01-01_12-00-00', got '%s'", snap.ID)
 	}
 	if snap.Backend != "timeshift" {
 		t.Errorf("Expected backend 'timeshift', got '%s'", snap.Backend)

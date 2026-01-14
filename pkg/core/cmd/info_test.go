@@ -38,7 +38,6 @@ func TestInfoCmd_Structure(t *testing.T) {
 		t.Errorf("Expected Use 'info [package]', got '%s'", cmd.Use)
 	}
 
-	// Check Args validation if possible, usually requires execution
 }
 
 func TestRunInfo(t *testing.T) {

@@ -41,12 +41,11 @@ func TestCalculateRecursiveRemoval(t *testing.T) {
 			expected: []string{"A", "B"}, // C is kept because D needs it
 		},
 		{
-			name: "Recursive blocked: Remove B should implicitly fail or be forced, but calculator just returns dependents. Wait, removing B explicitly removes dependents? No, typically 'remove' removes dependants if asked (recursive) or fails. Here we are calculating orphans.",
+			name: "Recursive blocked: Remove B fails because of orphan dependency check logic.",
 			// Recursive removal: target and unneeded dependencies
 			// It implies removing 'A' creates orphan 'B'.
 			// It does NOT mean "Remove B and everything that depends on it" (that's -Rc).
-			// The user asked for "Recursive Removal" which usually means cleaning up dependencies (like autoremove).
-			// Let's assume the user means "Remove A, and also B because A was the only one using B".
+			// User asked for "Recursive Removal"
 			targets:  []string{"A"},
 			expected: []string{"A", "B"},
 		},

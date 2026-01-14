@@ -254,7 +254,6 @@ func PrintSummary(lines []SummaryLine) {
 }
 
 // SummaryLine represents a line in the summary display
-// Note: This mirrors resolver.SummaryLine to avoid circular imports
 type SummaryLine = struct {
 	Label string
 	Value string

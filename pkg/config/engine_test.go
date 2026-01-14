@@ -82,7 +82,7 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		err := eng.Apply("testpkg", src, target)
 		require.NoError(t, err)
 
-		// Ensure file untouched (modtime check ideally, but content check enough)
+		// Ensure file untouched
 		newContent, _ := os.ReadFile(target)
 		assert.Equal(t, string(content), string(newContent))
 	})

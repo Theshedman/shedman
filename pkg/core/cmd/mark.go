@@ -44,7 +44,6 @@ Example:
 	},
 }
 
-// RunMark executes the mark logic
 func RunMark(eng *core.Engine, w io.Writer, pkgName string, asDeps, asExplicit bool) error {
 	var reason core.InstallReason
 	var reasonStr string
@@ -53,7 +52,7 @@ func RunMark(eng *core.Engine, w io.Writer, pkgName string, asDeps, asExplicit b
 		reason = core.InstallReasonDependency
 		reasonStr = "dependency"
 	} else {
-		// asExplicit is implied true if asDeps is false based on caller check, but let's be safe
+		// asExplicit is implied true if asDeps is false based on caller check
 		reason = core.InstallReasonExplicit
 		reasonStr = "explicit"
 	}

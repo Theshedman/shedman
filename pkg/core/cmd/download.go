@@ -28,12 +28,10 @@ var DownloadCmd = &cobra.Command{
 	},
 }
 
-// RunDownload executes the download logic
 func RunDownload(eng *core.Engine, w io.Writer, pkgs []string) error {
 	fmt.Fprintln(w, "Downloading packages...")
 	options := core.InstallOptions{
 		DownloadOnly: true,
-		// Standard install options apply
 	}
 	return eng.Install(pkgs, options)
 }

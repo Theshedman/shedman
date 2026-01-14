@@ -658,7 +658,7 @@ func (b *Backend) Audit() ([]string, error) {
 
 	// Run arch-audit
 	output, err := b.executor.Output("arch-audit")
-	// arch-audit exits non-zero if vulnerabilities found?
+	// arch-audit exits non-zero if vulnerabilities found
 	// Man page says: "Returns 0 if no vulnerable packages found, >0 otherwise."
 	// So err != nil means we might have found vulnerabilities.
 

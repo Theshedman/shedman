@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"path/filepath"
 	"strings"
-
 )
 
 // ProgressCallback is called with progress updates during download/install
@@ -61,7 +60,7 @@ func (pt ProgressType) String() string {
 	}
 }
 
-// Note: Pacman-specific progress parsing has been moved to backend/pacman/progress.go
+// Pacman-specific progress parsing has been moved to backend/pacman/progress.go
 // Use pacman.NewProgress() for parsing pacman output
 
 // FileScanResult contains the results of a filesystem scan

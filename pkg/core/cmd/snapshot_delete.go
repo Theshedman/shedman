@@ -23,7 +23,6 @@ var SnapshotDeleteCmd = &cobra.Command{
 	},
 }
 
-// RunSnapshotDelete executes the snapshot deletion logic
 func RunSnapshotDelete(engine *core.Engine, args []string, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {

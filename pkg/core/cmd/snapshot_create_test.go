@@ -11,12 +11,11 @@ import (
 
 // MockSnapshotManager for testing CLI
 type MockSnapshotManager struct {
-	CreateFunc  func(desc string, opts snapshot.CreateOptions) (*snapshot.Snapshot, error)
-	ListFunc    func(opts snapshot.ListOptions) ([]snapshot.Snapshot, error)
-	RestoreFunc func(id string, opts snapshot.RestoreOptions) error
-	DeleteFunc  func(id string) error
-	DiffFunc    func(id1, id2 string) (snapshot.DiffResult, error)
-	// Add other stubs as needed
+	CreateFunc         func(desc string, opts snapshot.CreateOptions) (*snapshot.Snapshot, error)
+	ListFunc           func(opts snapshot.ListOptions) ([]snapshot.Snapshot, error)
+	RestoreFunc        func(id string, opts snapshot.RestoreOptions) error
+	DeleteFunc         func(id string) error
+	DiffFunc           func(id1, id2 string) (snapshot.DiffResult, error)
 	GetBackendNameFunc func() string
 }
 
@@ -34,7 +33,6 @@ func (m *MockSnapshotManager) GetBackendName() string {
 	return "mock"
 }
 
-// Stubs for interface compliance
 func (m *MockSnapshotManager) List(opts snapshot.ListOptions) ([]snapshot.Snapshot, error) {
 	if m.ListFunc != nil {
 		return m.ListFunc(opts)
@@ -55,9 +53,13 @@ func (m *MockSnapshotManager) Restore(id string, opts snapshot.RestoreOptions) e
 	return nil
 }
 
-func (m *MockSnapshotManager) Prune(opts snapshot.PruneOptions) error             { return nil }
-func (m *MockSnapshotManager) Push(id string, target snapshot.RemoteTarget) error { return nil }
-func (m *MockSnapshotManager) Pull(id string, source snapshot.RemoteTarget) error { return nil }
+func (m *MockSnapshotManager) Prune(opts snapshot.PruneOptions) error { return nil }
+func (m *MockSnapshotManager) Push(id string, target snapshot.RemoteTarget, opts snapshot.RemoteOptions) error {
+	return nil
+}
+func (m *MockSnapshotManager) Pull(id string, source snapshot.RemoteTarget, opts snapshot.RemoteOptions) error {
+	return nil
+}
 func (m *MockSnapshotManager) Diff(id1, id2 string) (snapshot.DiffResult, error) {
 	if m.DiffFunc != nil {
 		return m.DiffFunc(id1, id2)

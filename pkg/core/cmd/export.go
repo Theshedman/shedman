@@ -22,7 +22,7 @@ This list can be saved to a file and used with 'shedman import' to restore them.
 	},
 }
 
-// RunExport executes the export logic.
+// RunExport exports installed packages to a file
 func RunExport(eng *core.Engine, w io.Writer) error {
 	pkgs, err := eng.ListExplicitPackages()
 	if err != nil {

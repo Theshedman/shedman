@@ -22,7 +22,6 @@ var VersionCmd = &cobra.Command{
 	},
 }
 
-// RunVersion executes the version logic
 func RunVersion(w io.Writer) {
 	fmt.Fprintln(w, "shedman version", Version)
 	fmt.Fprintln(w, "Build Date:", BuildDate)

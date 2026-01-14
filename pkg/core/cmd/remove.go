@@ -32,14 +32,12 @@ Examples:
   shedman remove neovim --cascade # Remove + cascade to dependents`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Load configuration
 		cfg, err := config.LoadDefault()
 		if err != nil {
 			output.Warning("Failed to load config, using defaults: %v", err)
 			cfg = config.Default()
 		}
 
-		// Dry-run handle
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		if dryRun {
 			return handleRemoveDryRun(cmd.OutOrStdout(), args)
@@ -51,9 +49,7 @@ Examples:
 		}
 
 		// Filter ignored packages based on config
-		// This logic stays in Command layer or passed to RunRemove?
 		// To match test simplicity, we filter here or pass clean list.
-		// Let's filter explicitly here to keep RunRemove pure.
 		cleanArgs := filterIgnoredPackages(args, cfg.Packages.IgnorePkg)
 
 		if len(cleanArgs) == 0 {
@@ -63,7 +59,6 @@ Examples:
 		quiet, _ := cmd.Flags().GetBool("quiet")
 		yes, _ := cmd.Flags().GetBool("yes")
 
-		// Merge --purge and --nosave
 		noSave := removePurge || removeNosave
 
 		opts := core.RemoveOptions{
@@ -74,7 +69,6 @@ Examples:
 		}
 
 		// Inject Stdout/Stderr via Cobra
-		// Note: RunRemove uses injected Writer for primary output
 		if quiet {
 			return RunRemove(eng, io.Discard, cleanArgs, opts)
 		}
@@ -82,14 +76,7 @@ Examples:
 	},
 }
 
-// RunRemove executes the removal logic
-// Refactored for TDD: Logic isolated from CLI/Config loading
 func RunRemove(eng *core.Engine, w io.Writer, pkgs []string, opts core.RemoveOptions) error {
-	// 1. Verify availability/installed status using Engine
-	// Since generic Engine doesn't have "IsInstalled" readily exposed for batch without backend,
-	// we will iterate or trust the engine's Remove to error out?
-	// The test expects us to verify installation.
-	// We'll use GetOfficialBackend for verification if available, as 'remove' targets official/local pkgs.
 
 	backend := eng.GetOfficialBackend()
 	if backend == nil {
@@ -101,10 +88,7 @@ func RunRemove(eng *core.Engine, w io.Writer, pkgs []string, opts core.RemoveOpt
 		if backend.IsInstalled(p) {
 			toRemove = append(toRemove, p)
 		} else {
-			// Warn but don't fail entire batch immediately?
-			// Standard behavior: warn about missing.
-			// Since we don't have a logger injected besides 'w', we print to 'w'.
-			fmt.Fprintf(w, "Warning: package '%s' is not installed\n", p)
+			fmt.Fprintf(w, "Warning: Package %s is not installed\n", p)
 		}
 	}
 
@@ -112,21 +96,21 @@ func RunRemove(eng *core.Engine, w io.Writer, pkgs []string, opts core.RemoveOpt
 		return fmt.Errorf("no packages to remove")
 	}
 
-	// 2. Output plan
 	fmt.Fprintf(w, "Removing %d official package(s)...\n", len(toRemove))
-	for _, p := range toRemove {
-		fmt.Fprintf(w, "  -> %s\n", p)
+
+	if !opts.NoConfirm {
+		fmt.Fprintf(w, "The following packages will be removed:\n")
+		for _, p := range toRemove {
+			fmt.Fprintf(w, "  -> %s\n", p)
+		}
+
+		if !opts.NoConfirm && eng.GetConfig().General.Confirm {
+			if !output.Confirm("Proceed with removal?", output.ConfirmOptions{Default: true}) {
+				return fmt.Errorf("removal cancelled")
+			}
+		}
 	}
 
-	// 3. Confirm (ShedMan Level) - Skipped if NoConfirm
-	// If NoConfirm is false, we technically should prompt.
-	// But since this function doesn't take a Reader, we assume caller did verification
-	// OR we trust opts.NoConfirm passed down to backend.
-	// The CLI layer handles the interactive "Are you sure?".
-	// Here we proceed to call backend.
-
-	// 4. Create Engine options and Execute
-	// We pass the filtered list
 	return eng.Remove(toRemove, opts)
 }
 

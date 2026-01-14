@@ -32,7 +32,6 @@ func init() {
 	VerifyCmd.Flags().Bool("fix", false, "Reinstall corrupted packages")
 }
 
-// RunVerify executes the verify logic
 func RunVerify(eng *core.Engine, args []string, fix bool) error {
 	if len(args) == 0 {
 		return verifyAll(eng, fix)

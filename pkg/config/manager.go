@@ -36,7 +36,7 @@ func (m *Manager) Apply(name string) error {
 	// Use generic install options
 	opts := core.InstallOptions{
 		Needed:    true,
-		NoConfirm: false, // Let core/CLI handle confirmation
+		NoConfirm: false,
 	}
 
 	return m.core.Install([]string{pkgName}, opts)

@@ -10,7 +10,6 @@ import (
 	"github.com/theshedman/shedman/pkg/config"
 )
 
-// Styles
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -129,13 +128,10 @@ func (m conflictModel) View() string {
 	s.WriteString(titleStyle.Render("Configuration Conflict"))
 	s.WriteString(fmt.Sprintf("\n\nFile: %s\n", m.file))
 
-	// Diff View (Truncated or scrollable in future)
-	// For now, simple rendering
 	diffView := diffStyle.Render(m.diff)
 	s.WriteString(diffView)
 	s.WriteString("\n\n")
 
-	// Options
 	s.WriteString("Resolution Options:\n")
 	s.WriteString("  [K] Keep Your Version (Default)\n")
 	s.WriteString("  [U] Update to Package Version (Backs up valid user config)\n")

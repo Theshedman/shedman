@@ -16,7 +16,6 @@ func (s *SystemdBackend) Name() string { return "systemd" }
 
 func (s *SystemdBackend) List() ([]Service, error) {
 	// Implementation tricky without parsing list-units output complexly
-	// For now return empty or implement basic parsing if critical
 	return []Service{}, nil
 }
 

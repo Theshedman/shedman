@@ -1,6 +1,7 @@
 package boot
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -37,13 +38,32 @@ func (m *MockBackend) Info(pkgName string) (*core.PackageInfo, error) {
 	return nil, core.ErrPackageNotFound
 }
 
-// Stubs
 func (m *MockBackend) Install(pkgs []string, opts core.InstallOptions) error    { return nil }
 func (m *MockBackend) InstallLocal(path string, opts core.InstallOptions) error { return nil }
 func (m *MockBackend) Remove(pkgs []string, opts core.RemoveOptions) error      { return nil }
 func (m *MockBackend) Upgrade(pkgs []string, opts core.UpgradeOptions) error    { return nil }
 func (m *MockBackend) GetInstalledPackages() ([]core.PackageInfo, error)        { return nil, nil }
 func (m *MockBackend) GetPackageFiles(pkgName string) ([]string, error)         { return nil, nil }
+
+// MockExecutor implements Executor interface for testing
+type MockExecutor struct {
+	LookPathFunc       func(file string) (string, error)
+	CombinedOutputFunc func(name string, args ...string) ([]byte, error)
+}
+
+func (m *MockExecutor) LookPath(file string) (string, error) {
+	if m.LookPathFunc != nil {
+		return m.LookPathFunc(file)
+	}
+	return "", fmt.Errorf("not implemented")
+}
+
+func (m *MockExecutor) CombinedOutput(name string, args ...string) ([]byte, error) {
+	if m.CombinedOutputFunc != nil {
+		return m.CombinedOutputFunc(name, args...)
+	}
+	return nil, fmt.Errorf("not implemented")
+}
 
 func TestManager_List(t *testing.T) {
 	mock := &MockBackend{
@@ -94,11 +114,24 @@ func TestManager_SetDefault(t *testing.T) {
 		},
 	}
 	engine := core.NewEngineWithBackend(mock)
-	mgr := New(engine)
+	// Use dummy executor to simulate success
+	mockExec := &MockExecutor{
+		LookPathFunc: func(file string) (string, error) {
+			if file == "bootctl" {
+				return "/usr/bin/bootctl", nil
+			}
+			return "", fmt.Errorf("not found")
+		},
+		CombinedOutputFunc: func(name string, args ...string) ([]byte, error) {
+			return []byte("success"), nil
+		},
+	}
+
+	mgr := NewWithExecutor(engine, mockExec)
 
 	err := mgr.SetDefault("linux")
 	if err != nil {
-		t.Errorf("SetDefault(linux) failed: %v", err)
+		t.Errorf("SetDefault(linux) with mock failed: %v", err)
 	}
 
 	err = mgr.SetDefault("linux-zen")

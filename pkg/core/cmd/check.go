@@ -30,7 +30,6 @@ func init() {
 	// No specific flags for check command yet
 }
 
-// RunCheck executes the check logic
 func RunCheck(eng *core.Engine, w io.Writer) error {
 	fmt.Fprintln(w, "Checking package database consistency...")
 	if err := eng.CheckDatabase(); err != nil {

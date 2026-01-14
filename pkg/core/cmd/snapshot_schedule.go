@@ -56,8 +56,6 @@ func init() {
 	SnapshotScheduleCmd.AddCommand(SnapshotScheduleStatusCmd)
 }
 
-// Logic functions
-
 func RunSnapshotScheduleEnable(engine *core.Engine, w io.Writer) error {
 	sch := engine.GetScheduler()
 	if sch == nil {

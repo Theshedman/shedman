@@ -27,7 +27,7 @@ type DistroInfo struct {
 	Name     string   // Pretty name
 	Version  string   // Version string
 	Family   string   // Detected family (arch)
-	IsShedOS bool     // Is this ShedOS specifically
+	IsShedOS bool     // Is this ShedOS
 }
 
 // DetectDistro reads /etc/os-release and returns distro info

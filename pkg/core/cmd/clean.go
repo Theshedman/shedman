@@ -29,7 +29,7 @@ var CleanCmd = &cobra.Command{
 			return fmt.Errorf("clean failed: %w", err)
 		}
 
-		fmt.Println("Cache cleaned successfully.") // Or write to stdout via success middleware?
+		fmt.Println("Cache cleaned successfully.")
 		// But RunClean writes to 'w'. If success message is specific to CLI, we print it here.
 		return nil
 	},
@@ -40,7 +40,6 @@ func init() {
 	CleanCmd.Flags().IntVar(&cleanKeep, "keep", 0, "Number of recent versions to keep (implies using paccache)")
 }
 
-// RunClean executes the clean logic
 func RunClean(eng *core.Engine, w io.Writer, all bool, keep int) error {
 	fmt.Fprintln(w, "Cleaning package cache...")
 	opts := core.CleanOptions{

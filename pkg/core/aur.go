@@ -246,7 +246,7 @@ func (a *AURInstaller) buildWithoutSandbox(pkgDir string) error {
 }
 
 // Install installs the built package using the backend
-func (a *AURInstaller) Install(pkgName string) error {
+func (a *AURInstaller) Install(pkgName string, opts AUROptions) error {
 	pkgDir := filepath.Join(a.cacheDir, pkgName)
 
 	// Find the built package file
@@ -261,8 +261,7 @@ func (a *AURInstaller) Install(pkgName string) error {
 	}
 
 	// Install using backend
-	// TODO: Pass actual options when Install signature allows
-	return a.backend.InstallLocal(pkgPath, InstallOptions{NoConfirm: true})
+	return a.backend.InstallLocal(pkgPath, InstallOptions{NoConfirm: opts.NoConfirm})
 }
 
 // findBuiltPackage finds the .pkg.tar.zst file in the build directory
@@ -339,7 +338,7 @@ func (a *AURInstaller) InstallFull(pkgName string, opts AUROptions) error {
 	}
 
 	// 4. Install the package
-	if err := a.Install(pkgName); err != nil {
+	if err := a.Install(pkgName, opts); err != nil {
 		return fmt.Errorf("install failed: %w", err)
 	}
 
@@ -545,7 +544,7 @@ func (a *AURInstaller) InstallFullWithProgress(pkgName string, opts AUROptions, 
 
 	// 5. Install the package
 	report(AURStageInstall, "Installing package...")
-	if err := a.Install(pkgName); err != nil {
+	if err := a.Install(pkgName, opts); err != nil {
 		return fmt.Errorf("install failed: %w", err)
 	}
 

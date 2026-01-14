@@ -65,7 +65,6 @@ func (p *PacmanSourceProvider) GetOriginalContent(filePath string) ([]byte, erro
 	}
 
 	// 4. Extract Content
-	// File path in archive usually doesn't have leading /.
 	relPath := strings.TrimPrefix(filePath, "/")
 
 	return p.extractFile(archivePath, relPath)

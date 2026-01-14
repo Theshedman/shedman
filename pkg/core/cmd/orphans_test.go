@@ -77,7 +77,7 @@ func TestRunOrphans(t *testing.T) {
 					t.Error("RemoveOrphans should be called")
 				}
 			}
-			// Add basic output assertions?
+			// Add basic output assertions
 			if !tt.wantError && len(tt.orphans) > 0 {
 				if tt.remove {
 					if !strings.Contains(buf.String(), "Orphans removed") {

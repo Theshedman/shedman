@@ -25,7 +25,7 @@ Requires updated sync databases (run 'shedman update --refresh' first if needed)
 	},
 }
 
-// RunDiff executes the diff logic.
+// RunDiff compares package lists
 func RunDiff(eng *core.Engine, w io.Writer) error {
 	diffs, err := eng.Diff()
 	if err != nil {

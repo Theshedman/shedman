@@ -8,7 +8,6 @@ import (
 
 // Since we cannot easily mock util.GetRootFSType in this unit test without refactoring
 // util to use an interface or global var, we will rely on integration tests or
-// assume the "default" case which falls back to looking for commands if GetRootFSType returns unknown/ext4.
 //
 // However, we CAN test the configuration override logic.
 

@@ -107,7 +107,6 @@ func (p *Progress) ParseLine(line string) {
 		Current: p.currentPackage,
 	}
 
-	// Parse percentage if present
 	if matches := p.percentRegex.FindStringSubmatch(line); len(matches) > 3 {
 		event.Current, _ = strconv.Atoi(matches[1])
 		event.Total, _ = strconv.Atoi(matches[2])
@@ -116,18 +115,15 @@ func (p *Progress) ParseLine(line string) {
 		p.totalPackages = event.Total
 	}
 
-	// Parse speed if present
 	if matches := p.speedRegex.FindStringSubmatch(line); len(matches) > 2 {
 		event.Speed = matches[1] + " " + matches[2] + "/s"
 	}
 
-	// Parse download progress (e.g., "5.2 MiB / 10.4 MiB")
 	if matches := p.progressRegex.FindStringSubmatch(line); len(matches) > 4 {
 		event.Downloaded = matches[1] + " " + matches[2]
 		event.TotalSize = matches[3] + " " + matches[4]
 	}
 
-	// Check for downloading
 	if matches := p.downloadRegex.FindStringSubmatch(line); len(matches) > 1 {
 		event.Type = ProgressDownloading
 		event.Package = matches[1]
@@ -137,7 +133,6 @@ func (p *Progress) ParseLine(line string) {
 		return
 	}
 
-	// Check for installing
 	if matches := p.installRegex.FindStringSubmatch(line); len(matches) > 1 {
 		event.Type = ProgressInstalling
 		event.Package = matches[1]
@@ -147,7 +142,6 @@ func (p *Progress) ParseLine(line string) {
 		return
 	}
 
-	// Check for upgrading
 	if matches := p.upgradeRegex.FindStringSubmatch(line); len(matches) > 1 {
 		event.Type = ProgressUpgrading
 		event.Package = matches[1]
@@ -157,7 +151,6 @@ func (p *Progress) ParseLine(line string) {
 		return
 	}
 
-	// Check for removing
 	if strings.Contains(strings.ToLower(line), "removing") {
 		event.Type = ProgressRemoving
 		event.Package = p.currentPkg
@@ -166,7 +159,6 @@ func (p *Progress) ParseLine(line string) {
 		return
 	}
 
-	// Check for resolving dependencies
 	if strings.Contains(strings.ToLower(line), "resolving") {
 		event.Type = ProgressResolving
 		event.Message = line
@@ -174,7 +166,6 @@ func (p *Progress) ParseLine(line string) {
 		return
 	}
 
-	// Check for checking
 	if strings.Contains(strings.ToLower(line), "checking") {
 		event.Type = ProgressChecking
 		event.Message = line

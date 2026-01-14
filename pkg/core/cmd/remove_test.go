@@ -56,5 +56,4 @@ func TestRunRemove(t *testing.T) {
 func TestRunRemove_DryRun(t *testing.T) {
 	// Tests for dry-run logic integration if feasible,
 	// or we verify dry-run is handled separately.
-	// For now focusing on main execution path.
 }

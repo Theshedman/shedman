@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
+	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -38,22 +39,15 @@ func init() {
 	FilesCmd.Flags().BoolVarP(&filesSearch, "search", "s", false, "Search file database for query")
 }
 
-// RunFiles executes the files logic
 func RunFiles(eng *core.Engine, w io.Writer, query string, search bool) error {
 	if search {
-		// output.Info writes to logger, we should acknowledge finding file in writer?
 		// Keeping output minimal or writing headers to w if needed.
-		// Tests verification doesn't enforce "Searching..." text, just results.
-
 		results, err := eng.SearchFiles(query)
 		if err != nil {
 			return fmt.Errorf("search failed: %w", err)
 		}
 		if len(results) == 0 {
-			// output.Warning matches original, but maybe write to w?
-			// To pass test "Expected 0 files" without error, we return nil.
-			// Maybe write message.
-			fmt.Fprintln(w, "No matching files found.")
+			output.Warning("File not found: %s", query)
 			return nil
 		}
 		for _, line := range results {
@@ -73,8 +67,6 @@ func RunFiles(eng *core.Engine, w io.Writer, query string, search bool) error {
 }
 
 func printFiles(w io.Writer, pkgName string, files []string) {
-	// Header usually printed.
-	// Test checks for file presence.
 	fmt.Fprintf(w, "Files owned by %s (%d):\n", pkgName, len(files))
 	for _, f := range files {
 		fmt.Fprintf(w, "  %s\n", f)

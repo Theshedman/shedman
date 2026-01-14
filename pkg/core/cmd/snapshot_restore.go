@@ -36,7 +36,6 @@ var (
 	snapshotRestoreHomeOnly     bool
 )
 
-// RunSnapshotRestore executes the snapshot restore logic
 func RunSnapshotRestore(engine *core.Engine, args []string, opts snapshot.RestoreOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
