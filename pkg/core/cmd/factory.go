@@ -8,6 +8,7 @@ import (
 	pkgconfig "github.com/theshedman/shedman/pkg/config"
 	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/pkg/core/providers/pacman"
+	"github.com/theshedman/shedman/pkg/snapshot"
 	"github.com/theshedman/shedman/pkg/tui"
 )
 
@@ -27,6 +28,12 @@ func NewEngineWithConfig(cfg *config.Config) (*core.Engine, error) {
 	officialBackend, err := DetectBackendWithConfig(&cfg.Backend)
 	if err == nil && officialBackend != nil {
 		e.SetOfficialBackend(officialBackend)
+	}
+
+	// Initialize Snapshot Manager
+	snapFactory := snapshot.NewFactory(cfg)
+	if snapMgr, err := snapFactory.GetManager(); err == nil {
+		e.SetSnapshotManager(snapMgr)
 	}
 
 	return e, nil
