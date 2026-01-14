@@ -14,11 +14,12 @@ func TestRsyncBackend_Create(t *testing.T) {
 			if name != "rsync" {
 				t.Errorf("Expected command 'rsync', got '%s'", name)
 			}
-			return []byte("rsync  version 3.2.7"), nil
+			return []byte(""), nil // Helper commands return empty or success
 		},
 	}
 
 	backend := NewRsyncBackend(cfg, mockExec)
+	backend.SetRoot(t.TempDir()) // Use temp dir for directory creation
 
 	snap, err := backend.Create("rsync test", CreateOptions{})
 	if err != nil {
