@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/theshedman/shedman/internal/util"
 )
 
 // UpgradeInfo represents a package upgrade
@@ -170,22 +171,7 @@ func (s *InstallSummary) HasConflictRemovals() bool {
 
 // FormatSize formats bytes into human-readable string
 func FormatSize(bytes int64) string {
-	const (
-		KB = 1024
-		MB = KB * 1024
-		GB = MB * 1024
-	)
-
-	switch {
-	case bytes >= GB:
-		return fmt.Sprintf("%.2f GiB", float64(bytes)/float64(GB))
-	case bytes >= MB:
-		return fmt.Sprintf("%.2f MiB", float64(bytes)/float64(MB))
-	case bytes >= KB:
-		return fmt.Sprintf("%.2f KiB", float64(bytes)/float64(KB))
-	default:
-		return fmt.Sprintf("%d B", bytes)
-	}
+	return util.FormatSize(bytes)
 }
 
 // FormatSizeChange formats a size change with +/- prefix
