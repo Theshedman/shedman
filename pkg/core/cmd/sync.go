@@ -33,7 +33,6 @@ By default, syncs all databases. Use flags to sync specific sources:
   --shedos      Sync ShedOS repository only
   --refresh     Force refresh even if cache exists`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Load configuration
 		configFile, _ := cmd.Flags().GetString("config")
 		cfg, err := config.Load(configFile)
 		if err != nil {
@@ -42,7 +41,6 @@ By default, syncs all databases. Use flags to sync specific sources:
 
 		fsCache := core.NewFileSystemCache()
 
-		// Collect backends based on flags
 		var backendList []core.PackageBackend
 		syncAll := !syncOfficial && !syncAUR && !syncShedOS
 
@@ -85,30 +83,17 @@ By default, syncs all databases. Use flags to sync specific sources:
 			}
 		}
 
-		// Initialize Engine with backends
 		engine := core.NewEngine()
 		verbose, _ := cmd.Flags().GetBool("verbose")
-		// We add backends here. RunSync will trigger sync on them.
 		for _, b := range backendList {
 			engine.AddBackend(b)
 		}
-
-		// Handle Refresh/Force logic?
-		// Engine.Sync() calls Backend.Sync().
-		// If flags imply force, the BACKEND needs that option.
-		// But Backend.Sync() signature is no-args.
-		// Usually 'force' in pacman means passing -yy.
-		// Since we didn't change Backend interface, we assume standard sync.
-		// If refresh logic is needed, it must be supported by backend properties or config?
-		// For now, mirroring existing logic which invoked engine.Sync().
 
 		quiet, _ := cmd.Flags().GetBool("quiet")
 		if quiet {
 			return RunSync(engine, io.Discard)
 		}
 
-		// Verbose output about backends handled by caller or RunSync?
-		// RunSync is simple. We can announce details here or there.
 		if verbose {
 			for _, b := range backendList {
 				cmd.Printf("  Syncing %s...\n", b.Name())
@@ -137,9 +122,5 @@ func init() {
 	SyncCmd.Flags().BoolVar(&syncAUR, "aur", false, "Sync AUR cache only")
 	SyncCmd.Flags().BoolVar(&syncShedOS, "shedos", false, "Sync ShedOS repository only")
 	SyncCmd.Flags().BoolVar(&syncRefresh, "refresh", false, "Force refresh even if cache exists")
-	// Fix flag aliasing: Use separate variable or just remove duplicate bind if cobra handles aliases
-	// Cobra doesn't support aliasing flag names easily.
-	// We bind 'force' to separate var and merge logic if needed, but since Sync options aren't passed,
-	// checking flags inside RunE is fine, or ignoring if logic doesn't support forcing yet.
 	SyncCmd.Flags().BoolVar(&syncForce, "force", false, "Force refresh (alias for --refresh)")
 }

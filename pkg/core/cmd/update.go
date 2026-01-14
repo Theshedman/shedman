@@ -28,20 +28,17 @@ func NewUpdateCmd() *cobra.Command {
 		Long: `Update the system by synchronizing package databases and upgrading installed packages.
 This command is equivalent to 'pacman -Syu' but handles all configured backends (ShedOS, Official, AUR).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Load configuration
 			cfg, err := config.LoadDefault()
 			if err != nil {
 				output.Warning("Failed to load config, using defaults: %v", err)
 				cfg = config.Default()
 			}
 
-			// Initialize Engine
 			eng, err := NewEngineWithConfig(cfg)
 			if err != nil {
 				return fmt.Errorf("failed to initialize engine: %w", err)
 			}
 
-			// Setup options from flags
 			opts := core.UpgradeOptions{
 				Refresh:      false, // We sync manually
 				NoConfirm:    updateYes,
@@ -49,7 +46,6 @@ This command is equivalent to 'pacman -Syu' but handles all configured backends 
 				IgnoreGroups: updateIgnoreGroup,
 			}
 
-			// Handle target backends
 			if updateShedOS {
 				opts.TargetBackends = append(opts.TargetBackends, "shedrepo")
 			}
@@ -60,7 +56,6 @@ This command is equivalent to 'pacman -Syu' but handles all configured backends 
 				opts.TargetBackends = append(opts.TargetBackends, "aur")
 			}
 
-			// Execute
 			return RunUpdate(eng, cmd.OutOrStdout(), args, opts)
 		},
 	}
@@ -77,19 +72,13 @@ This command is equivalent to 'pacman -Syu' but handles all configured backends 
 }
 
 // RunUpdate executes the update logic
-// Refactored for TDD: Logic isolated dependencies injected
 func RunUpdate(eng *core.Engine, w io.Writer, pkgs []string, opts core.UpgradeOptions) error {
-	// 1. Sync databases first (Parallel)
-	// Output is handled by engine/backend (which might use global output, ideally should use w)
-	// For now, we print high level status to w.
 	fmt.Fprintln(w, "Synchronizing package databases...")
 
-	// Default SyncOptions. We could expose --refresh flags here too but standard -Syu implies standard sync.
 	if err := eng.Sync(); err != nil {
 		return fmt.Errorf("sync failed: %w", err)
 	}
 
-	// 2. Perform Upgrade (Sequential/Atomic)
 	fmt.Fprintln(w, "Starting full system upgrade...")
 
 	if err := eng.Upgrade(pkgs, opts); err != nil {
@@ -97,7 +86,4 @@ func RunUpdate(eng *core.Engine, w io.Writer, pkgs []string, opts core.UpgradeOp
 	}
 
 	return nil
-}
-
-func init() {
 }

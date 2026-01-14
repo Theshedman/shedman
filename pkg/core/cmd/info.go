@@ -24,20 +24,17 @@ func NewInfoCmd() *cobra.Command {
 		Long:  `Display detailed information about a package from configured repositories or installed packages.`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Load configuration
 			cfg, err := config.LoadDefault()
 			if err != nil {
 				output.Warning("Failed to load config, using defaults: %v", err)
 				cfg = config.Default()
 			}
 
-			// Initialize Engine
 			eng, err := NewEngineWithConfig(cfg)
 			if err != nil {
 				return fmt.Errorf("failed to initialize engine: %w", err)
 			}
 
-			// Execute
 			return RunInfo(eng, cmd.OutOrStdout(), args[0], infoJSON)
 		},
 	}
@@ -50,21 +47,17 @@ func NewInfoCmd() *cobra.Command {
 
 // RunInfo executes the info logic
 func RunInfo(eng *core.Engine, w io.Writer, pkgName string, asJson bool) error {
-	// Query Engine for Info
 	info, err := eng.Info(pkgName)
 	if err != nil {
 		return fmt.Errorf("failed to get info for %s: %w", pkgName, err)
 	}
 
 	if asJson {
-		// Create encoder that writes to w
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		return enc.Encode(info)
 	}
 
-	// Render Text Output to Writer
-	// Mimic output.PrintInfoKV to writing to w.
 	printKV(w, "Name", info.Name)
 	printKV(w, "Version", info.Version)
 	printKV(w, "Description", info.Description)
@@ -96,7 +89,4 @@ func printKV(w io.Writer, key string, value string) {
 	}
 	// Align keys: assume max key length ~15
 	fmt.Fprintf(w, "%-15s : %s\n", key, value)
-}
-
-func init() {
 }

@@ -24,8 +24,6 @@ var (
 	searchLimit     int
 )
 
-// SearchResult holds a search result with source information
-// Copied from original logic (kept local as view model)
 type SearchResult struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"`
@@ -66,7 +64,6 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
 
-		// Load configuration
 		cfg, err := config.LoadDefault()
 		if err != nil {
 			output.Warning("Failed to load config: %v", err)
@@ -75,18 +72,13 @@ Examples:
 
 		fsCache := core.NewFileSystemCache()
 
-		// Initialize Engine with all relevant backends
-		// Note: SearchCmd logic determines WHICH backends are added to the engine
-		// similar to SyncCmd. RunSearch will then search available backends.
 		engine := core.NewEngine()
 
 		searchAll := !searchOfficial && !searchAUR && !searchShedOS && !searchInstalled
 
-		// Setup Backends
-		var officialBackend core.OfficialBackend // needed for extra checks
+		var officialBackend core.OfficialBackend
 		if searchAll || searchOfficial || searchInstalled || searchAUR {
-			// Always need official backend for installed checks or searching official
-			ob, err := DetectBackendWithConfig(&cfg.Backend) // Uses core helper
+			ob, err := DetectBackendWithConfig(&cfg.Backend)
 			if err != nil {
 				if searchOfficial {
 					output.Warning("Official backend not available: %v", err)
@@ -135,13 +127,10 @@ Examples:
 // RunSearch executes the search logic
 func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) error {
 
-	// Helper for official backend detection
-
 	var results []SearchResult
 
 	aggregated := make([]core.PackageInfo, 0)
 
-	// Search Configured Backends
 	pkgs, err := eng.Search(query)
 	if err == nil {
 		aggregated = append(aggregated, pkgs...)
@@ -157,8 +146,6 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 		aggregated = installedOnly
 	}
 
-	// Check installed status
-
 	for _, p := range aggregated {
 		isInstalled := eng.IsInstalled(p.Name)
 		results = append(results, SearchResult{
@@ -170,7 +157,6 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 		})
 	}
 
-	// Limit
 	if opts.Limit > 0 && len(results) > opts.Limit {
 		results = results[:opts.Limit]
 	}
@@ -184,7 +170,6 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 		return nil // Or error?
 	}
 
-	// Output
 	if opts.JSON {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
@@ -193,8 +178,6 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 
 	// Text Output
 	for _, r := range results {
-		// Format: 📦 name         version    [source]
-		// Mimic outputFormatted
 		name := fmt.Sprintf("%-20s", r.Name)
 		version := fmt.Sprintf("%-12s", r.Version)
 		source := fmt.Sprintf("[%s]", r.Source)
