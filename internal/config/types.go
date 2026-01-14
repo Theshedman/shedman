@@ -58,11 +58,12 @@ type BootConfig struct {
 
 // SnapshotConfig holds snapshot and backup settings
 type SnapshotConfig struct {
-	AutoBeforeUpdate bool   `toml:"auto_before_update"`
-	KeepLocal        int    `toml:"keep_local"`
-	DefaultRemote    string `toml:"default_remote"`
-	Backend          string `toml:"backend"` // "auto", "snapper", "timeshift", "rsync"
-	Encrypt          bool   `toml:"encrypt"`
+	AutoBeforeUpdate bool                    `toml:"auto_before_update"`
+	KeepLocal        int                     `toml:"keep_local"`
+	DefaultRemote    string                  `toml:"default_remote"`
+	Backend          string                  `toml:"backend"` // "auto", "snapper", "timeshift", "rsync"
+	Encrypt          bool                    `toml:"encrypt"`
+	Remotes          map[string]RemoteConfig `toml:"remotes"`
 
 	// Scheduling
 	Scheduled     bool   `toml:"scheduled"`      // Guide key: scheduled
@@ -150,4 +151,12 @@ type BackendConfig struct {
 	AutoDetect bool   `toml:"auto_detect"` // Auto-detect the system package manager
 	Override   string `toml:"override"`    // Force specific backend: "pacman"
 	BinaryPath string `toml:"binary_path"` // Custom path to package manager binary
+}
+
+// RemoteConfig holds settings for a remote target
+type RemoteConfig struct {
+	Type     string `toml:"type"`     // "s3", "rclone", "usb", "ssh"
+	Path     string `toml:"path"`     // Bucket URL or path
+	Region   string `toml:"region"`   // Optional
+	Endpoint string `toml:"endpoint"` // Optional
 }
