@@ -2,25 +2,107 @@ package snapshot
 
 import "time"
 
-// Snapshot represents a system snapshot
+// Snapshot represents a single system snapshot
 type Snapshot struct {
-	ID          string    `json:"id"`
-	Description string    `json:"description"`
-	Timestamp   time.Time `json:"timestamp"`
-	Type        string    `json:"type"` // "pre", "post", "manual"
-	Path        string    `json:"path"`
-}
-
-// CreateOptions holds options for creating a snapshot
-type CreateOptions struct {
+	ID          string // Unique ID (e.g., timestamp or subvol ID)
+	Timestamp   time.Time
 	Description string
-	Type        string
-	IncludeHome bool
+	Type        string   // "pre", "post", "manual", "scheduled"
+	Path        string   // Local path (e.g. /.snapshots/1)
+	Backend     string   // "snapper", "timeshift", "rsync"
+	Size        int64    // Size in bytes
+	Tags        []string // "cloud-synced", "encrypted"
 }
 
-// RestoreOptions holds options for restoring a snapshot
+// CreateOptions options for creating a snapshot
+type CreateOptions struct {
+	IncludeHome bool
+	Type        string
+	Tags        []string
+}
+
+// ListOptions options for listing snapshots
+type ListOptions struct {
+	Remote bool
+}
+
+// RestoreOptions options for restoring
 type RestoreOptions struct {
-	Force  bool
-	Backup bool // Create a backup of current state before restore
-	Verify bool
+	PackagesOnly bool
+	ConfigsOnly  bool
+	HomeOnly     bool
+}
+
+// PruneOptions options for pruning
+type PruneOptions struct {
+	OlderThan     time.Duration
+	KeepLast      int
+	KeepScheduled int
+}
+
+// DiffResult holds the result of diffing two snapshots.
+// This is a placeholder for now, actual implementation may vary.
+type DiffResult struct {
+	Added    []string
+	Removed  []string
+	Modified []string
+}
+
+// RemoteTarget represents a remote storage location
+type RemoteTarget struct {
+	Name string // "gdrive", "r2", "s3", "usb"
+	Path string // specific path or bucket
+}
+
+// Manager defines the core snapshot operations
+type Manager interface {
+	// CRUD
+	Create(desc string, opts CreateOptions) (*Snapshot, error)
+	List(opts ListOptions) ([]Snapshot, error)
+	Delete(id string) error
+	Restore(id string, opts RestoreOptions) error
+	Prune(opts PruneOptions) error
+
+	// Remote Capabilities
+	Push(id string, target RemoteTarget) error
+	Pull(id string, source RemoteTarget) error
+
+	// Comparison
+	Diff(id1, id2 string) (DiffResult, error)
+
+	// Backend Info
+	GetBackendName() string
+}
+
+// ScheduleStatus represents the status of the scheduler
+type ScheduleStatus struct {
+	Enabled   bool
+	NextRun   time.Time
+	LastRun   time.Time
+	Frequency string
+}
+
+// Scheduler defines automation operations
+type Scheduler interface {
+	Enable() error
+	Disable() error
+	Status() (ScheduleStatus, error)
+	RunNow() error
+}
+
+// Key represents an encryption key
+type Key struct {
+	ID          string
+	Description string
+	Created     time.Time
+	Fingerprint string
+}
+
+// KeyManager defines encryption key operations
+type KeyManager interface {
+	Generate(desc string) (string, error)
+	Export(id string, path string) error
+	Import(path string) error
+	List() ([]Key, error)
+	Delete(id string) error
 }

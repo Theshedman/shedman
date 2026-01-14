@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/snapshot"
 )
 
 // Engine orchestrates package management operations across multiple backends.
@@ -14,6 +15,9 @@ type Engine struct {
 	backends        []PackageBackend
 	officialBackend OfficialBackend
 	config          *config.Config
+	snapshotManager snapshot.Manager
+	scheduler       snapshot.Scheduler
+	keyManager      snapshot.KeyManager
 }
 
 // NewEngine creates a new Engine with no backends configured.
@@ -58,6 +62,36 @@ func (e *Engine) SetOfficialBackend(b OfficialBackend) {
 		}
 	}
 	e.backends = append(e.backends, b)
+}
+
+// SetSnapshotManager sets the snapshot manager.
+func (e *Engine) SetSnapshotManager(sm snapshot.Manager) {
+	e.snapshotManager = sm
+}
+
+// GetSnapshotManager returns the snapshot manager.
+func (e *Engine) GetSnapshotManager() snapshot.Manager {
+	return e.snapshotManager
+}
+
+// SetScheduler sets the snapshot scheduler.
+func (e *Engine) SetScheduler(s snapshot.Scheduler) {
+	e.scheduler = s
+}
+
+// GetScheduler returns the snapshot scheduler.
+func (e *Engine) GetScheduler() snapshot.Scheduler {
+	return e.scheduler
+}
+
+// SetKeyManager sets the snapshot key manager.
+func (e *Engine) SetKeyManager(km snapshot.KeyManager) {
+	e.keyManager = km
+}
+
+// GetKeyManager returns the snapshot key manager.
+func (e *Engine) GetKeyManager() snapshot.KeyManager {
+	return e.keyManager
 }
 
 // GetConfig returns the engine's configuration.
