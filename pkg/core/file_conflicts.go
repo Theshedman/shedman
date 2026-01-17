@@ -79,7 +79,6 @@ func (fc *FileConflictChecker) CheckConflicts() []FileConflict {
 	// Check for ownership conflicts (two packages own same file)
 	for file, packages := range fc.fileOwners {
 		if len(packages) > 1 {
-			// Check if overwrite pattern allows this
 			if fc.isOverwriteAllowed(file) {
 				continue
 			}
@@ -102,7 +101,6 @@ func (fc *FileConflictChecker) CheckConflicts() []FileConflict {
 			continue
 		}
 
-		// Check if any package wants to install to this path
 		if packages, exists := fc.fileOwners[path]; exists && len(packages) > 0 {
 			// Check if overwrite pattern allows this
 			if fc.isOverwriteAllowed(path) {

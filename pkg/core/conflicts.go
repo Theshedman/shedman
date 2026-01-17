@@ -3,7 +3,6 @@ package core
 import (
 	"errors"
 	"fmt"
-
 )
 
 // ConflictSeverity represents how severe a conflict is
@@ -105,7 +104,6 @@ func (cd *ConflictDetector) detectConflicts(packages []string, installedPackages
 	pkgInfos := make(map[string]*PackageInfo)
 	provides := make(map[string]string) // provided name -> package that provides it
 
-	// Load package info for new packages
 	for _, name := range packages {
 		info, _ := cd.db.GetInfo(name)
 		if info != nil {
@@ -113,7 +111,6 @@ func (cd *ConflictDetector) detectConflicts(packages []string, installedPackages
 		}
 	}
 
-	// Load info for installed packages if provided
 	installedInfos := make(map[string]*PackageInfo)
 	if cd.installedDB != nil && len(installedPackages) > 0 {
 		for _, name := range installedPackages {
@@ -124,22 +121,18 @@ func (cd *ConflictDetector) detectConflicts(packages []string, installedPackages
 		}
 	}
 
-	// Check for conflicts among new packages
 	for _, name := range packages {
 		info := pkgInfos[name]
 		if info == nil {
 			continue
 		}
 
-		// Check explicit conflicts
 		for _, conflictSpec := range info.Conflicts {
 			// Parse version constraint from conflict spec
 			conflictReq := ParseRequest(conflictSpec)
 			conflictName := conflictReq.Name
 
-			// Check against other new packages
 			if targetInfo, exists := pkgInfos[conflictName]; exists {
-				// Check version constraint if specified
 				if conflictReq.Version != "" && conflictReq.Operator != "" {
 					if !MatchesVersionConstraint(targetInfo.Version, conflictReq.Version, conflictReq.Operator) {
 						continue // Version doesn't match, no conflict
@@ -154,7 +147,6 @@ func (cd *ConflictDetector) detectConflicts(packages []string, installedPackages
 				})
 			}
 
-			// Check against installed packages
 			if targetInfo, exists := installedInfos[conflictName]; exists {
 				if conflictReq.Version != "" && conflictReq.Operator != "" {
 					if !MatchesVersionConstraint(targetInfo.Version, conflictReq.Version, conflictReq.Operator) {
@@ -171,7 +163,6 @@ func (cd *ConflictDetector) detectConflicts(packages []string, installedPackages
 			}
 		}
 
-		// Track provides and check for conflicts
 		for _, prov := range info.Provides {
 			// Parse provides (may have version like "name=1.0")
 			provReq := ParseRequest(prov)
@@ -191,7 +182,6 @@ func (cd *ConflictDetector) detectConflicts(packages []string, installedPackages
 		}
 	}
 
-	// Check if installed packages conflict with new packages
 	for instName, instInfo := range installedInfos {
 		for _, conflictSpec := range instInfo.Conflicts {
 			conflictReq := ParseRequest(conflictSpec)

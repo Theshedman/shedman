@@ -94,6 +94,11 @@ func (e *Engine) GetKeyManager() snapshot.KeyManager {
 	return e.keyManager
 }
 
+// SetConfig sets the engine's configuration.
+func (e *Engine) SetConfig(cfg *config.Config) {
+	e.config = cfg
+}
+
 // GetConfig returns the engine's configuration.
 func (e *Engine) GetConfig() *config.Config {
 	return e.config
@@ -138,7 +143,6 @@ func (e *Engine) Install(pkgs []string, opts InstallOptions) error {
 	if e.officialBackend == nil {
 		return ErrBackendNotFound
 	}
-	// Check if backend supports package management
 	pm, ok := e.officialBackend.(PackageManager)
 	if !ok {
 		return fmt.Errorf("backend %s does not support package management", e.officialBackend.Name())
@@ -152,7 +156,6 @@ func (e *Engine) InstallFile(path string, opts InstallOptions) error {
 		return ErrBackendNotFound
 	}
 
-	// Check if backend supports local package installation
 	installer, ok := e.officialBackend.(LocalInstaller)
 	if !ok {
 		return fmt.Errorf("backend %s does not support local package installation", e.officialBackend.Name())
@@ -166,7 +169,6 @@ func (e *Engine) Remove(pkgs []string, opts RemoveOptions) error {
 	if e.officialBackend == nil {
 		return ErrBackendNotFound
 	}
-	// Check if backend supports package removal
 	pm, ok := e.officialBackend.(PackageManager)
 	if !ok {
 		return fmt.Errorf("backend %s does not support package removal", e.officialBackend.Name())
@@ -183,7 +185,6 @@ func (e *Engine) Upgrade(pkgs []string, opts UpgradeOptions) error {
 
 	// Iterate all backends
 	for _, b := range e.backends {
-		// Check if backend is targeted
 		if len(opts.TargetBackends) > 0 {
 			targeted := false
 			for _, target := range opts.TargetBackends {
@@ -197,7 +198,7 @@ func (e *Engine) Upgrade(pkgs []string, opts UpgradeOptions) error {
 			}
 		}
 
-		// Check if backend supports Upgrading via interface assertion
+		// Define Upgrader interface locally for type assertion
 		type Upgrader interface {
 			Upgrade(pkgs []string, opts UpgradeOptions) error
 		}
@@ -230,7 +231,6 @@ func (e *Engine) IsInstalled(name string) bool {
 	if e.officialBackend == nil {
 		return false
 	}
-	// Check if backend supports package checking
 	pm, ok := e.officialBackend.(PackageManager)
 	if !ok {
 		return false
@@ -278,7 +278,6 @@ func (e *Engine) Search(query string) ([]PackageInfo, error) {
 		go func(backend PackageBackend) {
 			defer wg.Done()
 
-			// Check if backend supports searching
 			searchable, ok := backend.(Searchable)
 			if !ok {
 				return

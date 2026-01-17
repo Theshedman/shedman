@@ -115,6 +115,17 @@ func readConfirmInput(defaultVal bool) bool {
 	return input == "y" || input == "yes"
 }
 
+// ReadInput prompts the user for string input
+func ReadInput(prompt string) (string, error) {
+	fmt.Print(Colorize(Bold, prompt))
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(input), nil
+}
+
 // confirmWithTimeout handles confirmation with a timeout
 // Uses context for proper cancellation and cleanup
 func confirmWithTimeout(opts ConfirmOptions) bool {

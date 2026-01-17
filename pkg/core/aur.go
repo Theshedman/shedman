@@ -27,7 +27,7 @@ type AURInstaller struct {
 }
 
 // NewAURInstallerWithBackend creates a new AURInstaller with explicit backend injection
-// This is the preferred constructor for production use and testing
+// NewAURInstallerWithBackend creates a new AURInstaller with explicit backend injection
 func NewAURInstallerWithBackend(cfg *config.Config, b OfficialBackend) *AURInstaller {
 	cacheDir := cfg.AUR.BuildDir
 	if cacheDir == "" {
@@ -128,10 +128,8 @@ func (a *AURInstaller) GetPKGBUILD(pkgName string) (string, error) {
 func (a *AURInstaller) GetPKGBUILDDiff(pkgName string) (string, error) {
 	pkgDir := filepath.Join(a.cacheDir, pkgName)
 
-	// Check if we can get a diff (needs at least 2 commits)
 	cmd := exec.Command("git", "-C", pkgDir, "rev-parse", "HEAD~1")
 	if err := cmd.Run(); err != nil {
-		// No previous commit, return full PKGBUILD instead
 		return a.GetPKGBUILD(pkgName)
 	}
 
@@ -255,7 +253,6 @@ func (a *AURInstaller) Install(pkgName string, opts AUROptions) error {
 		return err
 	}
 
-	// Backend is required - no fallback to pacman binary
 	if a.backend == nil {
 		return fmt.Errorf("no backend available for package installation")
 	}
@@ -320,29 +317,24 @@ func (a *AURInstaller) Clean(pkgName string) error {
 
 // InstallFull performs the complete AUR installation workflow
 func (a *AURInstaller) InstallFull(pkgName string, opts AUROptions) error {
-	// 1. Clone or update repository
 	if err := a.Clone(pkgName); err != nil {
 		return fmt.Errorf("clone failed: %w", err)
 	}
 
-	// 2. Verify checksums if enabled
 	if opts.VerifyChecksums {
 		if err := a.VerifyChecksums(pkgName); err != nil {
 			return fmt.Errorf("checksum verification failed: %w", err)
 		}
 	}
 
-	// 3. Build the package
 	if err := a.Build(pkgName); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
-	// 4. Install the package
 	if err := a.Install(pkgName, opts); err != nil {
 		return fmt.Errorf("install failed: %w", err)
 	}
 
-	// 5. Clean if enabled
 	if a.cleanAfterBuild {
 		if err := a.Clean(pkgName); err != nil {
 			// Don't fail on cleanup errors, just log
@@ -386,12 +378,6 @@ func (a *AURInstaller) GetInstalledVersion(pkgName string) (string, error) {
 		return "", fmt.Errorf("no backend available")
 	}
 
-	// Check if installed via backend
-	if !a.backend.IsInstalled(pkgName) {
-		return "", nil // Not installed
-	}
-
-	// Get package info to retrieve version
 	info, err := a.backend.Info(pkgName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get package info: %w", err)

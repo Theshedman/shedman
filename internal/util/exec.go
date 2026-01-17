@@ -28,3 +28,8 @@ func (e *RealExecutor) Output(name string, args ...string) ([]byte, error) {
 	}
 	return out, nil
 }
+
+// Command creates an exec.Cmd object (helper for interactive use).
+func (e *RealExecutor) Command(name string, args ...string) *exec.Cmd {
+	return exec.Command(name, args...)
+}

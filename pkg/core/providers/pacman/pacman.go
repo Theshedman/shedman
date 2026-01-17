@@ -412,7 +412,6 @@ func (b *Backend) CleanCache(opts core.CleanOptions) error {
 
 // ListOrphans lists orphaned packages
 func (b *Backend) ListOrphans() ([]string, error) {
-	// -Qdtq: Query Deps(Orphans) Quiet
 	output, err := b.executor.Output(b.binaryPath, "-Qdtq")
 	if err != nil {
 		// pacman returns exit code 1 if no orphans found
@@ -651,12 +650,10 @@ func (b *Backend) ListExplicitPackages() ([]string, error) {
 
 // Audit checks for security vulnerabilities using arch-audit.
 func (b *Backend) Audit() ([]string, error) {
-	// Check if arch-audit is available
 	if _, err := exec.LookPath("arch-audit"); err != nil {
 		return nil, fmt.Errorf("arch-audit not found: please install 'arch-audit' to use this feature")
 	}
 
-	// Run arch-audit
 	output, err := b.executor.Output("arch-audit")
 	// arch-audit exits non-zero if vulnerabilities found
 	// Man page says: "Returns 0 if no vulnerable packages found, >0 otherwise."
@@ -682,7 +679,6 @@ func (b *Backend) Audit() ([]string, error) {
 
 // Diff returns pending update differences.
 func (b *Backend) Diff() ([]core.PackageDiff, error) {
-	// 1. Get updates (pacman -Qu)
 	output, err := b.executor.Output(b.binaryPath, "-Qu")
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
@@ -693,8 +689,6 @@ func (b *Backend) Diff() ([]core.PackageDiff, error) {
 
 	lines := strings.Split(string(output), "\n")
 	var diffs []core.PackageDiff
-
-	// 2. Get CVEs map
 	cveMap := make(map[string][]string)
 	if _, err := exec.LookPath("arch-audit"); err == nil {
 		// Use -f for machine readable output
@@ -736,7 +730,6 @@ func (b *Backend) Diff() ([]core.PackageDiff, error) {
 				CVEs:       cveMap[name],
 			}
 
-			// Get sizes
 			if out, err := b.executor.Output(b.binaryPath, "-Si", name); err == nil {
 				d.DownloadSize = parsePacmanSize(string(out), "Download Size")
 				newInstalledSize := parsePacmanSize(string(out), "Installed Size")
@@ -747,7 +740,6 @@ func (b *Backend) Diff() ([]core.PackageDiff, error) {
 				}
 			}
 
-			// Check Pacnew potential (backup file modified)
 			if out, err := b.executor.Output(b.binaryPath, "-Qii", name); err == nil {
 				if strings.Contains(string(out), "MODIFIED") {
 					d.Pacnew = true

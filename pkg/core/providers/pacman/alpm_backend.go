@@ -133,7 +133,6 @@ func (b *AlpmBackend) Search(query string) ([]core.PackageInfo, error) {
 
 // Info returns detailed information about a package.
 func (b *AlpmBackend) Info(pkgName string) (*core.PackageInfo, error) {
-	// Check sync databases first
 	syncDbs := b.handle.SyncDbs()
 	if syncDbs != nil {
 		var found *core.PackageInfo
@@ -257,7 +256,6 @@ func (b *AlpmBackend) Install(pkgs []string, opts core.InstallOptions) error {
 
 		addedCount := 0
 		for _, pkgName := range pkgs {
-			// Check if package is ignored
 			if b.handle.IsIgnored(pkgName) {
 				fmt.Printf("Warning: %s is in IgnorePkg, skipping\n", pkgName)
 				continue
@@ -382,7 +380,6 @@ func (b *AlpmBackend) addSpecificPackagesToUpgrade(pkgs []string, opts core.Upgr
 			}
 			pkg := db.Pkg(pkgName)
 			if pkg != nil {
-				// Check if --needed and already up-to-date
 				if opts.Needed && localDb != nil {
 					localPkg := localDb.Pkg(pkgName)
 					if localPkg != nil && libalpm.VerCmp(pkg.Version(), localPkg.Version()) <= 0 {
@@ -429,7 +426,6 @@ func (b *AlpmBackend) addAllPackagesForUpgrade() (int, error) {
 				return nil
 			}
 
-			// Check for newer version in sync DBs
 			syncDbs.ForEach(func(db alpm.AlpmDB) error {
 				syncPkg := db.Pkg(localPkg.Name())
 				if syncPkg != nil && libalpm.VerCmp(syncPkg.Version(), localPkg.Version()) > 0 {
@@ -449,41 +445,6 @@ func (b *AlpmBackend) addAllPackagesForUpgrade() (int, error) {
 	return upgradeCount, nil
 }
 
-// // InstallLocal installs a local package file by converting to .shed format.
-// // Supports .pkg.tar.zst, .pkg.tar.xz, .pkg.tar.gz, and .shed formats.
-//
-//	func (b *AlpmBackend) InstallLocal(path string, opts core.InstallOptions) error {
-//		// Detect package format
-//		format := convert.DetectPackageFormat(path)
-//
-//		var shedPath string
-//		var err error
-//
-//		switch format {
-//		case "shed":
-//			// Already .shed format, use directly
-//			shedPath = path
-//
-//		case "pacman-zst", "pacman-xz", "pacman-gz":
-//			// Convert pacman package to .shed format
-//			converter := convert.NewPackageConverter()
-//			shedPath, err = converter.ConvertPacmanToShed(path)
-//			if err != nil {
-//				return fmt.Errorf("failed to convert package: %w", err)
-//			}
-//
-//		default:
-//			return fmt.Errorf("unsupported package format: %s", format)
-//		}
-//
-//		// Install the .shed package
-//		if err := convert.InstallShed(shedPath); err != nil {
-//			return fmt.Errorf("shed installation failed: %w", err)
-//		}
-//
-//		return nil
-//	}
-//
 // GetFileOwner returns the owner of a file (via pacman -Qoq)
 func (b *AlpmBackend) GetFileOwner(path string) (string, error) {
 	output, err := b.executor.Output("pacman", "-Qoq", path)
@@ -772,12 +733,10 @@ func (b *AlpmBackend) ListExplicitPackages() ([]string, error) {
 
 // Audit checks for security vulnerabilities.
 func (b *AlpmBackend) Audit() ([]string, error) {
-	// Check if arch-audit is available
 	if _, err := exec.LookPath("arch-audit"); err != nil {
 		return nil, fmt.Errorf("arch-audit not found: please install 'arch-audit' to use this feature")
 	}
 
-	// Run arch-audit
 	output, err := b.executor.Output("arch-audit")
 	// arch-audit exits non-zero if vulnerabilities found
 	outStr := string(output)
@@ -793,7 +752,6 @@ func (b *AlpmBackend) Audit() ([]string, error) {
 			result = append(result, trimmed)
 		}
 	}
-	return result, nil
 	return result, nil
 }
 
