@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/theshedman/shedman/internal/util"
 )
 
 // PacmanConf represents parsed pacman.conf configuration
@@ -214,6 +216,6 @@ func (c *PacmanConf) GetMirrorsForRepo(repoName string) []string {
 // GetLogPath returns the log file path, ensuring parent directory exists
 func (c *PacmanConf) GetLogPath() string {
 	dir := filepath.Dir(c.LogFile)
-	os.MkdirAll(dir, 0755)
+	os.MkdirAll(dir, util.DirPermissions)
 	return c.LogFile
 }

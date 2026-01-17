@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/util"
 )
 
 func TestConfig_Default(t *testing.T) {
@@ -36,7 +37,7 @@ func TestConfig_Default(t *testing.T) {
 func TestConfig_Load_FromFile(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-config-test")
 	defer os.RemoveAll(tmpDir)
-	os.MkdirAll(tmpDir, 0755)
+	os.MkdirAll(tmpDir, util.DirPermissions)
 
 	configPath := filepath.Join(tmpDir, "config.toml")
 	configContent := `
@@ -49,7 +50,7 @@ max_age = "2h"
 [network]
 parallel_downloads = 10
 `
-	os.WriteFile(configPath, []byte(configContent), 0644)
+	os.WriteFile(configPath, []byte(configContent), util.FilePermissions)
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -73,7 +74,7 @@ parallel_downloads = 10
 func TestConfig_Load_SnapshotKeys(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-snapshot-test")
 	defer os.RemoveAll(tmpDir)
-	os.MkdirAll(tmpDir, 0755)
+	os.MkdirAll(tmpDir, util.DirPermissions)
 
 	configPath := filepath.Join(tmpDir, "config.toml")
 	configContent := `
@@ -84,7 +85,7 @@ keep_scheduled = 5
 auto_push = true
 auto_push_remote = "r2"
 `
-	os.WriteFile(configPath, []byte(configContent), 0644)
+	os.WriteFile(configPath, []byte(configContent), util.FilePermissions)
 
 	cfg, err := config.Load(configPath)
 	if err != nil {

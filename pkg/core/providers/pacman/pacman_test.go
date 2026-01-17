@@ -1,7 +1,10 @@
 package pacman
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"os/exec"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -41,7 +44,15 @@ func (m *MockExecutor) Output(name string, args ...string) ([]byte, error) {
 	if m.OutputFunc != nil {
 		return m.OutputFunc(name, args...)
 	}
-	return []byte{}, nil
+	return nil, fmt.Errorf("unexpected command: %s %v", name, args)
+}
+
+func (m *MockExecutor) Command(name string, args ...string) *exec.Cmd {
+	return exec.Command(name, args...)
+}
+
+func (m *MockExecutor) CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, name, args...)
 }
 
 func TestBackend_Name(t *testing.T) {

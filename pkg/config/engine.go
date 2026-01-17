@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/theshedman/shedman/internal/util"
 )
 
 // ConfigEngine manages configuration application logic
@@ -102,9 +104,10 @@ func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
 
 	case ActionCopy:
 		// Fresh install. Ensure dir exists.
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(targetPath), util.DirPermissions); err != nil {
 			return fmt.Errorf("mkdir failed: %w", err)
 		}
+
 		if err := e.copyFile(sourcePath, targetPath); err != nil {
 			return fmt.Errorf("install copy failed: %w", err)
 		}
@@ -182,7 +185,7 @@ func (e *ConfigEngine) copyFile(src, dst string) error {
 	defer in.Close()
 
 	// Determined target metadata
-	mode := os.FileMode(0644)
+	mode := os.FileMode(util.FilePermissions)
 	uid, gid := os.Getuid(), os.Getgid() // Default to current user
 
 	// If destination exists, preserve its metadata

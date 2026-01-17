@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/theshedman/shedman/internal/util"
 )
 
 // JSONStateManager implements StateManager using a JSON file
@@ -66,13 +68,13 @@ func (m *JSONStateManager) Save() error {
 
 	// Ensure directory exists
 	dir := filepath.Dir(m.path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, util.DirPermissions); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
 	// Atomic write: write to temp file then rename
 	tmpFile := m.path + ".tmp"
-	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
+	if err := os.WriteFile(tmpFile, data, util.FilePermissions); err != nil {
 		return fmt.Errorf("failed to write tmporary state file: %w", err)
 	}
 

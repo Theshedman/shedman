@@ -5,20 +5,22 @@ import (
 
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/util"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 // Factory creates snapshot managers based on config and system state
 type Factory struct {
 	cfg  *config.Config
-	exec util.Executor
+	exec executor.Executor
 }
 
 // NewFactory creates a new snapshot factory
 func NewFactory(cfg *config.Config) *Factory {
 	return &Factory{
 		cfg:  cfg,
-		exec: &util.RealExecutor{},
+		exec: &executor.RealExecutor{},
 	}
+
 }
 
 // GetScheduler returns a configured scheduler
@@ -32,11 +34,12 @@ func (f *Factory) GetKeyManager() (KeyManager, error) {
 }
 
 // NewFactoryWithExecutor creates a factory with custom executor for testing
-func NewFactoryWithExecutor(cfg *config.Config, executor util.Executor) *Factory {
+func NewFactoryWithExecutor(cfg *config.Config, executor executor.Executor) *Factory {
 	return &Factory{
 		cfg:  cfg,
 		exec: executor,
 	}
+
 }
 
 // GetManager returns the appropriate SnapshotManager

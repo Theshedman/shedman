@@ -6,16 +6,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/theshedman/shedman/internal/util"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 // GPGKeyManager implements KeyManager using GPG
 type GPGKeyManager struct {
-	exec util.Executor
+	exec executor.Executor
 }
 
 // NewGPGKeyManager creates a new key manager
-func NewGPGKeyManager(exec util.Executor) *GPGKeyManager {
+func NewGPGKeyManager(exec executor.Executor) *GPGKeyManager {
 	return &GPGKeyManager{exec: exec}
 }
 

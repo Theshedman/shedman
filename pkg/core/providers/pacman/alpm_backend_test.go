@@ -5,6 +5,7 @@ import (
 
 	libalpm "github.com/Jguer/go-alpm/v2"
 	"github.com/theshedman/shedman/internal/alpm"
+	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -150,7 +151,7 @@ func TestAlpmBackend_GetPackageFiles(t *testing.T) {
 	vimPkg := &alpm.MockAlpmPackage{
 		NameVal:    "vim",
 		VersionVal: "9.0.0",
-		FilesVal:   []libalpm.File{{Name: "/usr/bin/vim", Size: 1024, Mode: 0755}, {Name: "/usr/share/vim/vimrc", Size: 256, Mode: 0644}},
+		FilesVal:   []libalpm.File{{Name: "/usr/bin/vim", Size: 1024, Mode: uint32(util.DirPermissions)}, {Name: "/usr/share/vim/vimrc", Size: 256, Mode: uint32(util.FilePermissions)}},
 	}
 
 	mockLocalDB := &alpm.MockAlpmDB{

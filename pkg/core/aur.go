@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/util"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 const (
@@ -18,7 +20,8 @@ const (
 
 // AURInstaller handles AUR package builds with full security features
 type AURInstaller struct {
-	executor        Executor
+	executor executor.Executor
+
 	cacheDir        string
 	sandboxEnabled  bool
 	cleanAfterBuild bool
@@ -51,7 +54,7 @@ func (a *AURInstaller) GetCacheDir() string {
 }
 
 // SetExecutor sets a custom command executor (for testing)
-func (a *AURInstaller) SetExecutor(exec Executor) {
+func (a *AURInstaller) SetExecutor(exec executor.Executor) {
 	a.executor = exec
 }
 
@@ -97,21 +100,22 @@ func (a *AURInstaller) Clone(pkgName string) error {
 		// but standard AUR mirror config implies base web URL.
 		aurUrl := fmt.Sprintf("%s/%s.git", strings.TrimRight(baseURL, "/"), pkgName)
 
-		if err := os.MkdirAll(a.cacheDir, DirPermissions); err != nil {
+		if err := os.MkdirAll(a.cacheDir, util.DirPermissions); err != nil {
 			return fmt.Errorf("failed to create cache directory: %w", err)
 		}
+
 		cmd := []string{"git", "clone", aurUrl, destDir}
-		return a.executor("", cmd)
+		return Execute(a.executor, "", cmd)
 	}
 
 	// Update: git fetch and reset
 	fetchCmd := []string{"git", "-C", destDir, "fetch", "origin"}
-	if err := a.executor("", fetchCmd); err != nil {
+	if err := Execute(a.executor, "", fetchCmd); err != nil {
 		return err
 	}
 
 	resetCmd := []string{"git", "-C", destDir, "reset", "--hard", "origin/master"}
-	return a.executor("", resetCmd)
+	return Execute(a.executor, "", resetCmd)
 }
 
 // GetPKGBUILD returns the PKGBUILD content for a package
@@ -159,9 +163,10 @@ func (a *AURInstaller) VerifyChecksums(pkgName string) error {
 	// Use executor with dir parameter
 	cmd := []string{"makepkg", "--verifysource"}
 
-	if err := a.executor(pkgDir, cmd); err != nil {
+	if err := Execute(a.executor, pkgDir, cmd); err != nil {
 		return fmt.Errorf("makepkg --verifysource failed: %w", err)
 	}
+
 	return nil
 }
 
@@ -224,7 +229,7 @@ func (a *AURInstaller) buildWithSandbox(pkgDir string) error {
 		"makepkg", "-s", "--noconfirm",
 	)
 
-	return a.executor(pkgDir, cmd)
+	return Execute(a.executor, pkgDir, cmd)
 }
 
 // sandboxPathExists checks if a path exists for sandbox binding
@@ -237,7 +242,8 @@ func sandboxPathExists(path string) bool {
 func (a *AURInstaller) buildWithoutSandbox(pkgDir string) error {
 	cmd := []string{"makepkg", "-s", "--noconfirm"}
 
-	if err := a.executor(pkgDir, cmd); err != nil {
+	if err := Execute(a.executor, pkgDir, cmd); err != nil {
+
 		return fmt.Errorf("makepkg build failed: %w", err)
 	}
 	return nil
@@ -456,12 +462,13 @@ func (a *AURInstaller) FetchPGPKeys(pkgName string) error {
 	// Fetch each key from keyserver
 	for _, key := range keys {
 		cmd := []string{"gpg", "--keyserver", "keyserver.ubuntu.com", "--recv-keys", key}
-		if err := a.executor("", cmd); err != nil {
+		if err := Execute(a.executor, "", cmd); err != nil {
 			// Try another keyserver
 			cmd = []string{"gpg", "--keyserver", "keys.openpgp.org", "--recv-keys", key}
-			if err := a.executor("", cmd); err != nil {
+			if err := Execute(a.executor, "", cmd); err != nil {
 				return fmt.Errorf("failed to fetch PGP key %s: %w", key, err)
 			}
+
 		}
 	}
 

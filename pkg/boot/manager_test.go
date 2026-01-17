@@ -1,7 +1,9 @@
 package boot
 
 import (
+	"context"
 	"fmt"
+	"os/exec"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -56,6 +58,15 @@ func (m *MockExecutor) LookPath(file string) (string, error) {
 		return m.LookPathFunc(file)
 	}
 	return "", fmt.Errorf("not implemented")
+}
+
+// Ensure MockExecutor implements util.Executor
+func (m *MockExecutor) Command(name string, args ...string) *exec.Cmd {
+	return exec.Command(name, args...)
+}
+
+func (m *MockExecutor) CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, name, args...)
 }
 
 func (m *MockExecutor) CombinedOutput(name string, args ...string) ([]byte, error) {

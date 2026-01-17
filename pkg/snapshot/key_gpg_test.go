@@ -1,6 +1,8 @@
 package snapshot
 
 import (
+	"context"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
@@ -13,6 +15,24 @@ type GPGMockExecutor struct {
 	// Or handler function
 	Handler   func(cmd string, args ...string) ([]byte, error)
 	OutputMap map[string]MockOutput
+	// New fields for mocking exec.Cmd behavior
+	OutputFunc         func(name string, args ...string) ([]byte, error)
+	CommandFunc        func(name string, args ...string) *exec.Cmd
+	CommandContextFunc func(ctx context.Context, name string, args ...string) *exec.Cmd
+}
+
+func (m *GPGMockExecutor) Command(name string, args ...string) *exec.Cmd {
+	if m.CommandFunc != nil {
+		return m.CommandFunc(name, args...)
+	}
+	return exec.Command(name, args...)
+}
+
+func (m *GPGMockExecutor) CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	if m.CommandContextFunc != nil {
+		return m.CommandContextFunc(ctx, name, args...)
+	}
+	return exec.CommandContext(ctx, name, args...)
 }
 
 type executionCall struct {
@@ -27,6 +47,10 @@ type MockOutput struct {
 
 func (m *GPGMockExecutor) Output(cmd string, args ...string) ([]byte, error) {
 	m.Calls = append(m.Calls, executionCall{Cmd: cmd, Args: args})
+
+	if m.OutputFunc != nil {
+		return m.OutputFunc(cmd, args...)
+	}
 
 	if m.Handler != nil {
 		return m.Handler(cmd, args...)

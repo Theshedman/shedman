@@ -10,6 +10,7 @@ import (
 
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/util"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 const (
@@ -28,8 +29,9 @@ var safeRestoreExcludes = []string{
 
 // RsyncBackend implements SnapshotManager using custom rsync logic
 type RsyncBackend struct {
-	cfg  *config.Config
-	exec util.Executor
+	cfg *config.Config
+
+	exec executor.Executor
 	root string
 }
 
@@ -39,7 +41,8 @@ func (b *RsyncBackend) SetRoot(path string) {
 }
 
 // NewRsyncBackend creates a new rsync backend
-func NewRsyncBackend(cfg *config.Config, executor util.Executor) *RsyncBackend {
+func NewRsyncBackend(cfg *config.Config, executor executor.Executor) *RsyncBackend {
+
 	root := cfg.Snapshot.Rsync.Storage
 	if root == "" {
 		root = defaultRsyncStorage
@@ -58,7 +61,9 @@ func (b *RsyncBackend) GetBackendName() string {
 
 // Create creates a new snapshot using 'rsync'
 func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error) {
-	if err := os.MkdirAll(b.root, 0755); err != nil {
+	if opts.DryRun {
+		fmt.Println("Dry-run: Creating snapshot directory structure skipped")
+	} else if err := os.MkdirAll(b.root, util.DirPermissions); err != nil {
 		return nil, fmt.Errorf("failed to create snapshot root: %w", err)
 	}
 
@@ -82,6 +87,16 @@ func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error
 	}
 
 	args = append(args, "/", snapPath)
+
+	if opts.DryRun {
+		fmt.Printf("Dry-run: %s %v\n", "rsync", args)
+		return &Snapshot{
+			ID:          "dry-run",
+			Description: desc,
+			Timestamp:   ts,
+			Backend:     "rsync",
+		}, nil
+	}
 
 	_, err := b.exec.Output("rsync", args...)
 	if err != nil {
@@ -177,6 +192,10 @@ func (b *RsyncBackend) Restore(id string, opts RestoreOptions) error {
 	args = append(args, snapPath+"/", "/")
 
 	fmt.Printf("Restoring snapshot %s to /\n", id)
+	if opts.DryRun {
+		fmt.Printf("Dry-run: %s %v\n", "rsync", args)
+		return nil
+	}
 	_, err := b.exec.Output("rsync", args...)
 	return err
 }
@@ -220,13 +239,16 @@ func (b *RsyncBackend) Push(id string, target RemoteTarget, opts RemoteOptions) 
 
 	fullCmd := util.GetPrivilegedRcloneCommand(args)
 	fmt.Printf("Executing: %s\n", strings.Join(fullCmd, " "))
+	if opts.DryRun {
+		return nil
+	}
 	_, err := b.exec.Output(fullCmd[0], fullCmd[1:]...)
 	return err
 }
 
 func (b *RsyncBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error {
 	snapPath := filepath.Join(b.root, id)
-	if err := os.MkdirAll(snapPath, 0755); err != nil {
+	if err := os.MkdirAll(snapPath, util.DirPermissions); err != nil {
 		return fmt.Errorf("failed to create snapshot dir: %w", err)
 	}
 
@@ -245,6 +267,9 @@ func (b *RsyncBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) 
 
 	fullCmd := util.GetPrivilegedRcloneCommand(args)
 	fmt.Printf("Executing: %s\n", strings.Join(fullCmd, " "))
+	if opts.DryRun {
+		return nil
+	}
 	_, err := b.exec.Output(fullCmd[0], fullCmd[1:]...)
 	return err
 }

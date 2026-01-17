@@ -4,12 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 func GetPrivilegedRcloneCommand(args []string) []string {
 	if os.Geteuid() != 0 {
-		out, err := (&RealExecutor{}).Output("rclone", "config", "file")
+		out, err := (&executor.RealExecutor{}).Output("rclone", "config", "file")
 		if err == nil {
+
 			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 			if len(lines) > 0 {
 				configPath := strings.TrimSpace(lines[len(lines)-1])

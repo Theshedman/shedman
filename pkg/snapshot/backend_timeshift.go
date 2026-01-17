@@ -9,16 +9,19 @@ import (
 
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/util"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 // TimeshiftBackend implements SnapshotManager using the 'timeshift' CLI
 type TimeshiftBackend struct {
-	cfg  *config.Config
-	exec util.Executor
+	cfg *config.Config
+
+	exec executor.Executor
 }
 
 // NewTimeshiftBackend creates a new timeshift backend
-func NewTimeshiftBackend(cfg *config.Config, executor util.Executor) *TimeshiftBackend {
+func NewTimeshiftBackend(cfg *config.Config, executor executor.Executor) *TimeshiftBackend {
+
 	return &TimeshiftBackend{
 		cfg:  cfg,
 		exec: executor,
@@ -47,6 +50,17 @@ func (b *TimeshiftBackend) Create(desc string, opts CreateOptions) (*Snapshot, e
 		args = append(args, "--tags", strings.Join(opts.Tags, ","))
 	} else if opts.Type != "" {
 		args = append(args, "--tags", opts.Type)
+	}
+
+	if opts.DryRun {
+		fmt.Printf("Dry-run: %s %v\n", "timeshift", args)
+		return &Snapshot{
+			ID:          "dry-run",
+			Description: desc,
+			Timestamp:   time.Now(),
+			Backend:     "timeshift",
+			Type:        opts.Type,
+		}, nil
 	}
 
 	out, err := b.exec.Output("timeshift", args...)
@@ -102,8 +116,42 @@ func (b *TimeshiftBackend) Delete(id string) error {
 }
 
 func (b *TimeshiftBackend) Restore(id string, opts RestoreOptions) error {
-	// Wrapper for timeshift restore
-	return fmt.Errorf("interactive restore not supported via shedman yet; run 'timeshift --restore --snapshot %s' manually", id)
+	// Verify snapshot exists first
+	snaps, err := b.List(ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list snapshots for verification: %w", err)
+	}
+
+	exists := false
+	for _, s := range snaps {
+		if s.ID == id {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		return fmt.Errorf("snapshot %s not found", id)
+	}
+
+	// Timeshift restore is interactive (ncurses), so we must attach stdin/stdout
+	fmt.Printf("Launching Timeshift restore for snapshot %s...\n", id)
+	fmt.Println("Warning: This requires root and may reboot your system.")
+
+	if opts.DryRun {
+		fmt.Printf("Dry-run: %s %s %s %s\n", "timeshift", "--restore", "--snapshot", id)
+		return nil
+	}
+
+	cmd := b.exec.Command("timeshift", "--restore", "--snapshot", id)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("timeshift restore failed: %w", err)
+	}
+
+	return nil
 }
 
 func (b *TimeshiftBackend) Prune(opts PruneOptions) error {
@@ -150,7 +198,7 @@ func (b *TimeshiftBackend) Push(id string, target RemoteTarget, opts RemoteOptio
 	cmdArgs := util.GetPrivilegedRcloneCommand(args)
 
 	fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
-	cmd := (&util.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -187,7 +235,7 @@ func (b *TimeshiftBackend) Pull(id string, source RemoteTarget, opts RemoteOptio
 	cmdArgs := util.GetPrivilegedRcloneCommand(args)
 
 	fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
-	cmd := (&util.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

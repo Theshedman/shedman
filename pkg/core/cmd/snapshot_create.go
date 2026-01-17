@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/config"
-	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
+	"github.com/theshedman/shedman/pkg/executor"
 	"github.com/theshedman/shedman/pkg/snapshot"
 )
 
@@ -65,7 +65,8 @@ func RunSnapshotCreate(engine *core.Engine, args []string, opts snapshot.CreateO
 	if hook := hooks.PreCreate; hook != "" {
 		fmt.Fprintf(w, "Executing pre-snapshot hook: %s\n", hook)
 		// Run via shell to support piping/redirection
-		cmd := (&util.RealExecutor{}).Command("sh", "-c", hook)
+		cmd := (&executor.RealExecutor{}).Command("sh", "-c", hook)
+
 		cmd.Stdout = w
 		cmd.Stderr = w
 		if err := cmd.Run(); err != nil {
@@ -80,7 +81,8 @@ func RunSnapshotCreate(engine *core.Engine, args []string, opts snapshot.CreateO
 
 	if hook := hooks.PostCreate; hook != "" {
 		fmt.Fprintf(w, "Executing post-snapshot hook: %s\n", hook)
-		cmd := (&util.RealExecutor{}).Command("sh", "-c", hook)
+		cmd := (&executor.RealExecutor{}).Command("sh", "-c", hook)
+
 		cmd.Stdout = w
 		cmd.Stderr = w
 		if err := cmd.Run(); err != nil {

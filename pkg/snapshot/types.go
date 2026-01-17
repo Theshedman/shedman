@@ -20,6 +20,7 @@ type CreateOptions struct {
 	Type          string
 	Tags          []string
 	TargetConfigs []string // List of configs/subvolumes to snapshot
+	DryRun        bool     // Preview without executing
 }
 
 // ListOptions options for listing snapshots
@@ -33,6 +34,7 @@ type RestoreOptions struct {
 	ConfigsOnly  bool
 	HomeOnly     bool
 	Force        bool // Bypass safety checks (e.g. for full system restore)
+	DryRun       bool // Preview without executing
 }
 
 // PruneOptions options for pruning
@@ -61,6 +63,7 @@ type RemoteOptions struct {
 	Compress  bool
 	Bandwidth int // KB/s
 	Delete    bool
+	DryRun    bool // Preview without executing
 }
 
 // Manager defines the core snapshot operations

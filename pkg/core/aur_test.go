@@ -2,11 +2,14 @@ package core
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/util"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 func TestAURInstaller_NewAURInstaller(t *testing.T) {
@@ -47,10 +50,14 @@ func TestAURInstaller_Clone_FirstTime(t *testing.T) {
 	ai := NewAURInstallerWithBackend(config.Default(), nil)
 
 	var executedCmds [][]string
-	ai.SetExecutor(func(dir string, cmd []string) error {
-		executedCmds = append(executedCmds, cmd)
-		return nil
-	})
+	mockExec := &executor.MockExecutor{
+		CommandFunc: func(name string, args ...string) *exec.Cmd {
+			cmd := append([]string{name}, args...)
+			executedCmds = append(executedCmds, cmd)
+			return exec.Command("true")
+		},
+	}
+	ai.SetExecutor(mockExec)
 
 	err := ai.Clone("neovim-nightly")
 	if err != nil {
@@ -74,14 +81,18 @@ func TestAURInstaller_Clone_Update(t *testing.T) {
 	ai.SetCacheDir(tmpDir)
 	pkgDir := filepath.Join(tmpDir, "neovim-nightly")
 	gitDir := filepath.Join(pkgDir, ".git")
-	os.MkdirAll(gitDir, 0755)
-	os.WriteFile(filepath.Join(gitDir, "config"), []byte(""), 0644)
+	os.MkdirAll(gitDir, util.DirPermissions)
+	os.WriteFile(filepath.Join(gitDir, "config"), []byte(""), util.FilePermissions)
 
 	var executedCmds [][]string
-	ai.SetExecutor(func(dir string, cmd []string) error {
-		executedCmds = append(executedCmds, cmd)
-		return nil
-	})
+	mockExec := &executor.MockExecutor{
+		CommandFunc: func(name string, args ...string) *exec.Cmd {
+			cmd := append([]string{name}, args...)
+			executedCmds = append(executedCmds, cmd)
+			return exec.Command("true")
+		},
+	}
+	ai.SetExecutor(mockExec)
 
 	err := ai.Clone("neovim-nightly")
 	if err != nil {
@@ -113,7 +124,7 @@ func TestAURInstaller_IsFirstTime(t *testing.T) {
 
 	// Create fake clone
 	pkgDir := filepath.Join(tmpDir, "existing-pkg")
-	os.MkdirAll(filepath.Join(pkgDir, ".git"), 0755)
+	os.MkdirAll(filepath.Join(pkgDir, ".git"), util.DirPermissions)
 
 	if ai.IsFirstTime("existing-pkg") {
 		t.Error("Should not be first time for existing package")
@@ -127,9 +138,9 @@ func TestAURInstaller_GetPKGBUILD(t *testing.T) {
 
 	// Create fake PKGBUILD
 	pkgDir := filepath.Join(tmpDir, "test-pkg")
-	os.MkdirAll(pkgDir, 0755)
+	os.MkdirAll(pkgDir, util.DirPermissions)
 	expectedContent := "pkgname=test-pkg\npkgver=1.0.0"
-	os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte(expectedContent), 0644)
+	os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte(expectedContent), util.FilePermissions)
 
 	content, err := ai.GetPKGBUILD("test-pkg")
 	if err != nil {
@@ -148,8 +159,8 @@ func TestAURInstaller_GetPKGBUILDDiff(t *testing.T) {
 
 	// Create fake package dir with git
 	pkgDir := filepath.Join(tmpDir, "test-pkg")
-	os.MkdirAll(filepath.Join(pkgDir, ".git"), 0755)
-	os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte("pkgver=2.0"), 0644)
+	os.MkdirAll(filepath.Join(pkgDir, ".git"), util.DirPermissions)
+	os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte("pkgver=2.0"), util.FilePermissions)
 
 	// Note: GetPKGBUILDDiff uses exec.Command directly, not the executor
 	// This test verifies it returns an error for non-existent package
@@ -163,12 +174,21 @@ func TestAURInstaller_GetPKGBUILDDiff(t *testing.T) {
 
 func TestAURInstaller_VerifyChecksums(t *testing.T) {
 	ai := NewAURInstallerWithBackend(config.Default(), nil)
+	tmpDir := t.TempDir()
+	ai.SetCacheDir(tmpDir)
+
+	// Create pkg dir
+	pkgDir := filepath.Join(tmpDir, "test-pkg")
+	os.MkdirAll(pkgDir, util.DirPermissions)
 
 	var executedCmd []string
-	ai.SetExecutor(func(dir string, cmd []string) error {
-		executedCmd = cmd
-		return nil
-	})
+	mockExec := &executor.MockExecutor{
+		CommandFunc: func(name string, args ...string) *exec.Cmd {
+			executedCmd = append([]string{name}, args...)
+			return exec.Command("true")
+		},
+	}
+	ai.SetExecutor(mockExec)
 
 	err := ai.VerifyChecksums("test-pkg")
 	if err != nil {
@@ -185,12 +205,18 @@ func TestAURInstaller_VerifyChecksums(t *testing.T) {
 func TestAURInstaller_Build_WithSandbox(t *testing.T) {
 	ai := NewAURInstallerWithBackend(config.Default(), nil)
 	ai.SetSandboxEnabled(true)
+	tmpDir := t.TempDir()
+	ai.SetCacheDir(tmpDir)
+	os.MkdirAll(filepath.Join(tmpDir, "test-pkg"), util.DirPermissions)
 
 	var executedCmd []string
-	ai.SetExecutor(func(dir string, cmd []string) error {
-		executedCmd = cmd
-		return nil
-	})
+	mockExec := &executor.MockExecutor{
+		CommandFunc: func(name string, args ...string) *exec.Cmd {
+			executedCmd = append([]string{name}, args...)
+			return exec.Command("true")
+		},
+	}
+	ai.SetExecutor(mockExec)
 
 	err := ai.Build("test-pkg")
 	if err != nil {
@@ -207,12 +233,18 @@ func TestAURInstaller_Build_WithSandbox(t *testing.T) {
 func TestAURInstaller_Build_WithoutSandbox(t *testing.T) {
 	ai := NewAURInstallerWithBackend(config.Default(), nil)
 	ai.SetSandboxEnabled(false)
+	tmpDir := t.TempDir()
+	ai.SetCacheDir(tmpDir)
+	os.MkdirAll(filepath.Join(tmpDir, "test-pkg"), util.DirPermissions)
 
 	var executedCmd []string
-	ai.SetExecutor(func(dir string, cmd []string) error {
-		executedCmd = cmd
-		return nil
-	})
+	mockExec := &executor.MockExecutor{
+		CommandFunc: func(name string, args ...string) *exec.Cmd {
+			executedCmd = append([]string{name}, args...)
+			return exec.Command("true")
+		},
+	}
+	ai.SetExecutor(mockExec)
 
 	err := ai.Build("test-pkg")
 	if err != nil {
@@ -236,9 +268,9 @@ func TestAURInstaller_Install(t *testing.T) {
 
 	// Create fake built package
 	pkgDir := filepath.Join(tmpDir, "test-pkg")
-	os.MkdirAll(pkgDir, 0755)
+	os.MkdirAll(pkgDir, util.DirPermissions)
 	pkgFile := filepath.Join(pkgDir, "test-pkg-1.0-1-x86_64.pkg.tar.zst")
-	os.WriteFile(pkgFile, []byte("fake"), 0644)
+	os.WriteFile(pkgFile, []byte("fake"), util.FilePermissions)
 
 	// Use mock backend for testing
 	mockBackend := &mockInstallBackend{

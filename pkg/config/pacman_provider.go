@@ -13,6 +13,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 // PacmanSourceProvider implements SourceProvider using the local pacman cache.
@@ -20,16 +21,17 @@ type PacmanSourceProvider struct {
 	cache    *core.PackageFileCache
 	engine   *core.Engine
 	cacheDir string
-	executor util.Executor
+	executor executor.Executor
 }
 
 // NewPacmanSourceProvider creates a new provider.
 func NewPacmanSourceProvider(engine *core.Engine) *PacmanSourceProvider {
-	return NewPacmanSourceProviderWithExecutor(engine, &util.RealExecutor{})
+	return NewPacmanSourceProviderWithExecutor(engine, &executor.RealExecutor{})
 }
 
 // NewPacmanSourceProviderWithExecutor creates a provider with custom executor for testing.
-func NewPacmanSourceProviderWithExecutor(engine *core.Engine, exec util.Executor) *PacmanSourceProvider {
+func NewPacmanSourceProviderWithExecutor(engine *core.Engine, exec executor.Executor) *PacmanSourceProvider {
+
 	return &PacmanSourceProvider{
 		cache:    core.GetDefaultCache(),
 		engine:   engine,

@@ -11,6 +11,7 @@ import (
 	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
+	"github.com/theshedman/shedman/pkg/executor"
 	"github.com/theshedman/shedman/pkg/snapshot"
 )
 
@@ -196,8 +197,9 @@ var (
 )
 
 func RunSnapshotRemoteAdd(engine *core.Engine, name string, w io.Writer) error {
-	out, err := (&util.RealExecutor{}).Output("rclone", "listremotes")
+	out, err := (&executor.RealExecutor{}).Output("rclone", "listremotes")
 	if err != nil {
+
 		return fmt.Errorf("failed to list rclone remotes (is rclone installed?): %w", err)
 	}
 
@@ -266,9 +268,10 @@ func RunSnapshotRemoteAdd(engine *core.Engine, name string, w io.Writer) error {
 			default:
 			}
 
-			cmd := (&util.RealExecutor{}).Command("rclone", args...)
+			cmd := (&executor.RealExecutor{}).Command("rclone", args...)
 			cmd.Stdin = os.Stdin
 			cmd.Stdout = w
+
 			cmd.Stderr = os.Stderr
 
 			if err := cmd.Run(); err != nil {
@@ -360,8 +363,9 @@ func RunSnapshotRemoteTest(engine *core.Engine, name string, w io.Writer) error 
 		target = name + ":"
 	}
 
-	out, err := (&util.RealExecutor{}).Output("rclone", "about", target)
+	out, err := (&executor.RealExecutor{}).Output("rclone", "about", target)
 	if err != nil {
+
 		return fmt.Errorf("connection failed: %w\nOutput: %s", err, string(out))
 	}
 	fmt.Fprintln(w, "Success: Remote is accessible.")

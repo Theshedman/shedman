@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/theshedman/shedman/internal/util"
 )
 
 // Config holds all shedman configuration
@@ -121,12 +122,13 @@ func Save(path string, cfg *Config) error {
 	}
 
 	// Ensure directory exists
+	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, util.DirPermissions); err != nil {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, util.FilePermissions)
 }
 
 // DefaultConfigPath returns the default config file path (~/.config/shedman/config.toml)

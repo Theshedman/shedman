@@ -33,3 +33,26 @@ func TestRsyncBackend_Create(t *testing.T) {
 		t.Errorf("Expected backend 'rsync', got '%s'", snap.Backend)
 	}
 }
+
+func TestRsyncBackend_DryRun(t *testing.T) {
+	cfg := config.Default()
+
+	mockExec := &MockExecutor{
+		OutputFunc: func(name string, args ...string) ([]byte, error) {
+			t.Errorf("Unexpected command execution in dry-run: %s %v", name, args)
+			return nil, nil
+		},
+	}
+
+	backend := NewRsyncBackend(cfg, mockExec)
+	backend.SetRoot(t.TempDir())
+
+	snap, err := backend.Create("dry run test", CreateOptions{DryRun: true})
+	if err != nil {
+		t.Fatalf("DryRun Create failed: %v", err)
+	}
+
+	if snap.ID != "dry-run" {
+		t.Errorf("Expected dry-run ID, got '%s'", snap.ID)
+	}
+}

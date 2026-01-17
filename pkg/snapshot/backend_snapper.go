@@ -11,16 +11,18 @@ import (
 
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/util"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 // SnapperBackend implements SnapshotManager using the 'snapper' CLI
 type SnapperBackend struct {
 	cfg  *config.Config
-	exec util.Executor
+	exec executor.Executor
 }
 
 // NewSnapperBackend creates a new snapper backend
-func NewSnapperBackend(cfg *config.Config, executor util.Executor) *SnapperBackend {
+func NewSnapperBackend(cfg *config.Config, executor executor.Executor) *SnapperBackend {
+
 	return &SnapperBackend{
 		cfg:  cfg,
 		exec: executor,
@@ -85,6 +87,12 @@ func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, err
 		// Cleanup logic if needed
 		args = append(args, "--cleanup-algorithm", "number")
 
+		if opts.DryRun {
+			fmt.Printf("Dry-run: %s %v\n", "snapper", args)
+			successCount++
+			continue
+		}
+
 		if _, err := b.exec.Output("snapper", args...); err != nil {
 			lastErr = err
 			fmt.Printf("Warning: failed to snapshot target '%s': %v\n", target, err)
@@ -98,6 +106,10 @@ func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, err
 
 	if successCount == 0 && len(targets) > 0 {
 		return nil, fmt.Errorf("failed to create any snapshots. Last error: %w", lastErr)
+	}
+
+	if opts.DryRun {
+		unifiedID = "dry-run"
 	}
 
 	return &Snapshot{
@@ -273,6 +285,10 @@ func (b *SnapperBackend) Delete(id string) error {
 }
 
 func (b *SnapperBackend) Restore(id string, opts RestoreOptions) error {
+	if opts.DryRun {
+		fmt.Printf("Dry-run: %s %s %s\n", "snapper", "rollback", id)
+		return nil
+	}
 	_, err := b.exec.Output("snapper", "rollback", id)
 	return err
 }
@@ -335,7 +351,16 @@ func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions
 		cmdArgs := util.GetPrivilegedRcloneCommand(args)
 
 		fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
-		cmd := (&util.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+
+		if opts.DryRun {
+			continue
+		}
+
+		if opts.DryRun {
+			continue
+		}
+
+		cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
@@ -369,7 +394,16 @@ func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions
 	cmdArgs := util.GetPrivilegedRcloneCommand(args)
 
 	fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
-	cmd := (&util.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+
+	if opts.DryRun {
+		return nil
+	}
+
+	if opts.DryRun {
+		return nil
+	}
+
+	cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

@@ -3,16 +3,16 @@ package snapshot
 import (
 	"strings"
 
-	"github.com/theshedman/shedman/internal/util"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 // SystemdScheduler implements Scheduler using systemd user timers
 type SystemdScheduler struct {
-	exec util.Executor
+	exec executor.Executor
 }
 
 // NewSystemdScheduler creates a new scheduler
-func NewSystemdScheduler(exec util.Executor) *SystemdScheduler {
+func NewSystemdScheduler(exec executor.Executor) *SystemdScheduler {
 	return &SystemdScheduler{exec: exec}
 }
 

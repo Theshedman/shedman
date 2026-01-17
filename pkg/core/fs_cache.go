@@ -5,11 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-)
 
-const (
-	DirPermission  = 0755 // rwxr-xr-x
-	FilePermission = 0644 // rw-r--r--
+	"github.com/theshedman/shedman/internal/util"
 )
 
 // FileSystemCache implements file system caching operations
@@ -47,14 +44,14 @@ func (c *FileSystemCache) GetFilePath(subdir, filename string) string {
 }
 
 func (c *FileSystemCache) EnsureDir(path string) error {
-	return os.MkdirAll(path, DirPermission)
+	return os.MkdirAll(path, util.DirPermissions)
 }
 
 func (c *FileSystemCache) WriteFile(path string, data []byte) error {
 	if err := c.EnsureDir(filepath.Dir(path)); err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, FilePermission)
+	return os.WriteFile(path, data, util.FilePermissions)
 }
 
 func (c *FileSystemCache) ReadFile(path string) ([]byte, error) {

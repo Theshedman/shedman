@@ -1,6 +1,7 @@
-package util
+package executor
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 )
@@ -8,7 +9,11 @@ import (
 // Executor defines an interface for executing external commands.
 // It abstracts os/exec to facilitate testing.
 type Executor interface {
+	// CommandContext creates an exec.Cmd object with context.
+	CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd
+
 	// Command creates an exec.Cmd object.
+	Command(name string, args ...string) *exec.Cmd
 
 	// Output runs the command and returns stdout.
 	Output(name string, args ...string) ([]byte, error)
@@ -32,4 +37,9 @@ func (e *RealExecutor) Output(name string, args ...string) ([]byte, error) {
 // Command creates an exec.Cmd object (helper for interactive use).
 func (e *RealExecutor) Command(name string, args ...string) *exec.Cmd {
 	return exec.Command(name, args...)
+}
+
+// CommandContext creates an exec.Cmd object with context.
+func (e *RealExecutor) CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, name, args...)
 }
