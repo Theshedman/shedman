@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/pkg/snapshot"
@@ -18,13 +20,18 @@ var SnapshotRemoteCmd = &cobra.Command{
 }
 
 var SnapshotRemotePushCmd = &cobra.Command{
-	Use:   "push <id> <target-name> [path]",
+	Use:   "push <id> [target-name] [path]",
 	Short: "Push a snapshot to a remote target",
-	Args:  cobra.RangeArgs(2, 3), // id, target, optional path
+	Args:  cobra.RangeArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		engine, err := NewEngineWithConfig(nil)
 		if err != nil {
 			return err
+		}
+
+		targetName := ""
+		if len(args) > 1 {
+			targetName = args[1]
 		}
 
 		path := ""
@@ -32,8 +39,25 @@ var SnapshotRemotePushCmd = &cobra.Command{
 			path = args[2]
 		}
 
+		cfg := engine.GetConfig()
+		if targetName == "" {
+			if cfg.Snapshot.DefaultRemote != "" {
+				targetName = cfg.Snapshot.DefaultRemote
+			} else {
+				if len(cfg.Snapshot.Remotes) == 1 {
+					for k := range cfg.Snapshot.Remotes {
+						targetName = k
+						break
+					}
+				} else {
+					return fmt.Errorf("no target specified and no default_remote configured (remotes available: %d)", len(cfg.Snapshot.Remotes))
+				}
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Using default remote: %s\n", targetName)
+		}
+
 		target := snapshot.RemoteTarget{
-			Name: args[1],
+			Name: targetName,
 			Path: path,
 		}
 
@@ -48,13 +72,18 @@ var SnapshotRemotePushCmd = &cobra.Command{
 }
 
 var SnapshotRemotePullCmd = &cobra.Command{
-	Use:   "pull <id> <source-name> [path]",
+	Use:   "pull <id> [source-name] [path]",
 	Short: "Pull a snapshot from a remote source",
-	Args:  cobra.RangeArgs(2, 3),
+	Args:  cobra.RangeArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		engine, err := NewEngineWithConfig(nil)
 		if err != nil {
 			return err
+		}
+
+		sourceName := ""
+		if len(args) > 1 {
+			sourceName = args[1]
 		}
 
 		path := ""
@@ -62,8 +91,25 @@ var SnapshotRemotePullCmd = &cobra.Command{
 			path = args[2]
 		}
 
+		cfg := engine.GetConfig()
+		if sourceName == "" {
+			if cfg.Snapshot.DefaultRemote != "" {
+				sourceName = cfg.Snapshot.DefaultRemote
+			} else {
+				if len(cfg.Snapshot.Remotes) == 1 {
+					for k := range cfg.Snapshot.Remotes {
+						sourceName = k
+						break
+					}
+				} else {
+					return fmt.Errorf("no source specified and no default_remote configured")
+				}
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Using default remote: %s\n", sourceName)
+		}
+
 		source := snapshot.RemoteTarget{
-			Name: args[1],
+			Name: sourceName,
 			Path: path,
 		}
 
@@ -78,15 +124,15 @@ var SnapshotRemotePullCmd = &cobra.Command{
 }
 
 var SnapshotRemoteAddCmd = &cobra.Command{
-	Use:   "add <name> <type> <path>",
-	Short: "Add a new remote target",
-	Args:  cobra.ExactArgs(3),
+	Use:   "add <rclone-remote-name>",
+	Short: "Add an existing rclone remote",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		engine, err := NewEngineWithConfig(nil)
 		if err != nil {
 			return err
 		}
-		return RunSnapshotRemoteAdd(engine, args[0], args[1], args[2], cmd.OutOrStdout())
+		return RunSnapshotRemoteAdd(engine, args[0], cmd.OutOrStdout())
 	},
 }
 
@@ -149,38 +195,99 @@ var (
 	snapshotRemoteBandwidth int
 )
 
-func RunSnapshotRemotePush(engine *core.Engine, id string, target snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
-	mgr := engine.GetSnapshotManager()
-	if mgr == nil {
-		return fmt.Errorf("snapshot manager not available")
+func RunSnapshotRemoteAdd(engine *core.Engine, name string, w io.Writer) error {
+	out, err := (&util.RealExecutor{}).Output("rclone", "listremotes")
+	if err != nil {
+		return fmt.Errorf("failed to list rclone remotes (is rclone installed?): %w", err)
 	}
 
-	fmt.Fprintf(w, "Pushing snapshot %s to %s...\n", id, target.Name)
-	if err := mgr.Push(id, target, opts); err != nil {
-		return fmt.Errorf("push failed: %w", err)
-	}
-	fmt.Fprintln(w, "Push successful.")
-	return nil
-}
-
-func RunSnapshotRemotePull(engine *core.Engine, id string, source snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
-	mgr := engine.GetSnapshotManager()
-	if mgr == nil {
-		return fmt.Errorf("snapshot manager not available")
+	remotes := strings.Split(string(out), "\n")
+	found := false
+	for _, r := range remotes {
+		if strings.TrimSpace(r) == name+":" {
+			found = true
+			break
+		}
 	}
 
-	fmt.Fprintf(w, "Pulling snapshot %s from %s...\n", id, source.Name)
-	if err := mgr.Pull(id, source, opts); err != nil {
-		return fmt.Errorf("pull failed: %w", err)
-	}
-	fmt.Fprintln(w, "Pull successful.")
-	return nil
-}
+	if !found {
+		fmt.Fprintf(w, "Remote '%s' not found locally.\n", name)
 
-func RunSnapshotRemoteAdd(engine *core.Engine, name, typ, path string, w io.Writer) error {
+		create, err := output.ReadInput("Do you want to configure it via rclone? [Y/n]: ")
+		if err != nil {
+			return err
+		}
+		if create == "" || strings.ToLower(create) == "y" || strings.ToLower(create) == "yes" {
+			typ, err := output.ReadInput("Enter remote type (e.g. drive, s3) [default: drive]: ")
+			if err != nil {
+				return err
+			}
+			if typ == "" {
+				typ = "drive"
+			}
+
+			fmt.Fprintf(w, "Launching rclone config for '%s' (%s).\n", name, typ)
+
+			var args []string
+			args = append(args, "config", "create", name, typ)
+
+			switch strings.ToLower(typ) {
+			case "gdrive", "drive":
+			case "s3":
+				accessKey := util.GetEnvOrPrompt("AWS_ACCESS_KEY_ID", "Enter AWS Access Key ID: ")
+				secretKey := util.GetEnvOrPrompt("AWS_SECRET_ACCESS_KEY", "Enter AWS Secret Access Key: ")
+				region := util.GetEnvOrPrompt("AWS_REGION", "Enter Region (e.g. us-east-1): ")
+				endpoint, _ := output.ReadInput("Enter Endpoint (optional, leave blank for AWS): ")
+
+				args = append(args, "env_auth=false")
+				args = append(args, "access_key_id="+accessKey)
+				args = append(args, "secret_access_key="+secretKey)
+				if region != "" {
+					args = append(args, "region="+region)
+				}
+				if endpoint != "" {
+					args = append(args, "endpoint="+endpoint)
+				}
+
+			case "r2":
+				args[3] = "s3"
+				args = append(args, "provider=Cloudflare")
+
+				accessKey := util.GetEnvOrPrompt("R2_ACCESS_KEY_ID", "Enter R2 Access Key ID: ")
+				secretKey := util.GetEnvOrPrompt("R2_SECRET_ACCESS_KEY", "Enter R2 Secret Access Key: ")
+				accountID := util.GetEnvOrPrompt("R2_ACCOUNT_ID", "Enter Cloudflare Account ID: ")
+
+				endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
+
+				args = append(args, "access_key_id="+accessKey)
+				args = append(args, "secret_access_key="+secretKey)
+				args = append(args, "endpoint="+endpoint)
+
+			default:
+			}
+
+			cmd := (&util.RealExecutor{}).Command("rclone", args...)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = w
+			cmd.Stderr = os.Stderr
+
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("rclone config failed: %w", err)
+			}
+			fmt.Fprintln(w, "\n----")
+			fmt.Fprintln(w, "Rclone configuration completed.")
+		} else {
+			return fmt.Errorf("remote '%s' not found. Please configure it via 'rclone config' first.\nAvailable remotes: %s", name, strings.Join(remotes, ", "))
+		}
+	}
+
 	cfg, err := config.LoadDefault()
 	if err != nil {
-		return fmt.Errorf("failed to load config for editing: %w", err)
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if cfg.Snapshot.Remotes == nil {
+		cfg.Snapshot.Remotes = make(map[string]config.RemoteConfig)
 	}
 
 	if cfg.Snapshot.Remotes == nil {
@@ -188,15 +295,20 @@ func RunSnapshotRemoteAdd(engine *core.Engine, name, typ, path string, w io.Writ
 	}
 
 	cfg.Snapshot.Remotes[name] = config.RemoteConfig{
-		Type: typ,
-		Path: path,
+		Type: "rclone",
+		Path: name + ":",
+	}
+
+	if cfg.Snapshot.DefaultRemote == "" {
+		cfg.Snapshot.DefaultRemote = name
+		fmt.Fprintf(w, "Marked '%s' as default remote.\n", name)
 	}
 
 	if err := config.Save(config.DefaultConfigPath(), cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Fprintf(w, "Remote '%s' added successfully.\n", name)
+	fmt.Fprintf(w, "Remote '%s' added successfully to shedman.\n", name)
 	return nil
 }
 
@@ -236,49 +348,81 @@ func RunSnapshotRemoteRemove(engine *core.Engine, name string, w io.Writer) erro
 
 func RunSnapshotRemoteTest(engine *core.Engine, name string, w io.Writer) error {
 	cfg := engine.GetConfig()
-	remotes := cfg.Snapshot.Remotes
-
-	remote, ok := remotes[name]
+	remote, ok := cfg.Snapshot.Remotes[name]
 	if !ok {
-		return fmt.Errorf("remote '%s' not found", name)
+		return fmt.Errorf("remote '%s' not found in config", name)
 	}
 
-	fmt.Fprintf(w, "Testing connectivity to remote '%s' (%s)...\n", name, remote.Type)
+	fmt.Fprintf(w, "Testing connectivity to '%s' (rclone)...\n", name)
 
-	switch remote.Type {
-	case "rclone", "s3", "gdrive":
-		target := remote.Path
-		if target == "" {
-			target = name + ":"
-		}
-		out, err := (&util.RealExecutor{}).Output("rclone", "about", target)
-		if err != nil {
-			return fmt.Errorf("connection failed: %w\nOutput: %s", err, string(out))
-		}
-		fmt.Fprintln(w, "Success: Remote is accessible.")
-
-	case "ssh":
-		if remote.Path == "" {
-			return fmt.Errorf("invalid SSH remote: path/host missing")
-		}
-		if _, err := (&util.RealExecutor{}).Output("ssh", "-q", remote.Path, "exit"); err != nil {
-			return fmt.Errorf("SSH connection failed: %w", err)
-		}
-		fmt.Fprintln(w, "Success: SSH host is potentially reachable.")
-
-	case "local", "usb":
-		info, err := os.Stat(remote.Path)
-		if err != nil {
-			return fmt.Errorf("local path access failed: %w", err)
-		}
-		if !info.IsDir() {
-			return fmt.Errorf("path exists but is not a directory")
-		}
-		fmt.Fprintln(w, "Success: Local path is accessible.")
-
-	default:
-		return fmt.Errorf("unknown remote type '%s'; cannot test", remote.Type)
+	target := remote.Path
+	if target == "" {
+		target = name + ":"
 	}
 
+	out, err := (&util.RealExecutor{}).Output("rclone", "about", target)
+	if err != nil {
+		return fmt.Errorf("connection failed: %w\nOutput: %s", err, string(out))
+	}
+	fmt.Fprintln(w, "Success: Remote is accessible.")
+	return nil
+}
+
+func RunSnapshotRemotePush(engine *core.Engine, id string, target snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
+	mgr := engine.GetSnapshotManager()
+	if mgr == nil {
+		return fmt.Errorf("snapshot manager not available")
+	}
+
+	// Lookup config
+	if cfg := engine.GetConfig(); cfg != nil {
+		if r, ok := cfg.Snapshot.Remotes[target.Name]; ok {
+			target.Type = r.Type
+			target.Path = r.Path
+			// If not found in config, treat as ad-hoc remote (below)
+		}
+	}
+
+	if target.Type == "" {
+		target.Type = "rclone"
+		if target.Path == "" {
+			target.Path = target.Name + ":"
+		}
+	}
+
+	fmt.Fprintf(w, "Pushing snapshot %s to %s...\n", id, target.Path)
+	if err := mgr.Push(id, target, opts); err != nil {
+		return fmt.Errorf("push failed: %w", err)
+	}
+	fmt.Fprintln(w, "Push successful.")
+	return nil
+}
+
+func RunSnapshotRemotePull(engine *core.Engine, id string, source snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
+	mgr := engine.GetSnapshotManager()
+	if mgr == nil {
+		return fmt.Errorf("snapshot manager not available")
+	}
+
+	// Lookup config
+	if cfg := engine.GetConfig(); cfg != nil {
+		if r, ok := cfg.Snapshot.Remotes[source.Name]; ok {
+			source.Type = r.Type
+			source.Path = r.Path
+		}
+	}
+
+	if source.Type == "" {
+		source.Type = "rclone"
+		if source.Path == "" {
+			source.Path = source.Name + ":"
+		}
+	}
+
+	fmt.Fprintf(w, "Pulling snapshot %s from %s...\n", id, source.Path)
+	if err := mgr.Pull(id, source, opts); err != nil {
+		return fmt.Errorf("pull failed: %w", err)
+	}
+	fmt.Fprintln(w, "Pull successful.")
 	return nil
 }

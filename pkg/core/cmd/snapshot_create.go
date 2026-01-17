@@ -5,6 +5,8 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
+	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/pkg/snapshot"
 )
@@ -14,6 +16,7 @@ var (
 	snapshotCreateIncludeHome bool
 	snapshotCreateType        string
 	snapshotCreateTags        []string
+	snapshotCreateTargets     []string
 )
 
 // SnapshotCreateCmd is the command to create a new snapshot
@@ -28,9 +31,10 @@ var SnapshotCreateCmd = &cobra.Command{
 		}
 
 		opts := snapshot.CreateOptions{
-			Type:        snapshotCreateType,
-			IncludeHome: snapshotCreateIncludeHome,
-			Tags:        snapshotCreateTags,
+			Type:          snapshotCreateType,
+			IncludeHome:   snapshotCreateIncludeHome,
+			Tags:          snapshotCreateTags,
+			TargetConfigs: snapshotCreateTargets,
 		}
 
 		return RunSnapshotCreate(engine, args, opts, cmd.OutOrStdout())
@@ -52,9 +56,36 @@ func RunSnapshotCreate(engine *core.Engine, args []string, opts snapshot.CreateO
 		description = fmt.Sprintf("Manual snapshot %s", opts.Type)
 	}
 
+	// Hooks
+	var hooks config.SnapshotHooksConfig // Default empty
+	if cfg := engine.GetConfig(); cfg != nil {
+		hooks = cfg.Snapshot.Hooks
+	}
+
+	if hook := hooks.PreCreate; hook != "" {
+		fmt.Fprintf(w, "Executing pre-snapshot hook: %s\n", hook)
+		// Run via shell to support piping/redirection
+		cmd := (&util.RealExecutor{}).Command("sh", "-c", hook)
+		cmd.Stdout = w
+		cmd.Stderr = w
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("pre-snapshot hook failed: %w", err)
+		}
+	}
+
 	snap, err := mgr.Create(description, opts)
 	if err != nil {
 		return err
+	}
+
+	if hook := hooks.PostCreate; hook != "" {
+		fmt.Fprintf(w, "Executing post-snapshot hook: %s\n", hook)
+		cmd := (&util.RealExecutor{}).Command("sh", "-c", hook)
+		cmd.Stdout = w
+		cmd.Stderr = w
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(w, "Warning: post-snapshot hook failed: %v\n", err)
+		}
 	}
 
 	fmt.Fprintf(w, "Snapshot created successfully.\nID: %s\nBackend: %s\n", snap.ID, snap.Backend)
@@ -65,4 +96,5 @@ func init() {
 	SnapshotCreateCmd.Flags().StringVarP(&snapshotCreateType, "type", "t", "single", "Snapshot type (single, pre, post, ondemand)")
 	SnapshotCreateCmd.Flags().BoolVar(&snapshotCreateIncludeHome, "include-home", false, "Include home directory")
 	SnapshotCreateCmd.Flags().StringSliceVar(&snapshotCreateTags, "tags", nil, "Tags for the snapshot")
+	SnapshotCreateCmd.Flags().StringSliceVar(&snapshotCreateTargets, "target", nil, "Target configs/subvolumes (for snapper)")
 }
