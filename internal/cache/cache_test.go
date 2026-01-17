@@ -250,9 +250,12 @@ func TestFileSystemCache_FindVersions(t *testing.T) {
 		if m.Name != "neovim" {
 			t.Errorf("Expected name neovim, got %s", m.Name)
 		}
-		if m.Version == "0.9.0-1" {
+		switch m.Version {
+		case "0.9.0-1":
+
 			found090 = true
-		} else if m.Version == "0.8.0-1" {
+		case "0.8.0-1":
+
 			found080 = true
 		}
 	}

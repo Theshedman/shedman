@@ -17,7 +17,7 @@ func Parse(path string) ([]Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var txs []Transaction
 	var currentTx *Transaction

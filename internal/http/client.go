@@ -48,7 +48,8 @@ func (c *RetryClient) Get(path string) (*http.Response, error) {
 		}
 
 		// Non-success status, close body and try next
-		resp.Body.Close()
+		_ = resp.Body.Close()
+
 		errors = append(errors, fmt.Sprintf("%s: status %d", mirror, resp.StatusCode))
 		lastErr = fmt.Errorf("status %d", resp.StatusCode)
 	}

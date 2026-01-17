@@ -43,7 +43,7 @@ func detectDistroFromFile(path string) DistroInfo {
 	if err != nil {
 		return info
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

@@ -167,7 +167,7 @@ func newApplyCmd() *cobra.Command {
 				fmt.Printf("Failed to write to temp file: %v\n", err)
 				os.Exit(1)
 			}
-			tmpFile.Close()
+			_ = tmpFile.Close()
 
 			// 4. Apply
 			cmd.Printf("Applying configuration for %s (Owner: %s)...\n", path, owner)

@@ -37,13 +37,13 @@ func (m *FileBackupManager) Backup(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open source file: %w", err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 
 	dest, err := os.OpenFile(backupPath, os.O_RDWR|os.O_CREATE|os.O_EXCL, info.Mode())
 	if err != nil {
 		return "", fmt.Errorf("failed to create backup file: %w", err)
 	}
-	defer dest.Close()
+	defer func() { _ = dest.Close() }()
 
 	if _, err := io.Copy(dest, source); err != nil {
 		return "", fmt.Errorf("failed to copy file content: %w", err)

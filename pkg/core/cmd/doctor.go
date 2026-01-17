@@ -133,7 +133,8 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	}
 
 	// 3. Check Internet Connectivity
-	fmt.Fprint(w, "Checking Connectivity... ")
+	_, _ = fmt.Fprint(w, "Checking Connectivity... ")
+
 	if checks.CheckConnection() {
 		printOK()
 	} else {
@@ -142,7 +143,8 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	}
 
 	// 4. Check Disk Space (Root)
-	fmt.Fprint(w, "Checking Disk Space... ")
+	_, _ = fmt.Fprint(w, "Checking Disk Space... ")
+
 	freeGB := checks.CheckDiskSpace("/")
 	if freeGB < 1.0 {
 		printStatus(fmt.Sprintf("Only %.1fGB free on /", freeGB), true, false)
@@ -152,7 +154,8 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	}
 
 	// 5. Check Failed Services
-	fmt.Fprint(w, "Checking Failed Services... ")
+	_, _ = fmt.Fprint(w, "Checking Failed Services... ")
+
 	failed := checks.CheckServices()
 	if len(failed) > 0 {
 		printStatus(fmt.Sprintf("%d failed units", len(failed)), false, true)

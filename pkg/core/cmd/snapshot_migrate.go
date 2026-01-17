@@ -45,7 +45,8 @@ func RunSnapshotMigrate(engine *core.Engine, targetBackend string, w io.Writer) 
 		return nil
 	}
 
-	return fmt.Errorf("automatic migration from '%s' to '%s' is not currently supported due to filesystem differences. Please migrate data manually.", currentBackend, targetBackend)
+	return fmt.Errorf("automatic migration from '%s' to '%s' is not currently supported due to filesystem differences. Please migrate data manually", currentBackend, targetBackend)
+
 }
 
 func init() {

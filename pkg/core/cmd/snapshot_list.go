@@ -60,7 +60,7 @@ func RunSnapshotList(engine *core.Engine, opts snapshot.ListOptions, w io.Writer
 			util.FormatSize(snap.Size),
 			snap.Description)
 	}
-	tw.Flush()
+	_ = tw.Flush()
 
 	return nil
 }

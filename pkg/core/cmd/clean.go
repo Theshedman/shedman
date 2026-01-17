@@ -41,7 +41,8 @@ func init() {
 }
 
 func RunClean(eng *core.Engine, w io.Writer, all bool, keep int) error {
-	fmt.Fprintln(w, "Cleaning package cache...")
+	_, _ = fmt.Fprintln(w, "Cleaning package cache...")
+
 	opts := core.CleanOptions{
 		All:  all,
 		Keep: keep,

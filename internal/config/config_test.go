@@ -36,7 +36,8 @@ func TestConfig_Default(t *testing.T) {
 
 func TestConfig_Load_FromFile(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-config-test")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
 	_ = os.MkdirAll(tmpDir, util.DirPermissions)
 
 	configPath := filepath.Join(tmpDir, "config.toml")
@@ -73,7 +74,8 @@ parallel_downloads = 10
 
 func TestConfig_Load_SnapshotKeys(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-snapshot-test")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
 	_ = os.MkdirAll(tmpDir, util.DirPermissions)
 
 	configPath := filepath.Join(tmpDir, "config.toml")

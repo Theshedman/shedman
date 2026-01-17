@@ -64,6 +64,7 @@ func RunSnapshotDiff(engine *core.Engine, id1, id2 string, w io.Writer) error {
 		}
 	}
 
-	tw.Flush()
+	_ = tw.Flush()
+
 	return nil
 }

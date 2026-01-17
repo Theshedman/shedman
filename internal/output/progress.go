@@ -97,7 +97,8 @@ func (p *ProgressBar) render() {
 	}
 
 	// Clear line and print
-	fmt.Fprintf(os.Stdout, "\r%s [%s] %.1f%% %.1f KB/s ETA: %s  ",
+	_, _ = fmt.Fprintf(os.Stdout, "\r%s [%s] %.1f%% %.1f KB/s ETA: %s  ",
+
 		p.label, Colorize(Cyan, bar), percent, speed, eta)
 }
 
@@ -160,7 +161,8 @@ func (s *Spinner) Start() {
 				s.current++
 				s.mu.Unlock()
 
-				fmt.Fprintf(os.Stdout, "\r%s %s", Colorize(Cyan, frame), s.label)
+				_, _ = fmt.Fprintf(os.Stdout, "\r%s %s", Colorize(Cyan, frame), s.label)
+
 				time.Sleep(80 * time.Millisecond)
 			}
 		}
@@ -182,7 +184,8 @@ func (s *Spinner) Stop() {
 	default:
 	}
 
-	fmt.Fprintf(os.Stdout, "\r%s\r", strings.Repeat(" ", len(s.label)+3))
+	_, _ = fmt.Fprintf(os.Stdout, "\r%s\r", strings.Repeat(" ", len(s.label)+3))
+
 }
 
 // StopWithSuccess stops the spinner with a success message

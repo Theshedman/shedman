@@ -14,9 +14,11 @@ func (l *LibnotifyBackend) Name() string { return "libnotify" }
 func (l *LibnotifyBackend) Notify(title, message, level string) error {
 	// Map level to urgency
 	urgency := "normal"
-	if level == "error" {
+	switch level {
+	case "error":
+
 		urgency = "critical"
-	} else if level == "info" {
+	case "info":
 		urgency = "low"
 	}
 

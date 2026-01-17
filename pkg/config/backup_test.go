@@ -15,7 +15,7 @@ func TestBackupManager_Backup(t *testing.T) {
 	// Setup temp dir
 	tmpDir, err := os.MkdirTemp("", "shedman-backup-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a dummy config file
 	configFile := filepath.Join(tmpDir, "test.conf")

@@ -108,15 +108,15 @@ func createDummyArchive(path, filename, content string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Zstd writer
 	zw, _ := zstd.NewWriter(f)
-	defer zw.Close()
+	defer func() { _ = zw.Close() }()
 
 	// Tar writer
 	tw := tar.NewWriter(zw)
-	defer tw.Close()
+	defer func() { _ = tw.Close() }()
 
 	body := []byte(content)
 	hdr := &tar.Header{

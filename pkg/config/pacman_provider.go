@@ -168,7 +168,7 @@ func (p *PacmanSourceProvider) extractFile(archivePath, relPath string) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var r io.Reader = f
 

@@ -33,14 +33,15 @@ func RunDiff(eng *core.Engine, w io.Writer) error {
 	}
 
 	if len(diffs) == 0 {
-		fmt.Fprintln(w, "No updates found. System is up to date.")
+		_, _ = fmt.Fprintln(w, "No updates found. System is up to date.")
+
 		return nil
 	}
 
 	fmt.Fprintf(w, "Found %d pending updates:\n\n", len(diffs))
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(tw, "PACKAGE\tVERSION\tSIZE\tDELTA\tISSUES")
+	_, _ = fmt.Fprintln(tw, "PACKAGE\tVERSION\tSIZE\tDELTA\tISSUES")
 
 	for _, d := range diffs {
 		versionDiff := fmt.Sprintf("%s -> %s", d.OldVersion, d.NewVersion)

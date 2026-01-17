@@ -183,7 +183,7 @@ func (e *ConfigEngine) copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	// Determined target metadata
 	mode := os.FileMode(util.FilePermissions)
@@ -211,19 +211,23 @@ func (e *ConfigEngine) copyFile(src, dst string) error {
 	}
 
 	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
-		os.Remove(tmp)
+		_ = out.Close()
+
+		_ = os.Remove(tmp)
+
 		return err
 	}
 	if err := out.Close(); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
+
 		return err
 	}
 
 	// Restore ownership
 	if err := os.Chown(tmp, uid, gid); err != nil {
 		if !os.IsPermission(err) {
-			os.Remove(tmp)
+			_ = os.Remove(tmp)
+
 			return fmt.Errorf("failed to restore file ownership: %w", err)
 		}
 	}

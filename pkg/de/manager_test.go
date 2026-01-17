@@ -70,16 +70,19 @@ func TestManager_List(t *testing.T) {
 
 	foundHypr := false
 	for _, d := range des {
-		if d.Name == "hyprland" {
+		switch d.Name {
+		case "hyprland":
+
 			foundHypr = true
 			if !d.Installed {
 				t.Error("Expected hyprland to be marked as installed")
 			}
-		} else if d.Name == "gnome" {
+		case "gnome":
 			if d.Installed {
 				t.Error("Expected gnome to be marked as not installed")
 			}
 		}
+
 	}
 
 	if !foundHypr {

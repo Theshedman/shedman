@@ -99,14 +99,17 @@ func TestManager_List(t *testing.T) {
 	foundLTS := false
 
 	for _, k := range kernels {
-		if k.Name == "linux" {
+		switch k.Name {
+		case "linux":
+
 			foundStock = true
 			if k.Version != "6.6.1-arch1-1" {
 				t.Errorf("Expected linux version 6.6.1-arch1-1, got %s", k.Version)
 			}
-		} else if k.Name == "linux-lts" {
+		case "linux-lts":
 			foundLTS = true
 		}
+
 	}
 
 	if !foundStock {
