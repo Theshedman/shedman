@@ -16,11 +16,16 @@ jobs:
         run: |
           pacman -Syu --noconfirm
           pacman -S --noconfirm base-devel git go golangci-lint
-          git config --global --add safe.directory '*'
+
 
       - uses: actions/checkout@v4
+
+      - name: Configure Git Safe Directory
+        run: git config --global --add safe.directory '*'
       
       - name: Lint
+        env:
+          GOFLAGS: "-buildvcs=false"
         run: golangci-lint run
         
       - name: Test
