@@ -154,7 +154,8 @@ func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 	}
 
 	for _, tx := range displayed {
-		fmt.Fprintf(w, "[%s] %s %s %s\n", tx.Date.Format("2006-01-02 15:04"), tx.Action, tx.Package, tx.Version)
+		_, _ = fmt.Fprintf(w, "[%s] %s %s %s\n", tx.Date.Format("2006-01-02 15:04"), tx.Action, tx.Package, tx.Version)
+
 	}
 
 	return nil

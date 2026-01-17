@@ -61,7 +61,8 @@ func RunImport(eng *core.Engine, w io.Writer, r io.Reader) error {
 	}
 
 	if len(pkgs) == 0 {
-		fmt.Fprintln(w, "No packages found to import.")
+		_, _ = fmt.Fprintln(w, "No packages found to import.")
+
 		return nil
 	}
 

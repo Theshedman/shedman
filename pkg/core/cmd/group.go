@@ -120,7 +120,8 @@ func RunGroupInfo(eng *core.Engine, w io.Writer, groupName string) error {
 	_, _ = fmt.Fprintf(w, "Packages (%d):\n", len(pkgs))
 
 	for _, p := range pkgs {
-		fmt.Fprintln(w, "  "+p)
+		_, _ = fmt.Fprintln(w, "  "+p)
+
 	}
 	return nil
 }
@@ -143,14 +144,15 @@ func RunGroupInstall(eng *core.Engine, w io.Writer, groupName string) error {
 // RunGroupRemove executes group remove logic
 func RunGroupRemove(eng *core.Engine, w io.Writer, groupName string) error {
 	groupName = cleanGroupName(groupName)
-	fmt.Fprintf(w, "Resolving group %s...\n", groupName)
+	_, _ = fmt.Fprintf(w, "Resolving group %s...\n", groupName)
 
 	pkgs, err := eng.GetGroupPackages(groupName)
 	if err != nil {
 		return fmt.Errorf("failed to resolve group: %w", err)
 	}
 
-	fmt.Fprintf(w, "Removing %d packages from group %s...\n", len(pkgs), groupName)
+	_, _ = fmt.Fprintf(w, "Removing %d packages from group %s...\n", len(pkgs), groupName)
+
 	return eng.Remove(pkgs, core.RemoveOptions{})
 }
 

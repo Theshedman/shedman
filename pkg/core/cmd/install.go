@@ -172,7 +172,8 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 	}
 
 	if flags.DryRun {
-		fmt.Fprintln(w, "\nDry-run mode - would execute:")
+		_, _ = fmt.Fprintln(w, "\nDry-run mode - would execute:")
+
 		for _, pkg := range pkgs {
 			fmt.Fprintf(w, "  Install %s from %s\n", pkg.Name, pkg.Source)
 		}
