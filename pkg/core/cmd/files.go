@@ -51,7 +51,8 @@ func RunFiles(eng *core.Engine, w io.Writer, query string, search bool) error {
 			return nil
 		}
 		for _, line := range results {
-			fmt.Fprintln(w, line)
+			_, _ = fmt.Fprintln(w, line)
+
 		}
 		return nil
 	}

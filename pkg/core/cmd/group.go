@@ -98,9 +98,11 @@ func RunGroupList(eng *core.Engine, w io.Writer) error {
 		return fmt.Errorf("failed to list groups: %w", err)
 	}
 
-	fmt.Fprintln(w, "Available Groups:")
+	_, _ = fmt.Fprintln(w, "Available Groups:")
+
 	for _, g := range groups {
-		fmt.Fprintln(w, "  "+g)
+		_, _ = fmt.Fprintln(w, "  "+g)
+
 	}
 	return nil
 }
@@ -115,7 +117,8 @@ func RunGroupInfo(eng *core.Engine, w io.Writer, groupName string) error {
 
 	_, _ = fmt.Fprintf(w, "Group: %s\n", groupName)
 
-	fmt.Fprintf(w, "Packages (%d):\n", len(pkgs))
+	_, _ = fmt.Fprintf(w, "Packages (%d):\n", len(pkgs))
+
 	for _, p := range pkgs {
 		fmt.Fprintln(w, "  "+p)
 	}
@@ -125,14 +128,15 @@ func RunGroupInfo(eng *core.Engine, w io.Writer, groupName string) error {
 // RunGroupInstall executes group install logic
 func RunGroupInstall(eng *core.Engine, w io.Writer, groupName string) error {
 	groupName = cleanGroupName(groupName)
-	fmt.Fprintf(w, "Resolving group %s...\n", groupName)
+	_, _ = fmt.Fprintf(w, "Resolving group %s...\n", groupName)
 
 	pkgs, err := eng.GetGroupPackages(groupName)
 	if err != nil {
 		return fmt.Errorf("failed to resolve group: %w", err)
 	}
 
-	fmt.Fprintf(w, "Installing %d packages from group %s...\n", len(pkgs), groupName)
+	_, _ = fmt.Fprintf(w, "Installing %d packages from group %s...\n", len(pkgs), groupName)
+
 	return eng.Install(pkgs, core.InstallOptions{})
 }
 
