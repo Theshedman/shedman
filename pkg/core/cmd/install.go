@@ -121,16 +121,19 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 
 		info, err := backend.Info(pkgName)
 		if err != nil {
-			fmt.Fprintf(w, "Failed to query package %s: %v\n", pkgName, err)
+			_, _ = fmt.Fprintf(w, "Failed to query package %s: %v\n", pkgName, err)
+
 			continue
 		}
 		if info == nil {
-			fmt.Fprintf(w, "Package not found: %s\n", pkgName)
+			_, _ = fmt.Fprintf(w, "Package not found: %s\n", pkgName)
+
 			continue
 		}
 
 		if req.Version != "" && info.Version != req.Version {
-			fmt.Fprintf(w, "Warning: Requested version %s but found %s\n", req.Version, info.Version)
+			_, _ = fmt.Fprintf(w, "Warning: Requested version %s but found %s\n", req.Version, info.Version)
+
 		}
 
 		pkgs = append(pkgs, *info)
@@ -179,7 +182,8 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 		_, _ = fmt.Fprintln(w, "\nDry-run mode - would execute:")
 
 		for _, pkg := range pkgs {
-			fmt.Fprintf(w, "  Install %s from %s\n", pkg.Name, pkg.Source)
+			_, _ = fmt.Fprintf(w, "  Install %s from %s\n", pkg.Name, pkg.Source)
+
 		}
 		return nil
 	}
@@ -220,9 +224,11 @@ func handlePostInstall(eng *core.Engine, pkgs []core.PackageInfo, w io.Writer) {
 				}
 				pacnewPath := absPath + ".pacnew"
 				if _, err := os.Stat(pacnewPath); err == nil {
-					fmt.Fprintf(w, "Processing config: %s\n", absPath)
+					_, _ = fmt.Fprintf(w, "Processing config: %s\n", absPath)
+
 					if err := engine.Apply(pkg.Name, pacnewPath, absPath); err != nil {
-						fmt.Fprintf(w, "Failed to apply config for %s: %v\n", absPath, err)
+						_, _ = fmt.Fprintf(w, "Failed to apply config for %s: %v\n", absPath, err)
+
 					}
 				}
 			}

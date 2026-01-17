@@ -35,6 +35,7 @@ func RunOwns(eng *core.Engine, w io.Writer, path string) error {
 		return err
 	}
 
-	fmt.Fprintf(w, "File '%s' is owned by '%s'\n", path, owner)
+	_, _ = fmt.Fprintf(w, "File '%s' is owned by '%s'\n", path, owner)
+
 	return nil
 }

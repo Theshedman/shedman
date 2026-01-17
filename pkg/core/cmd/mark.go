@@ -57,11 +57,13 @@ func RunMark(eng *core.Engine, w io.Writer, pkgName string, asDeps, asExplicit b
 		reasonStr = "explicit"
 	}
 
-	fmt.Fprintf(w, "Marking %s as %s...\n", pkgName, reasonStr)
+	_, _ = fmt.Fprintf(w, "Marking %s as %s...\n", pkgName, reasonStr)
+
 	if err := eng.SetInstallReason(pkgName, reason); err != nil {
 		return fmt.Errorf("failed to mark package: %w", err)
 	}
-	fmt.Fprintln(w, "Package marked successfully")
+	_, _ = fmt.Fprintln(w, "Package marked successfully")
+
 	return nil
 }
 

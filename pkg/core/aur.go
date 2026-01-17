@@ -344,7 +344,8 @@ func (a *AURInstaller) InstallFull(pkgName string, opts AUROptions) error {
 	if a.cleanAfterBuild {
 		if err := a.Clean(pkgName); err != nil {
 			// Don't fail on cleanup errors, just log
-			fmt.Fprintf(os.Stderr, "Warning: cleanup failed: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: cleanup failed: %v\n", err)
+
 		}
 	}
 
@@ -517,7 +518,8 @@ func (a *AURInstaller) InstallFullWithProgress(pkgName string, opts AUROptions, 
 		report(AURStageFetchPGP, "Fetching PGP keys...")
 		if err := a.FetchPGPKeys(pkgName); err != nil {
 			// Log but don't fail - keys might already exist
-			fmt.Fprintf(os.Stderr, "Warning: PGP key fetch: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: PGP key fetch: %v\n", err)
+
 		}
 	}
 
@@ -545,7 +547,8 @@ func (a *AURInstaller) InstallFullWithProgress(pkgName string, opts AUROptions, 
 	if a.cleanAfterBuild {
 		report(AURStageClean, "Cleaning build artifacts...")
 		if err := a.Clean(pkgName); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: cleanup failed: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: cleanup failed: %v\n", err)
+
 		}
 	}
 

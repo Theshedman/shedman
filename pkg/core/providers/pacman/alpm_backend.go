@@ -258,7 +258,8 @@ func (b *AlpmBackend) Install(pkgs []string, opts core.InstallOptions) error {
 		addedCount := 0
 		for _, pkgName := range pkgs {
 			if b.handle.IsIgnored(pkgName) {
-				fmt.Printf("Warning: %s is in IgnorePkg, skipping\n", pkgName)
+				_, _ = fmt.Printf("Warning: %s is in IgnorePkg, skipping\n", pkgName)
+
 				continue
 			}
 
@@ -370,7 +371,8 @@ func (b *AlpmBackend) addSpecificPackagesToUpgrade(pkgs []string, opts core.Upgr
 	for _, pkgName := range pkgs {
 		// Skip ignored packages
 		if b.handle.IsIgnored(pkgName) {
-			fmt.Printf("Warning: %s is in IgnorePkg, skipping\n", pkgName)
+			_, _ = fmt.Printf("Warning: %s is in IgnorePkg, skipping\n", pkgName)
+
 			continue
 		}
 
@@ -387,7 +389,8 @@ func (b *AlpmBackend) addSpecificPackagesToUpgrade(pkgs []string, opts core.Upgr
 					localPkg := localDb.Pkg(pkgName)
 					if localPkg != nil && libalpm.VerCmp(pkg.Version(), localPkg.Version()) <= 0 {
 						// Already up-to-date
-						fmt.Printf("%s is already up to date\n", pkgName)
+						_, _ = fmt.Printf("%s is already up to date\n", pkgName)
+
 						found = true
 						return nil
 					}
@@ -436,7 +439,8 @@ func (b *AlpmBackend) addAllPackagesForUpgrade() (int, error) {
 				if syncPkg != nil && libalpm.VerCmp(syncPkg.Version(), localPkg.Version()) > 0 {
 					if err := b.handle.AddPkg(syncPkg); err != nil {
 						// Log error but continue with other packages
-						fmt.Printf("Warning: failed to add %s to upgrade: %v\n", localPkg.Name(), err)
+						_, _ = fmt.Printf("Warning: failed to add %s to upgrade: %v\n", localPkg.Name(), err)
+
 					} else {
 						upgradeCount++
 					}

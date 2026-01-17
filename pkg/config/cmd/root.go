@@ -37,7 +37,8 @@ func newStatusCmd() *cobra.Command {
 
 			stateMgr := config.NewJSONStateManager(statePath)
 			if err := stateMgr.Load(); err != nil {
-				fmt.Printf("Failed to load state: %v\n", err)
+				_, _ = fmt.Printf("Failed to load state: %v\n", err)
+
 				return
 			}
 
@@ -69,14 +70,16 @@ func newDiffCmd() *cobra.Command {
 			// Get Original
 			original, err := eng.GetOriginal(path)
 			if err != nil {
-				fmt.Printf("Error retrieving original content: %v\n", err)
+				_, _ = fmt.Printf("Error retrieving original content: %v\n", err)
+
 				os.Exit(1)
 			}
 
 			// Get Current
 			current, err := os.ReadFile(path)
 			if err != nil {
-				fmt.Printf("Error reading file: %v\n", err)
+				_, _ = fmt.Printf("Error reading file: %v\n", err)
+
 				os.Exit(1)
 			}
 
@@ -84,7 +87,8 @@ func newDiffCmd() *cobra.Command {
 			// Differ expects strings
 			diff, err := eng.Differ.GenerateDiff(path, string(current), "package-default", string(original))
 			if err != nil {
-				fmt.Printf("Error generating diff: %v\n", err)
+				_, _ = fmt.Printf("Error generating diff: %v\n", err)
+
 				os.Exit(1)
 			}
 
@@ -144,27 +148,31 @@ func newApplyCmd() *cobra.Command {
 			// 1. Get Owner
 			owner, err := eng.GetFileOwner(path)
 			if err != nil {
-				fmt.Printf("Error identifying owner: %v\n", err)
+				_, _ = fmt.Printf("Error identifying owner: %v\n", err)
+
 				os.Exit(1)
 			}
 
 			// 2. Get Original Content
 			original, err := eng.GetOriginal(path)
 			if err != nil {
-				fmt.Printf("Error retrieving original content: %v\n", err)
+				_, _ = fmt.Printf("Error retrieving original content: %v\n", err)
+
 				os.Exit(1)
 			}
 
 			// 3. Write to temp source file
 			tmpFile, err := os.CreateTemp("", "shedman-apply-*.conf")
 			if err != nil {
-				fmt.Printf("Temp file creation failed: %v\n", err)
+				_, _ = fmt.Printf("Temp file creation failed: %v\n", err)
+
 				os.Exit(1)
 			}
 			defer func() { _ = os.Remove(tmpFile.Name()) }() // Cleanup
 
 			if _, err := tmpFile.Write(original); err != nil {
-				fmt.Printf("Failed to write to temp file: %v\n", err)
+				_, _ = fmt.Printf("Failed to write to temp file: %v\n", err)
+
 				os.Exit(1)
 			}
 			_ = tmpFile.Close()

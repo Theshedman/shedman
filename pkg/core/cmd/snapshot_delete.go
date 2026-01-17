@@ -31,11 +31,13 @@ func RunSnapshotDelete(engine *core.Engine, args []string, w io.Writer) error {
 
 	id := args[0]
 
-	fmt.Fprintf(w, "Deleting snapshot %s...\n", id)
+	_, _ = fmt.Fprintf(w, "Deleting snapshot %s...\n", id)
+
 	if err := mgr.Delete(id); err != nil {
 		return fmt.Errorf("delete failed: %w", err)
 	}
 
-	fmt.Fprintln(w, "Snapshot deleted successfully.")
+	_, _ = fmt.Fprintln(w, "Snapshot deleted successfully.")
+
 	return nil
 }

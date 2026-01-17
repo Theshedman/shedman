@@ -89,7 +89,7 @@ func Confirm(message string, opts ConfirmOptions) bool {
 			int(opts.Timeout.Seconds()))
 	}
 
-	fmt.Print(Colorize(Bold, message) + suffix)
+	_, _ = fmt.Print(Colorize(Bold, message) + suffix)
 
 	if opts.Timeout > 0 && IsTerminal() {
 		return confirmWithTimeout(opts)
@@ -117,7 +117,8 @@ func readConfirmInput(defaultVal bool) bool {
 
 // ReadInput prompts the user for string input
 func ReadInput(prompt string) (string, error) {
-	fmt.Print(Colorize(Bold, prompt))
+	_, _ = fmt.Print(Colorize(Bold, prompt))
+
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
 	if err != nil {
@@ -246,9 +247,9 @@ func PrintSummary(lines []SummaryLine) {
 		return
 	}
 
-	fmt.Println()
-	fmt.Println(Colorize(Bold, "=== Installation Summary ==="))
-	fmt.Println()
+	_, _ = fmt.Println()
+	_, _ = fmt.Println(Colorize(Bold, "=== Installation Summary ==="))
+	_, _ = fmt.Println()
 
 	// Find max label width for alignment
 	maxWidth := 0
@@ -317,9 +318,9 @@ func SelectOptionalDeps(deps []OptionalDepChoice, skipPrompt bool) []string {
 		return nil
 	}
 
-	fmt.Println()
-	fmt.Println(Colorize(Bold, "=== Optional Dependencies ==="))
-	fmt.Println()
+	_, _ = fmt.Println()
+	_, _ = fmt.Println(Colorize(Bold, "=== Optional Dependencies ==="))
+	_, _ = fmt.Println()
 
 	for i, dep := range deps {
 		desc := ""

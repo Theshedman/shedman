@@ -88,7 +88,8 @@ func RunRemove(eng *core.Engine, w io.Writer, pkgs []string, opts core.RemoveOpt
 		if backend.IsInstalled(p) {
 			toRemove = append(toRemove, p)
 		} else {
-			fmt.Fprintf(w, "Warning: Package %s is not installed\n", p)
+			_, _ = fmt.Fprintf(w, "Warning: Package %s is not installed\n", p)
+
 		}
 	}
 
@@ -96,12 +97,14 @@ func RunRemove(eng *core.Engine, w io.Writer, pkgs []string, opts core.RemoveOpt
 		return fmt.Errorf("no packages to remove")
 	}
 
-	fmt.Fprintf(w, "Removing %d official package(s)...\n", len(toRemove))
+	_, _ = fmt.Fprintf(w, "Removing %d official package(s)...\n", len(toRemove))
 
 	if !opts.NoConfirm {
-		fmt.Fprintf(w, "The following packages will be removed:\n")
+		_, _ = fmt.Fprintf(w, "The following packages will be removed:\n")
+
 		for _, p := range toRemove {
-			fmt.Fprintf(w, "  -> %s\n", p)
+			_, _ = fmt.Fprintf(w, "  -> %s\n", p)
+
 		}
 
 		if !opts.NoConfirm && eng.GetConfig().General.Confirm {
@@ -132,10 +135,12 @@ func filterIgnoredPackages(args []string, ignored []string) []string {
 
 func handleRemoveDryRun(w io.Writer, args []string) error {
 	backendName := core.GetBackendName()
-	fmt.Fprintf(w, "Dry-run mode (backend: %s):\n", backendName)
+	_, _ = fmt.Fprintf(w, "Dry-run mode (backend: %s):\n", backendName)
+
 	fmt.Fprintln(w, "Would remove the following packages:")
 	for _, pkg := range args {
-		fmt.Fprintf(w, "  - %s\n", pkg)
+		_, _ = fmt.Fprintf(w, "  - %s\n", pkg)
+
 	}
 	// ... details
 	return nil

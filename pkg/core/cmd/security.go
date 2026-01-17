@@ -30,13 +30,16 @@ func RunSecurity(eng *core.Engine, w io.Writer) error {
 	}
 
 	if len(issues) == 0 {
-		fmt.Fprintln(w, "No vulnerabilities found. System is secure.")
+		_, _ = fmt.Fprintln(w, "No vulnerabilities found. System is secure.")
+
 		return nil
 	}
 
-	fmt.Fprintf(w, "Found %d vulnerabilities:\n", len(issues))
+	_, _ = fmt.Fprintf(w, "Found %d vulnerabilities:\n", len(issues))
+
 	for _, issue := range issues {
-		fmt.Fprintln(w, issue)
+		_, _ = fmt.Fprintln(w, issue)
+
 	}
 
 	return nil

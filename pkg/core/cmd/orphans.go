@@ -43,21 +43,25 @@ func RunOrphans(eng *core.Engine, w io.Writer, remove bool) error {
 	}
 
 	if len(orphans) == 0 {
-		fmt.Fprintln(w, "No orphans found.")
+		_, _ = fmt.Fprintln(w, "No orphans found.")
+
 		return nil
 	}
 
 	if remove {
-		fmt.Fprintf(w, "Found %d orphans: %s\n", len(orphans), strings.Join(orphans, " "))
+		_, _ = fmt.Fprintf(w, "Found %d orphans: %s\n", len(orphans), strings.Join(orphans, " "))
+
 		if err := eng.RemoveOrphans(orphans); err != nil {
 			return fmt.Errorf("removal failed: %w", err)
 		}
 		fmt.Fprintln(w, "Orphans removed.")
 	} else {
 		for _, pkg := range orphans {
-			fmt.Fprintln(w, pkg)
+			_, _ = fmt.Fprintln(w, pkg)
+
 		}
-		fmt.Fprintln(w, "\nUse --remove to uninstall them.")
+		_, _ = fmt.Fprintln(w, "\nUse --remove to uninstall them.")
+
 	}
 	return nil
 }

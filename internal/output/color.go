@@ -1,25 +1,25 @@
 package output
 
 import (
-"fmt"
-"os"
+	"fmt"
+	"os"
 )
 
 // ANSI color codes
 const (
-Reset   = "\033[0m"
-Red     = "\033[31m"
-Green   = "\033[32m"
-Yellow  = "\033[33m"
-Blue    = "\033[34m"
-Magenta = "\033[35m"
-Cyan    = "\033[36m"
-White   = "\033[37m"
-Bold    = "\033[1m"
+	Reset   = "\033[0m"
+	Red     = "\033[31m"
+	Green   = "\033[32m"
+	Yellow  = "\033[33m"
+	Blue    = "\033[34m"
+	Magenta = "\033[35m"
+	Cyan    = "\033[36m"
+	White   = "\033[37m"
+	Bold    = "\033[1m"
 )
 
 var (
-colorEnabled = true
+	colorEnabled = true
 )
 
 // SetColorEnabled enables or disables colored output
@@ -65,25 +65,29 @@ func Colorize(color, text string) string {
 // Success prints a green success message
 func Success(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
-	fmt.Println(Colorize(Green, "✓ "+msg))
+	_, _ = fmt.Println(Colorize(Green, "✓ "+msg))
+
 }
 
 // Error prints a red error message
 func Error(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
-	fmt.Fprintln(os.Stderr, Colorize(Red, "✗ "+msg))
+	_, _ = fmt.Fprintln(os.Stderr, Colorize(Red, "✗ "+msg))
+
 }
 
 // Warning prints a yellow warning message
 func Warning(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
-	fmt.Println(Colorize(Yellow, "⚠ "+msg))
+	_, _ = fmt.Println(Colorize(Yellow, "⚠ "+msg))
+
 }
 
 // Info prints a blue info message
 func Info(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
-	fmt.Println(Colorize(Cyan, "→ "+msg))
+	_, _ = fmt.Println(Colorize(Cyan, "→ "+msg))
+
 }
 
 // Bold prints bold text

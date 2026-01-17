@@ -62,7 +62,8 @@ func RunSnapshotCreate(engine *core.Engine, args []string, opts snapshot.CreateO
 	}
 
 	if hook := hooks.PreCreate; hook != "" {
-		fmt.Fprintf(w, "Executing pre-snapshot hook: %s\n", hook)
+		_, _ = fmt.Fprintf(w, "Executing pre-snapshot hook: %s\n", hook)
+
 		// Run via shell to support piping/redirection
 		cmd := (&executor.RealExecutor{}).Command("sh", "-c", hook)
 
@@ -79,17 +80,20 @@ func RunSnapshotCreate(engine *core.Engine, args []string, opts snapshot.CreateO
 	}
 
 	if hook := hooks.PostCreate; hook != "" {
-		fmt.Fprintf(w, "Executing post-snapshot hook: %s\n", hook)
+		_, _ = fmt.Fprintf(w, "Executing post-snapshot hook: %s\n", hook)
+
 		cmd := (&executor.RealExecutor{}).Command("sh", "-c", hook)
 
 		cmd.Stdout = w
 		cmd.Stderr = w
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(w, "Warning: post-snapshot hook failed: %v\n", err)
+			_, _ = fmt.Fprintf(w, "Warning: post-snapshot hook failed: %v\n", err)
+
 		}
 	}
 
-	fmt.Fprintf(w, "Snapshot created successfully.\nID: %s\nBackend: %s\n", snap.ID, snap.Backend)
+	_, _ = fmt.Fprintf(w, "Snapshot created successfully.\nID: %s\nBackend: %s\n", snap.ID, snap.Backend)
+
 	return nil
 }
 

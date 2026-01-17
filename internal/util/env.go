@@ -12,7 +12,8 @@ import (
 // If not found, it prompts the user using output.ReadInput.
 func GetEnvOrPrompt(envVar, promptMsg string) string {
 	if val := os.Getenv(envVar); val != "" {
-		fmt.Printf("Using credentials from %s\n", envVar)
+		_, _ = fmt.Printf("Using credentials from %s\n", envVar)
+
 		return val
 	}
 	// Fallback to prompt

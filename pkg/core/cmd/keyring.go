@@ -51,7 +51,8 @@ func newKeyringAddCmd() *cobra.Command {
 			if err := RunKeyringAdd(eng, cmd.OutOrStdout(), args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Key %s added.\n", args[0])
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Key %s added.\n", args[0])
+
 			return nil
 		},
 	}
@@ -70,7 +71,8 @@ func newKeyringRemoveCmd() *cobra.Command {
 			if err := RunKeyringRemove(eng, cmd.OutOrStdout(), args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Key %s removed.\n", args[0])
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Key %s removed.\n", args[0])
+
 			return nil
 		},
 	}
@@ -108,7 +110,8 @@ func newKeyringImportCmd() *cobra.Command {
 			if err := RunKeyringImport(eng, cmd.OutOrStdout(), args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Key imported from %s.\n", args[0])
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Key imported from %s.\n", args[0])
+
 			return nil
 		},
 	}
@@ -158,16 +161,19 @@ func RunKeyringList(eng *core.Engine, w io.Writer) error {
 }
 
 func RunKeyringAdd(eng *core.Engine, w io.Writer, keyID string) error {
-	fmt.Fprintf(w, "Adding key %s...\n", keyID)
+	_, _ = fmt.Fprintf(w, "Adding key %s...\n", keyID)
+
 	return eng.KeyringAdd(keyID)
 }
 
 func RunKeyringRemove(eng *core.Engine, w io.Writer, keyID string) error {
-	fmt.Fprintf(w, "Removing key %s...\n", keyID)
+	_, _ = fmt.Fprintf(w, "Removing key %s...\n", keyID)
+
 	return eng.KeyringRemove(keyID)
 }
 
 func RunKeyringImport(eng *core.Engine, w io.Writer, path string) error {
-	fmt.Fprintf(w, "Importing key from %s...\n", path)
+	_, _ = fmt.Fprintf(w, "Importing key from %s...\n", path)
+
 	return eng.KeyringImport(path)
 }

@@ -163,10 +163,12 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 
 	if len(results) == 0 {
 		if opts.JSON {
-			fmt.Fprintln(w, "[]")
+			_, _ = fmt.Fprintln(w, "[]")
+
 			return nil
 		}
-		fmt.Fprintln(w, "No packages found.")
+		_, _ = fmt.Fprintln(w, "No packages found.")
+
 		return nil
 	}
 
@@ -187,9 +189,10 @@ func RunSearch(eng *core.Engine, w io.Writer, query string, opts SearchOptions) 
 			installedMarker = " ✓"
 		}
 
-		fmt.Fprintf(w, " 📦 %s %s %s%s\n", name, version, source, installedMarker)
+		_, _ = fmt.Fprintf(w, " 📦 %s %s %s%s\n", name, version, source, installedMarker)
+
 	}
-	fmt.Fprintf(w, "\nFound %d package(s)\n", len(results))
+	_, _ = fmt.Fprintf(w, "\nFound %d package(s)\n", len(results))
 
 	return nil
 }

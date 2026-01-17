@@ -35,16 +35,18 @@ func RunSnapshotDiff(engine *core.Engine, id1, id2 string, w io.Writer) error {
 	}
 
 	if len(diff.Added) == 0 && len(diff.Removed) == 0 && len(diff.Modified) == 0 {
-		fmt.Fprintln(w, "No differences found.")
+		_, _ = fmt.Fprintln(w, "No differences found.")
+
 		return nil
 	}
 
-	fmt.Fprintf(w, "Diff between %s and %s:\n", id1, id2)
+	_, _ = fmt.Fprintf(w, "Diff between %s and %s:\n", id1, id2)
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 
 	if len(diff.Added) > 0 {
-		fmt.Fprintln(tw, "\n[ADDED]:")
+		_, _ = fmt.Fprintln(tw, "\n[ADDED]:")
+
 		for _, item := range diff.Added {
 			fmt.Fprintf(tw, "  + %s\n", item)
 		}

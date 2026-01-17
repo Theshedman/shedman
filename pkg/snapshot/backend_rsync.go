@@ -62,7 +62,8 @@ func (b *RsyncBackend) GetBackendName() string {
 // Create creates a new snapshot using 'rsync'
 func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error) {
 	if opts.DryRun {
-		fmt.Println("Dry-run: Creating snapshot directory structure skipped")
+		_, _ = fmt.Println("Dry-run: Creating snapshot directory structure skipped")
+
 	} else if err := os.MkdirAll(b.root, util.DirPermissions); err != nil {
 		return nil, fmt.Errorf("failed to create snapshot root: %w", err)
 	}
@@ -89,7 +90,8 @@ func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error
 	args = append(args, "/", snapPath)
 
 	if opts.DryRun {
-		fmt.Printf("Dry-run: %s %v\n", "rsync", args)
+		_, _ = fmt.Printf("Dry-run: %s %v\n", "rsync", args)
+
 		return &Snapshot{
 			ID:          "dry-run",
 			Description: desc,
@@ -192,7 +194,8 @@ func (b *RsyncBackend) Restore(id string, opts RestoreOptions) error {
 
 	args = append(args, snapPath+"/", "/")
 
-	fmt.Printf("Restoring snapshot %s to /\n", id)
+	_, _ = fmt.Printf("Restoring snapshot %s to /\n", id)
+
 	if opts.DryRun {
 		fmt.Printf("Dry-run: %s %v\n", "rsync", args)
 		return nil
