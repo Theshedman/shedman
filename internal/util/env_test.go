@@ -20,7 +20,7 @@ func TestGetEnvOrPrompt(t *testing.T) {
 	// Case 2: Environment variable is missing, fallback to prompt
 	t.Run("PromptFallback", func(t *testing.T) {
 		// Ensure env var is unset
-		os.Unsetenv(envKey)
+		_ = os.Unsetenv(envKey)
 
 		// Mock Stdin
 		r, w, err := os.Pipe()
@@ -34,8 +34,10 @@ func TestGetEnvOrPrompt(t *testing.T) {
 
 		// Write simulated input
 		go func() {
-			defer w.Close()
-			w.Write([]byte("prompt_secret\n"))
+			defer func() { _ = w.Close() }()
+
+			_, _ = w.Write([]byte("prompt_secret\n"))
+
 		}()
 
 		val := GetEnvOrPrompt(envKey, "Enter secret: ")

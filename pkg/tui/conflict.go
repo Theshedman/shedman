@@ -22,12 +22,6 @@ var (
 			BorderForeground(lipgloss.Color("63")).
 			Padding(0, 1).
 			Width(80)
-
-	helpStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240"))
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF0000"))
 )
 
 // TUIConflictResolver implements config.ConflictResolver using Bubbletea

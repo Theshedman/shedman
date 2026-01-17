@@ -12,7 +12,6 @@ import (
 // MockBackend for Boot testing
 type MockBackend struct {
 	core.OfficialBackend
-	pkgs      []core.PackageInfo
 	installed map[string]string // map[name]version
 }
 

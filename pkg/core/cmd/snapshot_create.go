@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	snapshotCreateLimit       int
+	snapshotCleanupType string
+
 	snapshotCreateIncludeHome bool
 	snapshotCreateType        string
 	snapshotCreateTags        []string

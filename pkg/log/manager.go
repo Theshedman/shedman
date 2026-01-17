@@ -36,7 +36,7 @@ func (l *Logger) Log(tx Transaction) error {
 
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Format: [YYYY-MM-DDTHH:MM:SS-0700] [ALPM] message
 

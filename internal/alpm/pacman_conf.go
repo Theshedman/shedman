@@ -43,7 +43,7 @@ func ParsePacmanConf(path string) (*PacmanConf, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	conf := &PacmanConf{
 		RootDir:      "/",
@@ -142,7 +142,7 @@ func parseMirrorlist(path, repoName string) []string {
 	if err != nil {
 		return nil
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var servers []string
 	scanner := bufio.NewScanner(file)
@@ -216,6 +216,7 @@ func (c *PacmanConf) GetMirrorsForRepo(repoName string) []string {
 // GetLogPath returns the log file path, ensuring parent directory exists
 func (c *PacmanConf) GetLogPath() string {
 	dir := filepath.Dir(c.LogFile)
-	os.MkdirAll(dir, util.DirPermissions)
+	_ = os.MkdirAll(dir, util.DirPermissions)
+
 	return c.LogFile
 }

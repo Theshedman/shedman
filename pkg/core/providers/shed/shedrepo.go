@@ -49,8 +49,7 @@ type ShedPackage struct {
 type Backend struct {
 	client       *shedhttp.RetryClient
 	cache        *core.FileSystemCache
-	baseURL      string
-	timeout      time.Duration
+	config       *config.ShedOSConfig
 	forceRefresh bool
 }
 

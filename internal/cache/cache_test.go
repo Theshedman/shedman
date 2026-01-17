@@ -75,7 +75,7 @@ func TestGetFilePath_ShedIndex(t *testing.T) {
 
 func TestEnsureDir(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-test-cache")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	c := cache.NewFileSystemCacheWithDir(tmpDir)
 	testDir := c.GetSubDir("testdir")
@@ -96,7 +96,7 @@ func TestEnsureDir(t *testing.T) {
 
 func TestWriteAndReadFile(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-test-cache")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	c := cache.NewFileSystemCacheWithDir(tmpDir)
 	testFile := c.GetFilePath("aur", "test.json")
@@ -121,7 +121,7 @@ func TestWriteAndReadFile(t *testing.T) {
 
 func TestCache_IsFresh_ReturnsTrue_WhenFileIsRecent(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-test-fresh")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	c := cache.NewFileSystemCacheWithDir(tmpDir)
 	testFile := c.GetFilePath("test", "recent.json")
@@ -140,7 +140,7 @@ func TestCache_IsFresh_ReturnsTrue_WhenFileIsRecent(t *testing.T) {
 
 func TestCache_IsFresh_ReturnsFalse_WhenFileIsStale(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-test-stale")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	c := cache.NewFileSystemCacheWithDir(tmpDir)
 	testFile := c.GetFilePath("test", "stale.json")
@@ -159,7 +159,7 @@ func TestCache_IsFresh_ReturnsFalse_WhenFileIsStale(t *testing.T) {
 
 func TestCache_IsFresh_ReturnsFalse_WhenFileNotExists(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-test-noexist")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	c := cache.NewFileSystemCacheWithDir(tmpDir)
 	testFile := c.GetFilePath("test", "nonexistent.json")
@@ -171,7 +171,7 @@ func TestCache_IsFresh_ReturnsFalse_WhenFileNotExists(t *testing.T) {
 
 func TestCache_GetModTime_ReturnsTime(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-test-modtime")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	c := cache.NewFileSystemCacheWithDir(tmpDir)
 	testFile := c.GetFilePath("test", "modtime.json")
@@ -195,7 +195,7 @@ func TestCache_GetModTime_ReturnsTime(t *testing.T) {
 
 func TestCache_GetModTime_ErrorsWhenNotExists(t *testing.T) {
 	tmpDir := filepath.Join(os.TempDir(), "shedman-test-modtime-err")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	c := cache.NewFileSystemCacheWithDir(tmpDir)
 	testFile := c.GetFilePath("test", "nonexistent.json")
@@ -211,7 +211,7 @@ func TestFileSystemCache_FindVersions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	c := cache.NewFileSystemCacheWithDir(tmpDir)
 

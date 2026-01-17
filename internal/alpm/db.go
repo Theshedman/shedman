@@ -201,7 +201,8 @@ func IsAlpmAvailable() bool {
 	// Try to initialize ALPM
 	h, err := alpm.Initialize("/", "/var/lib/pacman")
 	if err == nil {
-		h.Release()
+		_ = h.Release()
+
 		alpmAvailable = true
 	} else {
 		alpmAvailable = false

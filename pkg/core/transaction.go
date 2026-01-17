@@ -124,21 +124,24 @@ func (t *Transaction) Rollback() error {
 		case OpCreated:
 			// Remove the created file
 			if t.executor != nil {
-				t.executor("", []string{"sudo", "rm", "-f", entry.Path})
+				_ = t.executor("", []string{"sudo", "rm", "-f", entry.Path})
+
 			} else {
 				os.Remove(entry.Path)
 			}
 		case OpDirectoryCreated:
 			// Remove directory
 			if t.executor != nil {
-				t.executor("", []string{"sudo", "rmdir", entry.Path})
+				_ = t.executor("", []string{"sudo", "rmdir", entry.Path})
+
 			} else {
 				os.Remove(entry.Path)
 			}
 		case OpOverwritten:
 			// Restore from backup
 			if t.executor != nil {
-				t.executor("", []string{"sudo", "cp", "-p", entry.BackupPath, entry.Path})
+				_ = t.executor("", []string{"sudo", "cp", "-p", entry.BackupPath, entry.Path})
+
 			} else {
 				if err := copyFile(entry.BackupPath, entry.Path); err != nil {
 					lastErr = fmt.Errorf("failed to restore %s: %w", entry.Path, err)
@@ -168,13 +171,13 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	if _, err := io.Copy(out, in); err != nil {
 		return err
@@ -183,7 +186,8 @@ func copyFile(src, dst string) error {
 	// Preserve permissions
 	info, err := in.Stat()
 	if err == nil {
-		os.Chmod(dst, info.Mode())
+		_ = os.Chmod(dst, info.Mode())
+
 	}
 
 	return nil

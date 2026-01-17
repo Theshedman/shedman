@@ -12,7 +12,7 @@ func TestManager_List(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp log: %v", err)
 	}
-	defer os.Remove(tmpLog.Name())
+	defer func() { _ = os.Remove(tmpLog.Name()) }()
 
 	content := `[2023-11-20T10:00:00+0000] [ALPM] transaction started
 [2023-11-20T10:00:01+0000] [ALPM] installed go (2:1.21.4-1)
@@ -24,7 +24,7 @@ func TestManager_List(t *testing.T) {
 	if _, err := tmpLog.WriteString(content); err != nil {
 		t.Fatalf("Failed to write log content: %v", err)
 	}
-	tmpLog.Close()
+	_ = tmpLog.Close()
 
 	mgr := New(tmpLog.Name())
 	txs, err := mgr.List()
@@ -51,13 +51,13 @@ func TestManager_List(t *testing.T) {
 
 func TestManager_ParsesDate(t *testing.T) {
 	tmpLog, _ := os.CreateTemp("", "pacman.log")
-	defer os.Remove(tmpLog.Name())
+	defer func() { _ = os.Remove(tmpLog.Name()) }()
 
 	content := `[2023-11-20T10:00:00+0000] [ALPM] transaction started
 [2023-11-20T10:00:02+0000] [ALPM] transaction completed
 `
-	tmpLog.WriteString(content)
-	tmpLog.Close()
+	_, _ = tmpLog.WriteString(content)
+	_ = tmpLog.Close()
 
 	mgr := New(tmpLog.Name())
 	txs, _ := mgr.List()

@@ -148,7 +148,8 @@ func NewRealAlpmHandleWithConf(conf *PacmanConf) (*RealAlpmHandle, error) {
 
 	// Register sync databases from pacman.conf
 	if err := handle.registerSyncDatabases(); err != nil {
-		h.Release()
+		_ = h.Release()
+
 		return nil, fmt.Errorf("failed to register sync databases: %w", err)
 	}
 
@@ -388,7 +389,8 @@ func (l *RealAlpmDBList) ForEach(f func(AlpmDB) error) error {
 // Slice returns all databases.
 func (l *RealAlpmDBList) Slice() []AlpmDB {
 	var result []AlpmDB
-	l.ForEach(func(db AlpmDB) error {
+	_ = l.ForEach(func(db AlpmDB) error {
+
 		result = append(result, db)
 		return nil
 	})
@@ -472,7 +474,8 @@ func (l *RealAlpmPackageList) ForEach(f func(AlpmPackage) error) error {
 // Slice returns all packages.
 func (l *RealAlpmPackageList) Slice() []AlpmPackage {
 	var result []AlpmPackage
-	l.ForEach(func(pkg AlpmPackage) error {
+	_ = l.ForEach(func(pkg AlpmPackage) error {
+
 		result = append(result, pkg)
 		return nil
 	})
@@ -482,7 +485,8 @@ func (l *RealAlpmPackageList) Slice() []AlpmPackage {
 // Len returns the number of packages.
 func (l *RealAlpmPackageList) Len() int {
 	count := 0
-	l.ForEach(func(pkg AlpmPackage) error {
+	_ = l.ForEach(func(pkg AlpmPackage) error {
+
 		count++
 		return nil
 	})
@@ -497,7 +501,8 @@ type RealAlpmDependList struct {
 // Slice returns dependencies as strings.
 func (l *RealAlpmDependList) Slice() []string {
 	var result []string
-	l.list.ForEach(func(dep *alpm.Depend) error {
+	_ = l.list.ForEach(func(dep *alpm.Depend) error {
+
 		result = append(result, dep.Name)
 		return nil
 	})
