@@ -46,7 +46,8 @@ func init() {
 func RunRepair(eng *core.Engine, w io.Writer, action string) error {
 	switch action {
 	case "lock":
-		fmt.Fprintln(w, "Removing stale lock file...")
+		_, _ = fmt.Fprintln(w, "Removing stale lock file...")
+
 		return eng.RepairLock()
 	default:
 		return fmt.Errorf("unknown repair action: %s", action)

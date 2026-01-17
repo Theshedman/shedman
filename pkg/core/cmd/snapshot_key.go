@@ -52,7 +52,8 @@ func RunSnapshotKeyGenerate(engine *core.Engine, args []string, w io.Writer) err
 		return fmt.Errorf("failed to generate key: %w", err)
 	}
 
-	fmt.Fprintf(w, "Key generated successfully. ID: %s\n", id)
+	_, _ = fmt.Fprintf(w, "Key generated successfully. ID: %s\n", id)
+
 	return nil
 }
 
@@ -68,12 +69,14 @@ func RunSnapshotKeyList(engine *core.Engine, w io.Writer) error {
 	}
 
 	if len(keys) == 0 {
-		fmt.Fprintln(w, "No keys found.")
+		_, _ = fmt.Fprintln(w, "No keys found.")
+
 		return nil
 	}
 
 	for _, k := range keys {
-		fmt.Fprintf(w, "%s\t%s\n", k.ID, k.Description)
+		_, _ = fmt.Fprintf(w, "%s\t%s\n", k.ID, k.Description)
+
 	}
 	return nil
 }
