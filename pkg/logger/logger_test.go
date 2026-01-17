@@ -34,10 +34,12 @@ func TestInit(t *testing.T) {
 	}
 
 	Init(false, false) // Default mode
-	if slog.Default().Enabled(nil, slog.LevelInfo) {
+	if slog.Default().Enabled(context.TODO(), slog.LevelInfo) {
+
 		t.Error("Did not expect LevelInfo to be enabled in Default mode")
 	}
-	if !slog.Default().Enabled(nil, slog.LevelWarn) {
+	if !slog.Default().Enabled(context.TODO(), slog.LevelWarn) {
+
 		t.Error("Expected LevelWarn to be enabled in Default mode")
 	}
 }

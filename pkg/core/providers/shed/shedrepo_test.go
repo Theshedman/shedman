@@ -46,7 +46,8 @@ func TestShedRepoBackend_Sync_CacheHit(t *testing.T) {
 func TestShedRepoBackend_Sync_WithServer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test data"))
+		_, _ = w.Write([]byte("test data"))
+
 	}))
 	defer server.Close()
 

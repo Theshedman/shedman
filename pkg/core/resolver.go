@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
 )
 
 // Errors for resolution
@@ -106,6 +105,7 @@ func (r *Resolver) resolveRequestedPackage(req Request, result *Result, visited 
 		return err
 	}
 	if info == nil {
+		return fmt.Errorf("package not found: %s", req.Name)
 	}
 
 	// Validate version constraint if specified

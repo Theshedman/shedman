@@ -25,7 +25,8 @@ var SnapshotPruneCmd = &cobra.Command{
 			d := snapshotPruneOlderThan
 			if len(d) > 1 && d[len(d)-1] == 'd' {
 				days := 0
-				fmt.Sscanf(d, "%dd", &days)
+				_, _ = fmt.Sscanf(d, "%dd", &days)
+
 				duration = time.Duration(days) * 24 * time.Hour
 			} else {
 				var err error

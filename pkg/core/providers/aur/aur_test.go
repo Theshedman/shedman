@@ -20,7 +20,8 @@ func TestAURBackend_Name(t *testing.T) {
 func TestAURBackend_Sync_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"version":5,"type":"multiinfo","resultcount":1,"results":[]}`))
+		_, _ = w.Write([]byte(`{"version":5,"type":"multiinfo","resultcount":1,"results":[]}`))
+
 	}))
 	defer server.Close()
 

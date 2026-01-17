@@ -33,7 +33,8 @@ var RepairCmd = &cobra.Command{
 		}
 
 		// If no specific repair action, show help
-		cmd.Help()
+		_ = cmd.Help()
+
 	},
 }
 

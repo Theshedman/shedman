@@ -173,7 +173,8 @@ func (e *ConfigEngine) updateState(pkg, path, hash string) {
 		LastModified: time.Now(),
 		Version:      "latest",
 	})
-	e.StateMgr.Save()
+	_ = e.StateMgr.Save()
+
 }
 
 // copyFile copies content from src to dst atomically, preserving metadata

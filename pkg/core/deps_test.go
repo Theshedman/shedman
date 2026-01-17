@@ -2,7 +2,6 @@ package core
 
 import (
 	"testing"
-
 )
 
 func TestDependencyTree_Build_SinglePackage(t *testing.T) {
@@ -78,7 +77,7 @@ func TestDependencyTree_GetDependencies(t *testing.T) {
 	}
 
 	tree := NewDependencyTree(db)
-	tree.Build([]string{"neovim"})
+	_ = tree.Build([]string{"neovim"})
 
 	deps := tree.GetDependencies("neovim")
 	if len(deps) != 1 || deps[0] != "luajit" {
@@ -128,7 +127,7 @@ func TestDependencyTree_OptionalDependencies(t *testing.T) {
 	}
 
 	tree := NewDependencyTree(db)
-	tree.Build([]string{"neovim"})
+	_ = tree.Build([]string{"neovim"})
 
 	optDeps := tree.GetOptionalDependencies("neovim")
 	if len(optDeps) != 2 {
@@ -211,7 +210,7 @@ func TestDependencyTree_GetInstallOrder(t *testing.T) {
 	}
 
 	tree := NewDependencyTree(db)
-	tree.Build([]string{"A"})
+	_ = tree.Build([]string{"A"})
 
 	order := tree.GetInstallOrder()
 	// D should come before B and C, which should come before A

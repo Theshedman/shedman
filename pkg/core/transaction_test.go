@@ -90,7 +90,7 @@ func TestTransaction_Commit(t *testing.T) {
 	file := filepath.Join(tmpDir, "committed.txt")
 
 	tx.TrackCreate(file)
-	os.WriteFile(file, []byte("data"), util.FilePermissions)
+	_ = os.WriteFile(file, []byte("data"), util.FilePermissions)
 
 	// Commit
 	if err := tx.Commit(); err != nil {

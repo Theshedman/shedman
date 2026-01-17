@@ -125,7 +125,7 @@ func TestAURInstaller_IsFirstTime(t *testing.T) {
 
 	// Create fake clone
 	pkgDir := filepath.Join(tmpDir, "existing-pkg")
-	os.MkdirAll(filepath.Join(pkgDir, ".git"), util.DirPermissions)
+	_ = os.MkdirAll(filepath.Join(pkgDir, ".git"), util.DirPermissions)
 
 	if ai.IsFirstTime("existing-pkg") {
 		t.Error("Should not be first time for existing package")
@@ -161,8 +161,9 @@ func TestAURInstaller_GetPKGBUILDDiff(t *testing.T) {
 
 	// Create fake package dir with git
 	pkgDir := filepath.Join(tmpDir, "test-pkg")
-	os.MkdirAll(filepath.Join(pkgDir, ".git"), util.DirPermissions)
-	os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte("pkgver=2.0"), util.FilePermissions)
+	_ = os.MkdirAll(filepath.Join(pkgDir, ".git"), util.DirPermissions)
+
+	_ = os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte("pkgver=2.0"), util.FilePermissions)
 
 	// Note: GetPKGBUILDDiff uses exec.Command directly, not the executor
 	// This test verifies it returns an error for non-existent package
@@ -181,7 +182,7 @@ func TestAURInstaller_VerifyChecksums(t *testing.T) {
 
 	// Create pkg dir
 	pkgDir := filepath.Join(tmpDir, "test-pkg")
-	os.MkdirAll(pkgDir, util.DirPermissions)
+	_ = os.MkdirAll(pkgDir, util.DirPermissions)
 
 	var executedCmd []string
 	mockExec := &executor.MockExecutor{
@@ -209,7 +210,7 @@ func TestAURInstaller_Build_WithSandbox(t *testing.T) {
 	ai.SetSandboxEnabled(true)
 	tmpDir := t.TempDir()
 	ai.SetCacheDir(tmpDir)
-	os.MkdirAll(filepath.Join(tmpDir, "test-pkg"), util.DirPermissions)
+	_ = os.MkdirAll(filepath.Join(tmpDir, "test-pkg"), util.DirPermissions)
 
 	var executedCmd []string
 	mockExec := &executor.MockExecutor{
@@ -237,7 +238,7 @@ func TestAURInstaller_Build_WithoutSandbox(t *testing.T) {
 	ai.SetSandboxEnabled(false)
 	tmpDir := t.TempDir()
 	ai.SetCacheDir(tmpDir)
-	os.MkdirAll(filepath.Join(tmpDir, "test-pkg"), util.DirPermissions)
+	_ = os.MkdirAll(filepath.Join(tmpDir, "test-pkg"), util.DirPermissions)
 
 	var executedCmd []string
 	mockExec := &executor.MockExecutor{
@@ -270,9 +271,10 @@ func TestAURInstaller_Install(t *testing.T) {
 
 	// Create fake built package
 	pkgDir := filepath.Join(tmpDir, "test-pkg")
-	os.MkdirAll(pkgDir, util.DirPermissions)
+	_ = os.MkdirAll(pkgDir, util.DirPermissions)
+
 	pkgFile := filepath.Join(pkgDir, "test-pkg-1.0-1-x86_64.pkg.tar.zst")
-	os.WriteFile(pkgFile, []byte("fake"), util.FilePermissions)
+	_ = os.WriteFile(pkgFile, []byte("fake"), util.FilePermissions)
 
 	// Use mock backend for testing
 	mockBackend := &mockInstallBackend{

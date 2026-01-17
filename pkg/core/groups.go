@@ -238,6 +238,7 @@ func NewGroupRegistryWithConfig(cfg *config.Config) *GroupRegistry {
 
 	if err := r.LoadFromFile(groupsFile); err != nil {
 		// Silent failure - config file may not exist
+		_ = err
 	}
 
 	return r

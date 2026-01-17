@@ -430,7 +430,8 @@ func (b *AlpmBackend) addAllPackagesForUpgrade() (int, error) {
 				return nil
 			}
 
-			syncDbs.ForEach(func(db alpm.AlpmDB) error {
+			_ = syncDbs.ForEach(func(db alpm.AlpmDB) error {
+
 				syncPkg := db.Pkg(localPkg.Name())
 				if syncPkg != nil && libalpm.VerCmp(syncPkg.Version(), localPkg.Version()) > 0 {
 					if err := b.handle.AddPkg(syncPkg); err != nil {

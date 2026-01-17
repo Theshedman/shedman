@@ -15,7 +15,8 @@ func TestRetryClient_UsesFirstMirror_WhenSucceeds(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&callCount, 1)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
+
 	}))
 	defer server.Close()
 
@@ -50,7 +51,8 @@ func TestRetryClient_FailsOver_WhenFirstFails(t *testing.T) {
 	second := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&secondCalls, 1)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success from second"))
+		_, _ = w.Write([]byte("success from second"))
+
 	}))
 	defer second.Close()
 

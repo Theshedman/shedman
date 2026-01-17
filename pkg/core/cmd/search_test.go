@@ -95,8 +95,10 @@ func TestRunSearch(t *testing.T) {
 	// Test No Results
 	buf.Reset()
 	if err := RunSearch(eng, &buf, "missing", opts); err != nil {
-		// No error expected for empty results, just message
+		// No error message expected for empty results, just log it
+		t.Logf("Search for missing package returned error: %v", err)
 	}
+
 	out = buf.String()
 	if !strings.Contains(out, "No packages found") && !strings.Contains(out, "[]") {
 		t.Errorf("Expected 'No packages found' or empty json array, got: %s", out)
