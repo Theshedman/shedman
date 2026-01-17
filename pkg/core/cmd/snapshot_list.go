@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/pkg/snapshot"
 )
@@ -48,14 +50,15 @@ func RunSnapshotList(engine *core.Engine, opts snapshot.ListOptions, w io.Writer
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(tw, "ID\tDATE\tTYPE\tBACKEND\tDESCRIPTION")
+	fmt.Fprintln(tw, "ID\tTIMESTAMP\tBACKEND\tSIZE\tDESCRIPTION")
 
 	for _, snap := range snapshots {
+		ts := snap.Timestamp.Format(time.RFC3339)
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
 			snap.ID,
-			snap.Date.Format("2006-01-02 15:04:05"),
-			snap.Type,
+			ts,
 			snap.Backend,
+			util.FormatSize(snap.Size),
 			snap.Description)
 
 	}
