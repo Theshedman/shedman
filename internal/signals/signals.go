@@ -34,6 +34,7 @@ func (h *SignalHandler) Setup() {
 	}
 	h.captured = true
 	h.stopCh = make(chan struct{})
+	stopCh := h.stopCh
 	h.mu.Unlock()
 
 	c := make(chan os.Signal, 1)
@@ -45,7 +46,7 @@ func (h *SignalHandler) Setup() {
 			output.Warning("\nReceived interrupt signal. Cleaning up...")
 			h.RunCleanup()
 			os.Exit(1)
-		case <-h.stopCh:
+		case <-stopCh:
 			signal.Stop(c)
 			return
 		}
