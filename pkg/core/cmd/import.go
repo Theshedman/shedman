@@ -66,7 +66,7 @@ func RunImport(eng *core.Engine, w io.Writer, r io.Reader) error {
 		return nil
 	}
 
-	fmt.Fprintf(w, "Importing %d packages...\n", len(pkgs))
+	_, _ = fmt.Fprintf(w, "Importing %d packages...\n", len(pkgs))
 
 	// Use Install with Needed=true to avoid reinstalling existing
 	opts := core.InstallOptions{

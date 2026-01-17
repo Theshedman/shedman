@@ -87,5 +87,6 @@ func printKV(w io.Writer, key string, value string) {
 		return
 	}
 	// Align keys
-	fmt.Fprintf(w, "%-15s : %s\n", key, value)
+	_, _ = fmt.Fprintf(w, "%-15s : %s\n", key, value)
+
 }

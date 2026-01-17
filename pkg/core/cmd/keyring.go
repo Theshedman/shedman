@@ -88,7 +88,8 @@ func newKeyringRefreshCmd() *cobra.Command {
 			if err := RunKeyringRefresh(eng, cmd.OutOrStdout()); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Keys refreshed.")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Keys refreshed.")
+
 			return nil
 		},
 	}
@@ -125,7 +126,8 @@ func newKeyringInitCmd() *cobra.Command {
 			if err := RunKeyringInit(eng, cmd.OutOrStdout()); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Keyring initialized.")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Keyring initialized.")
+
 			return nil
 		},
 	}

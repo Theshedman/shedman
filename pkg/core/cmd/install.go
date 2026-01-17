@@ -87,7 +87,8 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 	for _, arg := range args {
 		// Handle groups
 		if len(arg) > 0 && arg[0] == '@' {
-			fmt.Fprintf(w, "Resolving group %s...\n", arg)
+			_, _ = fmt.Fprintf(w, "Resolving group %s...\n", arg)
+
 			registry := core.NewGroupRegistryWithConfig(cfg)
 			expanded, err := registry.ExpandGroups([]string{arg})
 			if err != nil {
@@ -186,7 +187,8 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 	}
 
 	if !flags.Quiet {
-		fmt.Fprintln(w, "Installation complete.")
+		_, _ = fmt.Fprintln(w, "Installation complete.")
+
 	}
 
 	// Post-install: Handle configuration management
