@@ -16,6 +16,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm
           pacman -S --noconfirm base-devel git go golangci-lint
+          git config --global --add safe.directory '*'
 
       - uses: actions/checkout@v4
       
