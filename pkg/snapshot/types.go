@@ -16,9 +16,10 @@ type Snapshot struct {
 
 // CreateOptions options for creating a snapshot
 type CreateOptions struct {
-	IncludeHome bool
-	Type        string
-	Tags        []string
+	IncludeHome   bool
+	Type          string
+	Tags          []string
+	TargetConfigs []string // List of configs/subvolumes to snapshot
 }
 
 // ListOptions options for listing snapshots
@@ -31,6 +32,7 @@ type RestoreOptions struct {
 	PackagesOnly bool
 	ConfigsOnly  bool
 	HomeOnly     bool
+	Force        bool // Bypass safety checks (e.g. for full system restore)
 }
 
 // PruneOptions options for pruning
@@ -50,6 +52,7 @@ type DiffResult struct {
 // RemoteTarget represents a remote storage location
 type RemoteTarget struct {
 	Name string // "gdrive", "r2", "s3", "usb"
+	Type string // "rclone", "ssh", "local"
 	Path string // specific path or bucket
 }
 

@@ -3,6 +3,9 @@ package snapshot
 import (
 	"encoding/csv"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -28,30 +31,77 @@ func (b *SnapperBackend) GetBackendName() string {
 	return "snapper"
 }
 
-// Create creates a new snapshot using 'snapper create'
-func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, error) {
-	args := []string{"create", "--description", desc}
-
-	if opts.Type != "" {
-		args = append(args, "--type", opts.Type)
-	} else {
-		args = append(args, "--type", "single")
-	}
-
-	args = append(args, "--print-number")
-
+func (b *SnapperBackend) getConfigs() (map[string]string, error) {
+	args := []string{"--csvout", "list-configs", "--columns", "config,subvolume"}
 	out, err := b.exec.Output("snapper", args...)
 	if err != nil {
-		if strings.Contains(err.Error(), "No permissions") {
-			return nil, fmt.Errorf("snapper create failed (try running with sudo): %w", err)
+		return nil, err
+	}
+	r := csv.NewReader(strings.NewReader(string(out)))
+	records, err := r.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	configs := make(map[string]string)
+	for _, rec := range records {
+		if len(rec) >= 2 && rec[0] != "config" {
+			name := strings.TrimSpace(rec[0])
+			subvol := strings.TrimSpace(rec[1])
+			configs[name] = subvol
 		}
-		return nil, fmt.Errorf("snapper create failed: %w", err)
+	}
+	return configs, nil
+}
+
+// Create creates a new snapshot using 'snapper create'
+func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, error) {
+	unifiedID := time.Now().Format("20060102-150405")
+
+	targets := opts.TargetConfigs
+	if len(targets) == 0 {
+		configMap, err := b.getConfigs()
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect snapper configs: %w", err)
+		}
+		for k := range configMap {
+			targets = append(targets, k)
+		}
 	}
 
-	id := strings.TrimSpace(string(out))
+	successCount := 0
+	var lastErr error
+
+	fmt.Printf("Creating unified snapshot %s for targets: %v\n", unifiedID, targets)
+
+	for _, target := range targets {
+		args := []string{"create", "--description", desc, "--userdata", fmt.Sprintf("shedman_id=%s", unifiedID), "-c", target}
+
+		if opts.Type != "" {
+			args = append(args, "--type", opts.Type)
+		} else {
+			args = append(args, "--type", "single")
+		}
+
+		// Cleanup logic if needed
+		args = append(args, "--cleanup-algorithm", "number")
+
+		if _, err := b.exec.Output("snapper", args...); err != nil {
+			lastErr = err
+			fmt.Printf("Warning: failed to snapshot target '%s': %v\n", target, err)
+			if strings.Contains(err.Error(), "No permissions") {
+				fmt.Printf("(Try running with sudo)\n")
+			}
+		} else {
+			successCount++
+		}
+	}
+
+	if successCount == 0 && len(targets) > 0 {
+		return nil, fmt.Errorf("failed to create any snapshots. Last error: %w", lastErr)
+	}
 
 	return &Snapshot{
-		ID:          id,
+		ID:          unifiedID,
 		Description: desc,
 		Timestamp:   time.Now(),
 		Type:        opts.Type,
@@ -59,71 +109,169 @@ func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, err
 	}, nil
 }
 
-// List lists snapshots
+type snapperMatch struct {
+	ID        string
+	Config    string
+	Subvolume string
+}
+
+func (b *SnapperBackend) findSnapshots(queryID string) ([]snapperMatch, error) {
+	configs, err := b.getConfigs()
+	if err != nil {
+		return nil, err
+	}
+
+	var results []snapperMatch
+
+	for cfgName, subvolPath := range configs {
+		args := []string{"-c", cfgName, "--csvout", "list", "--columns", "number,userdata"}
+		out, err := b.exec.Output("snapper", args...)
+		if err != nil {
+			continue
+		}
+
+		r := csv.NewReader(strings.NewReader(string(out)))
+		records, _ := r.ReadAll()
+
+		for _, rec := range records {
+			if len(rec) < 2 {
+				continue
+			}
+			id := strings.TrimSpace(rec[0])
+			if id == "number" || id == "#" {
+				continue
+			}
+			userdata := strings.TrimSpace(rec[1])
+
+			isMatch := false
+			// Check for unified ID match in userdata
+			if strings.Contains(userdata, fmt.Sprintf("shedman_id=%s", queryID)) {
+				isMatch = true
+			} else if id == queryID {
+			} else if id == queryID {
+				isMatch = true
+			}
+
+			if isMatch {
+				results = append(results, snapperMatch{
+					ID:        id,
+					Config:    cfgName,
+					Subvolume: subvolPath,
+				})
+			}
+		}
+	}
+	return results, nil
+}
+
 func (b *SnapperBackend) List(opts ListOptions) ([]Snapshot, error) {
-	args := []string{"--csvout", "--iso", "list", "--columns", "number,type,date,used-space,description"}
+	// Aggregation Map: UnifiedID -> Snapshot
+	agg := make(map[string]*Snapshot)
+	var others []Snapshot
 
-	out, err := b.exec.Output("snapper", args...)
+	configs, err := b.getConfigs()
 	if err != nil {
-		if strings.Contains(err.Error(), "No permissions") {
-			return nil, fmt.Errorf("snapper list failed (try running with sudo): %w", err)
-		}
-		return nil, fmt.Errorf("snapper list failed: %w", err)
+		return nil, err
 	}
 
-	r := csv.NewReader(strings.NewReader(string(out)))
-	records, err := r.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse snapper CSV: %w", err)
+	for cfgName := range configs {
+		args := []string{"-c", cfgName, "--csvout", "--iso", "list", "--columns", "number,type,date,used-space,description,userdata"}
+		out, err := b.exec.Output("snapper", args...)
+		if err != nil {
+			continue // Skip configs we can't read
+		}
+
+		r := csv.NewReader(strings.NewReader(string(out)))
+		records, _ := r.ReadAll()
+
+		for _, record := range records {
+			if len(record) < 6 {
+				continue
+			}
+			if record[0] == "number" || record[0] == "#" {
+				continue
+			}
+
+			id := strings.TrimSpace(record[0])
+			typ := strings.TrimSpace(record[1])
+			dateStr := strings.TrimSpace(record[2])
+			sizeStr := strings.TrimSpace(record[3])
+			desc := strings.TrimSpace(record[4])
+			userdata := strings.TrimSpace(record[5])
+
+			// Parse unified ID
+			var unifiedID string
+			if idx := strings.Index(userdata, "shedman_id="); idx != -1 {
+				remainder := userdata[idx+len("shedman_id="):]
+				if end := strings.IndexAny(remainder, " ,"); end != -1 {
+					unifiedID = remainder[:end]
+				} else {
+					unifiedID = remainder
+				}
+			}
+
+			ts, _ := time.Parse("2006-01-02 15:04:05", dateStr)
+			size := util.ParseSize(sizeStr)
+
+			if unifiedID != "" {
+				if existing, ok := agg[unifiedID]; ok {
+					existing.Size += size // Aggregate size
+					// Description/Timestamp assumed identical
+				} else {
+					agg[unifiedID] = &Snapshot{
+						ID:          unifiedID,
+						Description: desc,
+						Type:        typ,
+						Timestamp:   ts,
+						Size:        size,
+						Backend:     "snapper",
+					}
+				}
+			} else {
+				// Legacy or Auto snapshot
+				others = append(others, Snapshot{
+					ID:          id, // Raw integer ID
+					Description: fmt.Sprintf("[%s] %s", cfgName, desc),
+					Type:        typ,
+					Timestamp:   ts,
+					Size:        size,
+					Backend:     "snapper",
+				})
+			}
+		}
 	}
 
-	var snapshots []Snapshot
-	for _, record := range records {
-		if len(record) < 5 {
-			continue
-		}
-		if record[0] == "number" || record[0] == "#" {
-			continue
-		}
-
-		id := strings.TrimSpace(record[0])
-		typ := strings.TrimSpace(record[1])
-		dateStr := strings.TrimSpace(record[2])
-		sizeStr := strings.TrimSpace(record[3])
-		desc := strings.TrimSpace(record[4])
-
-		if id == "0" && typ == "single" {
-		}
-
-		var ts time.Time
-		if t, err := time.Parse("2006-01-02 15:04:05", dateStr); err == nil {
-			ts = t
-		} else {
-			ts = time.Now()
-		}
-
-		size := util.ParseSize(sizeStr)
-
-		snapshots = append(snapshots, Snapshot{
-			ID:          id,
-			Description: desc,
-			Type:        typ,
-			Timestamp:   ts,
-			Size:        size,
-			Backend:     "snapper",
-		})
+	var final []Snapshot
+	for _, s := range agg {
+		final = append(final, *s)
 	}
+	final = append(final, others...)
 
-	return snapshots, nil
+	// Sort by timestamp descending
+	sort.Slice(final, func(i, j int) bool {
+		return final[i].Timestamp.After(final[j].Timestamp)
+	})
+
+	return final, nil
 }
 
-// Delete deletes a snapshot
 func (b *SnapperBackend) Delete(id string) error {
-	_, err := b.exec.Output("snapper", "delete", id)
-	return err
+	matches, err := b.findSnapshots(id)
+	if err != nil {
+		return err
+	}
+	if len(matches) == 0 {
+		return fmt.Errorf("snapshot %s not found", id)
+	}
+
+	for _, match := range matches {
+		if _, err := b.exec.Output("snapper", "-c", match.Config, "delete", match.ID); err != nil {
+			return fmt.Errorf("failed to delete snapshot %s (config %s): %w", match.ID, match.Config, err)
+		}
+	}
+	return nil
 }
 
-// Restore restores a snapshot
 func (b *SnapperBackend) Restore(id string, opts RestoreOptions) error {
 	_, err := b.exec.Output("snapper", "rollback", id)
 	return err
@@ -134,13 +282,9 @@ func (b *SnapperBackend) Prune(opts PruneOptions) error {
 		return err
 	}
 
-	// This is a naive implementation:
 	if opts.KeepLast > 0 && len(snaps) > opts.KeepLast {
-		// Identify deletion candidates
-		// Assume sorted chronological.
 		toDelete := snaps[:len(snaps)-opts.KeepLast]
 		for _, s := range toDelete {
-			// Skip snapshot 0 (current)
 			if s.ID == "0" {
 				continue
 			}
@@ -154,27 +298,95 @@ func (b *SnapperBackend) Prune(opts PruneOptions) error {
 }
 
 func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error {
-	return fmt.Errorf("snapper backend does not support direct push yet")
+	matches, err := b.findSnapshots(id)
+	if err != nil {
+		return fmt.Errorf("failed to resolve snapshot %s: %w", id, err)
+	}
+	if len(matches) == 0 {
+		return fmt.Errorf("snapshot %s not found (or no permission to list)", id)
+	}
+
+	fmt.Printf("Deep-Pushing snapshot %s (Found %d subcomponents)\n", id, len(matches))
+
+	baseRemote := target.Path
+	if !strings.HasSuffix(baseRemote, "/") && !strings.HasSuffix(baseRemote, ":") {
+		baseRemote += "/"
+	}
+	unifiedBase := baseRemote + id
+
+	for _, match := range matches {
+		localPath := filepath.Join(match.Subvolume, ".snapshots", match.ID, "snapshot")
+		if !strings.HasSuffix(localPath, "/") {
+			localPath += "/"
+		}
+
+		remotePath := fmt.Sprintf("%s/%s", unifiedBase, match.Config)
+
+		fmt.Printf(">> Pushing component: %s (ID %s) -> %s\n", match.Config, match.ID, remotePath)
+
+		args := []string{"sync", "-P", localPath, remotePath}
+		if opts.Delete {
+			args = append(args, "--delete")
+		}
+		if opts.Bandwidth > 0 {
+			args = append(args, "--bwlimit", fmt.Sprintf("%dk", opts.Bandwidth))
+		}
+
+		cmdArgs := util.GetPrivilegedRcloneCommand(args)
+
+		fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+		cmd := (&util.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to sync component %s: %w", match.Config, err)
+		}
+	}
+	return nil
 }
 
 func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error {
-	return fmt.Errorf("snapper backend does not support direct pull yet")
+	localPath := fmt.Sprintf("/.snapshots/%s/snapshot/", id)
 
+	remotePath := source.Path
+	if !strings.HasSuffix(remotePath, "/") {
+		remotePath += "/"
+	}
+	remotePath += id
+
+	args := []string{"sync", "-P", remotePath, localPath}
+
+	if opts.Delete {
+		args = append(args, "--delete")
+	}
+	if opts.Bandwidth > 0 {
+		args = append(args, "--bwlimit", fmt.Sprintf("%dk", opts.Bandwidth))
+	}
+
+	fmt.Printf("Executing: rclone %s\n", strings.Join(args, " "))
+
+	cmdArgs := util.GetPrivilegedRcloneCommand(args)
+
+	fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+	cmd := (&util.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("rclone sync failed: %w", err)
+	}
+
+	return nil
 }
 
 func (b *SnapperBackend) Diff(id1, id2 string) (DiffResult, error) {
-	// snapper status id1..id2
 	args := []string{"status", fmt.Sprintf("%s..%s", id1, id2)}
 
 	out, err := b.exec.Output("snapper", args...)
 	if err != nil {
 		return DiffResult{}, fmt.Errorf("snapper diff failed: %w", err)
 	}
-
-	// Parse output:
-	// + File
-	// - File
-	// c File
 
 	res := DiffResult{}
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")

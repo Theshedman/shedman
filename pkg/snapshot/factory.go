@@ -57,11 +57,9 @@ func (f *Factory) detectBackend() string {
 		if util.IsCommandAvailable("snapper") {
 			return "snapper"
 		}
-		// Fallback to Timeshift in BTRFS mode
 		return "timeshift"
 
 	case "zfs":
-		// Future ZFS support
 		return "zfs"
 
 	default:

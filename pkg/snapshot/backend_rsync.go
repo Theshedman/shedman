@@ -17,6 +17,15 @@ const (
 	rsyncDateFormat     = "20060102-150405"
 )
 
+var mandatoryExcludes = []string{
+	"/dev", "/proc", "/sys", "/tmp", "/run", "/mnt", "/media", "/lost+found",
+	"/var/lib/shedman/snapshots", "/var/cache", "/var/tmp",
+}
+
+var safeRestoreExcludes = []string{
+	"/etc/fstab", "/etc/crypttab", "/boot", "/efi",
+}
+
 // RsyncBackend implements SnapshotManager using custom rsync logic
 type RsyncBackend struct {
 	cfg  *config.Config
@@ -31,10 +40,15 @@ func (b *RsyncBackend) SetRoot(path string) {
 
 // NewRsyncBackend creates a new rsync backend
 func NewRsyncBackend(cfg *config.Config, executor util.Executor) *RsyncBackend {
+	root := cfg.Snapshot.Rsync.Storage
+	if root == "" {
+		root = defaultRsyncStorage
+	}
+
 	return &RsyncBackend{
 		cfg:  cfg,
 		exec: executor,
-		root: defaultRsyncStorage,
+		root: root,
 	}
 }
 
@@ -59,8 +73,11 @@ func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error
 		args = append(args, "--link-dest="+latestLink)
 	}
 
-	excludes := []string{"/dev", "/proc", "/sys", "/tmp", "/run", "/mnt", "/media", "/lost+found", "/var/lib/shedman/snapshots"}
-	for _, excl := range excludes {
+	// Combine mandatory and configured excludes
+	for _, excl := range mandatoryExcludes {
+		args = append(args, "--exclude="+excl)
+	}
+	for _, excl := range b.cfg.Snapshot.Rsync.Excludes {
 		args = append(args, "--exclude="+excl)
 	}
 
@@ -73,6 +90,7 @@ func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error
 
 	os.Remove(latestLink)
 	if err := os.Symlink(id, latestLink); err != nil {
+		return nil, fmt.Errorf("failed to update latest symlink: %w", err)
 	}
 
 	return &Snapshot{
@@ -102,10 +120,8 @@ func (b *RsyncBackend) List(opts ListOptions) ([]Snapshot, error) {
 			continue
 		}
 
-		// Parse timestamp
 		ts, err := time.Parse(rsyncDateFormat, name)
 		if err != nil {
-			// Skip unknown folders
 			continue
 		}
 
@@ -146,9 +162,21 @@ func (b *RsyncBackend) Restore(id string, opts RestoreOptions) error {
 		return fmt.Errorf("snapshot %s not found", id)
 	}
 
-	// rsync -a /path/to/snap/ /
-	args := []string{"-a", snapPath + "/", "/"}
+	if !opts.Force {
+		return fmt.Errorf("safety check: restoring to / requires --force (danger of overwriting system files)")
+	}
 
+	// rsync -a --exclude=... /path/to/snap/ /
+	args := []string{"-a", "--delete"}
+
+	// Apply safe restore excludes to prevents bricking boot/fstab
+	for _, excl := range safeRestoreExcludes {
+		args = append(args, "--exclude="+excl)
+	}
+
+	args = append(args, snapPath+"/", "/")
+
+	fmt.Printf("Restoring snapshot %s to /\n", id)
 	_, err := b.exec.Output("rsync", args...)
 	return err
 }
@@ -176,60 +204,48 @@ func (b *RsyncBackend) Push(id string, target RemoteTarget, opts RemoteOptions) 
 		return fmt.Errorf("snapshot %s not found", id)
 	}
 
-	// rsync -avz --delete /path/to/snap/ user@host:/path/to/dest/
-	args := []string{"-a", "-v", "-z"}
-	if opts.Delete {
-		args = append(args, "--delete")
-	}
-	if opts.Bandwidth > 0 {
-		args = append(args, fmt.Sprintf("--bwlimit=%d", opts.Bandwidth))
-	}
-
-	args = append(args, snapPath+"/")
-
+	// Ensure dest has ID appended
 	dest := target.Path
-	if target.Name != "" && target.Name != "local" {
-		if strings.Contains(target.Name, ":") {
-			dest = target.Name + ":" + target.Path
-		} else {
-			if target.Name != "local" {
-				dest = target.Name + ":" + target.Path
-			}
-		}
+	if !strings.HasSuffix(dest, "/") && !strings.HasSuffix(dest, ":") {
+		dest += "/"
 	}
-	args = append(args, dest)
+	dest += id
 
-	_, err := b.exec.Output("rsync", args...)
+	args := []string{"sync", "-P"} // -P for progress
+	if opts.Bandwidth > 0 {
+		args = append(args, fmt.Sprintf("--bwlimit=%dK", opts.Bandwidth))
+	}
+
+	args = append(args, snapPath, dest)
+
+	fullCmd := util.GetPrivilegedRcloneCommand(args)
+	fmt.Printf("Executing: %s\n", strings.Join(fullCmd, " "))
+	_, err := b.exec.Output(fullCmd[0], fullCmd[1:]...)
 	return err
 }
 
 func (b *RsyncBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error {
-	src := source.Path
-	if source.Name != "" && source.Name != "local" {
-		if strings.Contains(source.Name, ":") {
-			src = source.Name + ":" + source.Path
-		} else {
-			src = source.Name + ":" + source.Path
-		}
-	}
-
-	if !strings.HasSuffix(src, "/") {
-		src += "/"
-	}
-
 	snapPath := filepath.Join(b.root, id)
 	if err := os.MkdirAll(snapPath, 0755); err != nil {
 		return fmt.Errorf("failed to create snapshot dir: %w", err)
 	}
 
-	args := []string{"-a", "-v", "-z"}
+	src := source.Path
+	if !strings.HasSuffix(src, "/") && !strings.HasSuffix(src, ":") {
+		src += "/"
+	}
+	src += id
+
+	args := []string{"sync", "-P"}
 	if opts.Bandwidth > 0 {
-		args = append(args, fmt.Sprintf("--bwlimit=%d", opts.Bandwidth))
+		args = append(args, fmt.Sprintf("--bwlimit=%dK", opts.Bandwidth))
 	}
 
-	args = append(args, src, snapPath+"/")
+	args = append(args, src, snapPath)
 
-	_, err := b.exec.Output("rsync", args...)
+	fullCmd := util.GetPrivilegedRcloneCommand(args)
+	fmt.Printf("Executing: %s\n", strings.Join(fullCmd, " "))
+	_, err := b.exec.Output(fullCmd[0], fullCmd[1:]...)
 	return err
 }
 
@@ -256,9 +272,7 @@ func (b *RsyncBackend) Diff(id1, id2 string) (DiffResult, error) {
 		if len(line) < 12 {
 			continue
 		}
-		// Itemize format: YXcstpoguax  path/to/file
-		// Y is update type: > (sent), < (recv), c (local change/creation)
-
+		// Itemize format parsing
 		code := line[0]
 		// skip checksum/size etc for rough parsing
 		parts := strings.Fields(line)

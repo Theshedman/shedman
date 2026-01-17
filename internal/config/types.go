@@ -79,6 +79,19 @@ type SnapshotConfig struct {
 	RequireACPower   bool `toml:"require_ac_power"`
 	RequireWifi      bool `toml:"require_wifi"`
 	NotifyOnComplete bool `toml:"notify_on_complete"`
+
+	Rsync RsyncConfig         `toml:"rsync"`
+	Hooks SnapshotHooksConfig `toml:"hooks"`
+}
+
+type RsyncConfig struct {
+	Excludes []string `toml:"excludes"`
+	Storage  string   `toml:"storage"`
+}
+
+type SnapshotHooksConfig struct {
+	PreCreate  string `toml:"pre_create"`
+	PostCreate string `toml:"post_create"`
 }
 
 // NotificationConfig holds notification settings

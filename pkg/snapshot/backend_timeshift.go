@@ -3,6 +3,7 @@ package snapshot
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -39,7 +40,6 @@ type TimeshiftJSON struct {
 	UUID     string `json:"uuid"`
 }
 
-// Create creates a new snapshot using 'timeshift --create'
 func (b *TimeshiftBackend) Create(desc string, opts CreateOptions) (*Snapshot, error) {
 	args := []string{"--create", "--comments", desc, "--json"}
 
@@ -54,7 +54,6 @@ func (b *TimeshiftBackend) Create(desc string, opts CreateOptions) (*Snapshot, e
 		return nil, fmt.Errorf("timeshift create failed: %w", err)
 	}
 
-	// Parse JSON output
 	jsonStr := util.ExtractJSON(string(out))
 	var tsSnap TimeshiftJSON
 	if err := json.Unmarshal([]byte(jsonStr), &tsSnap); err != nil {
@@ -108,8 +107,6 @@ func (b *TimeshiftBackend) Restore(id string, opts RestoreOptions) error {
 }
 
 func (b *TimeshiftBackend) Prune(opts PruneOptions) error {
-	// Timeshift CLI doesn't support deleting individual snapshots by ID easily without interaction sometimes
-	// or strict naming.
 
 	snaps, err := b.List(ListOptions{})
 	if err != nil {
@@ -126,6 +123,78 @@ func (b *TimeshiftBackend) Prune(opts PruneOptions) error {
 	}
 	return nil
 }
-func (b *TimeshiftBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error { return nil }
-func (b *TimeshiftBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error { return nil }
-func (b *TimeshiftBackend) Diff(id1, id2 string) (DiffResult, error)                      { return DiffResult{}, nil }
+func (b *TimeshiftBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error {
+	localPath := fmt.Sprintf("/timeshift/snapshots/%s/", id)
+	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+		localPath = fmt.Sprintf("/run/timeshift/backup/timeshift/snapshots/%s/", id)
+		if _, err := os.Stat(localPath); os.IsNotExist(err) {
+			return fmt.Errorf("snapshot %s path not found (checked /timeshift/snapshots and /run/timeshift/...)", id)
+		}
+	}
+
+	remotePath := target.Path
+	if !strings.HasSuffix(remotePath, "/") {
+		remotePath += "/"
+	}
+	remotePath += id
+
+	args := []string{"sync", "-P", localPath, remotePath}
+
+	if opts.Delete {
+		args = append(args, "--delete")
+	}
+	if opts.Bandwidth > 0 {
+		args = append(args, "--bwlimit", fmt.Sprintf("%dk", opts.Bandwidth))
+	}
+
+	cmdArgs := util.GetPrivilegedRcloneCommand(args)
+
+	fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+	cmd := (&util.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("rclone sync failed: %w", err)
+	}
+
+	return nil
+}
+
+func (b *TimeshiftBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error {
+	localPath := fmt.Sprintf("/timeshift/snapshots/%s/", id)
+	if _, err := os.Stat("/timeshift/snapshots"); os.IsNotExist(err) {
+		if _, err := os.Stat("/run/timeshift/backup/timeshift/snapshots"); err == nil {
+			localPath = fmt.Sprintf("/run/timeshift/backup/timeshift/snapshots/%s/", id)
+		}
+	}
+
+	remotePath := source.Path
+	if !strings.HasSuffix(remotePath, "/") {
+		remotePath += "/"
+	}
+	remotePath += id
+
+	args := []string{"sync", "-P", remotePath, localPath}
+
+	if opts.Delete {
+		args = append(args, "--delete")
+	}
+	if opts.Bandwidth > 0 {
+		args = append(args, "--bwlimit", fmt.Sprintf("%dk", opts.Bandwidth))
+	}
+
+	cmdArgs := util.GetPrivilegedRcloneCommand(args)
+
+	fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+	cmd := (&util.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("rclone sync failed: %w", err)
+	}
+
+	return nil
+}
+func (b *TimeshiftBackend) Diff(id1, id2 string) (DiffResult, error) { return DiffResult{}, nil }
