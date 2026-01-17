@@ -3,21 +3,21 @@ package core
 import (
 	"errors"
 	"os"
-	"os/exec"
 
 	"strings"
 
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 // ErrPacmanNotFound is returned when pacman is not available
 var ErrPacmanNotFound = errors.New("pacman is required but not found in PATH")
 
-// Executor is a function that executes a command
-type Executor func(dir string, cmd []string) error
+// DefaultExecutor is the shared RealExecutor instance
+var DefaultExecutor executor.Executor = &executor.RealExecutor{}
 
-// DefaultExecutor runs commands using os/exec
-func DefaultExecutor(dir string, cmd []string) error {
+// Execute runs a command using the provided executor with standard I/O attached
+func Execute(exec executor.Executor, dir string, cmd []string) error {
 	if len(cmd) == 0 {
 		return nil
 	}
@@ -49,8 +49,7 @@ type Options struct {
 	NoConfirm         bool
 	DownloadOnly      bool
 	Overwrite         string
-	ParallelDownloads int  // Number of parallel downloads (from config)
-	Verbose           bool // Verbose output
+	ParallelDownloads int // Number of parallel downloads (from config)
 }
 
 // DefaultOptions returns sensible defaults

@@ -10,6 +10,7 @@ import (
 	"github.com/theshedman/shedman/internal/signals"
 	configcmd "github.com/theshedman/shedman/pkg/config/cmd"
 	commands "github.com/theshedman/shedman/pkg/core/cmd"
+	"github.com/theshedman/shedman/pkg/logger"
 )
 
 // Global flags
@@ -40,8 +41,12 @@ var rootCmd = &cobra.Command{
 		// Initialize color output
 		output.InitColor(colorFlag, noColorFlag)
 
+		// Initialize structured logger
+		logger.Init(debugFlag, verboseFlag)
+
 		// Ensure config exists (auto-create if missing)
 		if configFile == "" {
+
 			_, _ = config.LoadDefault()
 		} else {
 			_, _ = config.Load(configFile)

@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"log/slog"
+
 	"time"
 
 	"github.com/spf13/cobra"
@@ -78,7 +80,6 @@ By default, syncs all databases. Use flags to sync specific sources:
 		}
 
 		engine := core.NewEngine()
-		verbose, _ := cmd.Flags().GetBool("verbose")
 		for _, b := range backendList {
 			engine.AddBackend(b)
 		}
@@ -88,10 +89,8 @@ By default, syncs all databases. Use flags to sync specific sources:
 			return RunSync(engine, io.Discard)
 		}
 
-		if verbose {
-			for _, b := range backendList {
-				cmd.Printf("  Syncing %s...\n", b.Name())
-			}
+		for _, b := range backendList {
+			slog.Info("Syncing database", "backend", b.Name())
 		}
 
 		if err := RunSync(engine, cmd.OutOrStdout()); err != nil {
