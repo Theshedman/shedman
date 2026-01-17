@@ -43,7 +43,7 @@ func TestBackupManager_Backup(t *testing.T) {
 func TestBackupManager_Rotate(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "shedman-rotate-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configFile := filepath.Join(tmpDir, "rotate.conf")
 	err = os.WriteFile(configFile, []byte("data"), util.FilePermissions)
@@ -92,7 +92,7 @@ func TestBackupManager_Rotate(t *testing.T) {
 func TestBackupManager_BackupMissingFile(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "shedman-backup-missing")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	manager := NewFileBackupManager()
 	_, err = manager.Backup(filepath.Join(tmpDir, "missing.conf"))

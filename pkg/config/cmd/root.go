@@ -161,7 +161,7 @@ func newApplyCmd() *cobra.Command {
 				fmt.Printf("Temp file creation failed: %v\n", err)
 				os.Exit(1)
 			}
-			defer os.Remove(tmpFile.Name()) // Cleanup
+			defer func() { _ = os.Remove(tmpFile.Name()) }() // Cleanup
 
 			if _, err := tmpFile.Write(original); err != nil {
 				fmt.Printf("Failed to write to temp file: %v\n", err)

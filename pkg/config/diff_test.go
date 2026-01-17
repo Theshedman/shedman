@@ -13,7 +13,7 @@ import (
 func TestDiffer_CalculateHash(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "shedman-diff-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	file := filepath.Join(tmpDir, "test.txt")
 	content := []byte("hello world\n")

@@ -48,7 +48,7 @@ var HistoryCmd = &cobra.Command{
 			output.Error("Failed to open log: %v", err)
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		var sinceTime time.Time
 		if historySince != "" {

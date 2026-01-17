@@ -108,7 +108,7 @@ func (b *Backend) syncAndCache(urlPath, filename string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("endpoint %s returned status %d", urlPath, resp.StatusCode)

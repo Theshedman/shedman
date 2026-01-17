@@ -84,7 +84,8 @@ func RunDiff(eng *core.Engine, w io.Writer) error {
 	}
 
 	if hasCVEs {
-		fmt.Fprintln(w, "\nSecurity Warnings:")
+		_, _ = fmt.Fprintln(w, "\nSecurity Warnings:")
+
 		for _, d := range diffs {
 			if len(d.CVEs) > 0 {
 				fmt.Fprintf(w, "  %s: %v\n", d.Name, d.CVEs)

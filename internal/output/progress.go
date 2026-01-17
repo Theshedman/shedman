@@ -211,7 +211,8 @@ func (s *Spinner) UpdateLabel(label string) {
 func DownloadProgress(label string, downloaded, total int64, speed float64) {
 	percent := float64(downloaded) / float64(total) * 100
 	if total <= 0 {
-		fmt.Fprintf(os.Stdout, "\r%s %.2f MB (%.1f KB/s)",
+		_, _ = fmt.Fprintf(os.Stdout, "\r%s %.2f MB (%.1f KB/s)",
+
 			label, float64(downloaded)/1024/1024, speed)
 		return
 	}
@@ -223,6 +224,7 @@ func DownloadProgress(label string, downloaded, total int64, speed float64) {
 		eta = formatDuration(time.Duration(remaining) * time.Second)
 	}
 
-	fmt.Fprintf(os.Stdout, "\r%s %.1f%% (%.1f KB/s) ETA: %s  ",
+	_, _ = fmt.Fprintf(os.Stdout, "\r%s %.1f%% (%.1f KB/s) ETA: %s  ",
+
 		label, percent, speed, eta)
 }

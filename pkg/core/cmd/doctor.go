@@ -79,8 +79,10 @@ func init() {
 
 // RunDoctor executes health checks
 func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs DoctorRepairs, fix bool) {
-	fmt.Fprintln(w, "Running system health checks...")
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "Running system health checks...")
+
+	_, _ = fmt.Fprintln(w)
+
 	hasIssues := false
 
 	// Helper to print styled status

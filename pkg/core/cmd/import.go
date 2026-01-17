@@ -31,7 +31,8 @@ Usage:
 			if err != nil {
 				return fmt.Errorf("failed to open file: %w", err)
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
+
 			reader = file
 		}
 

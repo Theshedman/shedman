@@ -57,6 +57,7 @@ func init() {
 }
 
 func RunBuild(eng *core.Engine, w io.Writer, dir string, opts core.BuildOptions) error {
-	fmt.Fprintf(w, "Building package in %s...\n", dir)
+	_, _ = fmt.Fprintf(w, "Building package in %s...\n", dir)
+
 	return eng.Build(dir, opts)
 }

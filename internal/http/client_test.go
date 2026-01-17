@@ -62,7 +62,7 @@ func TestRetryClient_FailsOver_WhenFirstFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected success from failover, got error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if atomic.LoadInt32(&firstCalls) != 1 {
 		t.Error("Expected first mirror to be tried")
