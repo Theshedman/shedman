@@ -120,7 +120,7 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 	// Scenario 4: Package Update -> Update
 	t.Run("PackageUpdate", func(t *testing.T) {
 		eng, tmpDir, _ := setupEngineTest(t)
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		baseContent := "base"
 		userContent := "base" // User matches base
@@ -151,7 +151,7 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 	// Scenario 5: Conflict -> Interactive (Mocked: Keep User)
 	t.Run("Conflict_KeepUser", func(t *testing.T) {
 		eng, tmpDir, _ := setupEngineTest(t)
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		baseContent := "base"
 		userContent := "user change"
@@ -183,7 +183,7 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 	// Scenario 6: Conflict -> Interactive (Mocked: Update/Overwrite)
 	t.Run("Conflict_Overwrite", func(t *testing.T) {
 		eng, tmpDir, _ := setupEngineTest(t)
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		baseContent := "base"
 		userContent := "user change"

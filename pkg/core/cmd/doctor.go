@@ -88,13 +88,14 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	// Helper to print styled status
 	printStatus := func(msg string, isError bool, isWarning bool) {
 		if isError {
-			fmt.Fprintf(w, "FAILED (%s)\n", msg)
+			_, _ = fmt.Fprintf(w, "FAILED (%s)\n", msg)
 		} else if isWarning {
-			fmt.Fprintf(w, "WARNING (%s)\n", msg)
+			_, _ = fmt.Fprintf(w, "WARNING (%s)\n", msg)
 		} else {
-			fmt.Fprintf(w, "OK (%s)\n", msg)
+			_, _ = fmt.Fprintf(w, "OK (%s)\n", msg)
 		}
 	}
+
 	// Simple OK
 	printOK := func() {
 		_, _ = fmt.Fprintln(w, "OK")
@@ -169,18 +170,20 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 		}
 		hasIssues = true
 		if fix {
-			fmt.Fprintln(w, "  Attempting to reset failed services...")
+			_, _ = fmt.Fprintln(w, "  Attempting to reset failed services...")
 			if err := repairs.ResetFailedServices(); err != nil {
 				fmt.Fprintf(w, "  Failed to reset services: %v\n", err)
 			} else {
-				fmt.Fprintln(w, "  Services reset.")
+				_, _ = fmt.Fprintln(w, "  Services reset.")
 			}
+
 		}
 	} else {
 		printOK()
 	}
 
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
+
 	if hasIssues {
 		if fix {
 			fmt.Fprintln(w, "Doctor attempted to fix issues. Please re-run to verify.")
