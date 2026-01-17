@@ -23,13 +23,15 @@ var DownloadCmd = &cobra.Command{
 		if err := RunDownload(eng, cmd.OutOrStdout(), args); err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "Downloaded packages successfully.")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Downloaded packages successfully.")
+
 		return nil
 	},
 }
 
 func RunDownload(eng *core.Engine, w io.Writer, pkgs []string) error {
-	fmt.Fprintln(w, "Downloading packages...")
+	_, _ = fmt.Fprintln(w, "Downloading packages...")
+
 	options := core.InstallOptions{
 		DownloadOnly: true,
 	}

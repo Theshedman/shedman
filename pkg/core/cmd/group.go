@@ -113,7 +113,8 @@ func RunGroupInfo(eng *core.Engine, w io.Writer, groupName string) error {
 		return fmt.Errorf("failed to get group info: %w", err)
 	}
 
-	fmt.Fprintf(w, "Group: %s\n", groupName)
+	_, _ = fmt.Fprintf(w, "Group: %s\n", groupName)
+
 	fmt.Fprintf(w, "Packages (%d):\n", len(pkgs))
 	for _, p := range pkgs {
 		fmt.Fprintln(w, "  "+p)

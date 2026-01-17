@@ -30,7 +30,8 @@ func RunExport(eng *core.Engine, w io.Writer) error {
 	}
 
 	for _, pkg := range pkgs {
-		fmt.Fprintln(w, pkg)
+		_, _ = fmt.Fprintln(w, pkg)
+
 	}
 
 	return nil

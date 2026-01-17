@@ -67,8 +67,10 @@ func RunFiles(eng *core.Engine, w io.Writer, query string, search bool) error {
 }
 
 func printFiles(w io.Writer, pkgName string, files []string) {
-	fmt.Fprintf(w, "Files owned by %s (%d):\n", pkgName, len(files))
+	_, _ = fmt.Fprintf(w, "Files owned by %s (%d):\n", pkgName, len(files))
+
 	for _, f := range files {
-		fmt.Fprintf(w, "  %s\n", f)
+		_, _ = fmt.Fprintf(w, "  %s\n", f)
+
 	}
 }
