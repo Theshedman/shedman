@@ -59,11 +59,13 @@ func RunSnapshotPrune(engine *core.Engine, opts snapshot.PruneOptions, w io.Writ
 		return fmt.Errorf("snapshot manager not available")
 	}
 
-	fmt.Fprintln(w, "Pruning snapshots...")
+	_, _ = fmt.Fprintln(w, "Pruning snapshots...")
+
 	if err := mgr.Prune(opts); err != nil {
 		return fmt.Errorf("prune failed: %w", err)
 	}
-	fmt.Fprintln(w, "Prune completed.")
+	_, _ = fmt.Fprintln(w, "Prune completed.")
+
 	return nil
 }
 

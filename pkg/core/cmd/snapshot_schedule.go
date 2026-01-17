@@ -64,7 +64,8 @@ func RunSnapshotScheduleEnable(engine *core.Engine, w io.Writer) error {
 	if err := sch.Enable(); err != nil {
 		return fmt.Errorf("failed to enable scheduler: %w", err)
 	}
-	fmt.Fprintln(w, "Snapshot scheduling enabled.")
+	_, _ = fmt.Fprintln(w, "Snapshot scheduling enabled.")
+
 	return nil
 }
 
@@ -76,7 +77,8 @@ func RunSnapshotScheduleDisable(engine *core.Engine, w io.Writer) error {
 	if err := sch.Disable(); err != nil {
 		return fmt.Errorf("failed to disable scheduler: %w", err)
 	}
-	fmt.Fprintln(w, "Snapshot scheduling disabled.")
+	_, _ = fmt.Fprintln(w, "Snapshot scheduling disabled.")
+
 	return nil
 }
 
@@ -93,6 +95,7 @@ func RunSnapshotScheduleStatus(engine *core.Engine, w io.Writer) error {
 	if status.Enabled {
 		state = "active"
 	}
-	fmt.Fprintf(w, "Scheduler Status: %s\n", state)
+	_, _ = fmt.Fprintf(w, "Scheduler Status: %s\n", state)
+
 	return nil
 }

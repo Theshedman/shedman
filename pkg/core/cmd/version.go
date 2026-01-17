@@ -23,7 +23,8 @@ var VersionCmd = &cobra.Command{
 }
 
 func RunVersion(w io.Writer) {
-	fmt.Fprintln(w, "shedman version", Version)
-	fmt.Fprintln(w, "Build Date:", BuildDate)
-	fmt.Fprintln(w, "Git Commit:", GitCommit)
+	_, _ = fmt.Fprintln(w, "shedman version", Version)
+	_, _ = fmt.Fprintln(w, "Build Date:", BuildDate)
+	_, _ = fmt.Fprintln(w, "Git Commit:", GitCommit)
+
 }

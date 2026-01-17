@@ -106,7 +106,8 @@ By default, syncs all databases. Use flags to sync specific sources:
 }
 
 func RunSync(eng *core.Engine, w io.Writer) error {
-	fmt.Fprintln(w, "Synchronizing package databases...")
+	_, _ = fmt.Fprintln(w, "Synchronizing package databases...")
+
 	return eng.Sync()
 }
 

@@ -44,12 +44,14 @@ func RunSnapshotRestore(engine *core.Engine, args []string, opts snapshot.Restor
 
 	id := args[0]
 
-	fmt.Fprintf(w, "Restoring snapshot %s...\n", id)
+	_, _ = fmt.Fprintf(w, "Restoring snapshot %s...\n", id)
+
 	if err := mgr.Restore(id, opts); err != nil {
 		return fmt.Errorf("restore failed: %w", err)
 	}
 
-	fmt.Fprintln(w, "Snapshot restored successfully.")
+	_, _ = fmt.Fprintln(w, "Snapshot restored successfully.")
+
 	return nil
 }
 

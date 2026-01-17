@@ -96,7 +96,8 @@ func (t *Table) renderRow(sb *strings.Builder, cells []string, color string) {
 
 // Print outputs the table to stdout
 func (t *Table) Print() {
-	fmt.Print(t.Render())
+	_, _ = fmt.Print(t.Render())
+
 }
 
 // InstallSummaryTable creates a summary table for package installation
@@ -163,7 +164,8 @@ func (s *InstallSummaryTable) Render() string {
 
 // Print outputs the summary
 func (s *InstallSummaryTable) Print() {
-	fmt.Print(s.Render())
+	_, _ = fmt.Print(s.Render())
+
 }
 
 // SourceBadge returns a colored source badge

@@ -72,13 +72,13 @@ This command is equivalent to 'pacman -Syu' but handles all configured backends 
 }
 
 func RunUpdate(eng *core.Engine, w io.Writer, pkgs []string, opts core.UpgradeOptions) error {
-	fmt.Fprintln(w, "Synchronizing package databases...")
+	_, _ = fmt.Fprintln(w, "Synchronizing package databases...")
 
 	if err := eng.Sync(); err != nil {
 		return fmt.Errorf("sync failed: %w", err)
 	}
 
-	fmt.Fprintln(w, "Starting full system upgrade...")
+	_, _ = fmt.Fprintln(w, "Starting full system upgrade...")
 
 	if err := eng.Upgrade(pkgs, opts); err != nil {
 		return fmt.Errorf("update failed: %w", err)

@@ -1,6 +1,6 @@
 module github.com/theshedman/shedman
 
-go 1.25.3
+go 1.25.6
 
 require (
 	github.com/Jguer/go-alpm/v2 v2.3.1

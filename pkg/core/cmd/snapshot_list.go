@@ -44,13 +44,13 @@ func RunSnapshotList(engine *core.Engine, opts snapshot.ListOptions, w io.Writer
 	}
 
 	if len(snapshots) == 0 {
-		_, _ = fmt.Fprintln(w, "No snapshots found.")
+		_, _ = fmt.Fprintln(w, "Synchronizing package databases...")
 
 		return nil
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(tw, "ID\tTIMESTAMP\tBACKEND\tSIZE\tDESCRIPTION")
+	_, _ = fmt.Fprintln(tw, "ID\tTIMESTAMP\tBACKEND\tSIZE\tDESCRIPTION")
 
 	for _, snap := range snapshots {
 		ts := snap.Timestamp.Format(time.RFC3339)

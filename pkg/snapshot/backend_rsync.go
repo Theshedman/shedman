@@ -197,7 +197,8 @@ func (b *RsyncBackend) Restore(id string, opts RestoreOptions) error {
 	_, _ = fmt.Printf("Restoring snapshot %s to /\n", id)
 
 	if opts.DryRun {
-		fmt.Printf("Dry-run: %s %v\n", "rsync", args)
+		_, _ = fmt.Printf("Dry-run: %s %v\n", "rsync", args)
+
 		return nil
 	}
 	_, err := b.exec.Output("rsync", args...)
@@ -242,7 +243,8 @@ func (b *RsyncBackend) Push(id string, target RemoteTarget, opts RemoteOptions) 
 	args = append(args, snapPath, dest)
 
 	fullCmd := util.GetPrivilegedRcloneCommand(args)
-	fmt.Printf("Executing: %s\n", strings.Join(fullCmd, " "))
+	_, _ = fmt.Printf("Executing: %s\n", strings.Join(fullCmd, " "))
+
 	if opts.DryRun {
 		return nil
 	}
@@ -270,7 +272,8 @@ func (b *RsyncBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) 
 	args = append(args, src, snapPath)
 
 	fullCmd := util.GetPrivilegedRcloneCommand(args)
-	fmt.Printf("Executing: %s\n", strings.Join(fullCmd, " "))
+	_, _ = fmt.Printf("Executing: %s\n", strings.Join(fullCmd, " "))
+
 	if opts.DryRun {
 		return nil
 	}

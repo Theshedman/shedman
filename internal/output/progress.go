@@ -68,7 +68,8 @@ func (p *ProgressBar) Increment(delta int64) {
 func (p *ProgressBar) Complete() {
 	p.current = p.total
 	p.render()
-	fmt.Println() // Newline after completion
+	_, _ = fmt.Println() // Newline after completion
+
 }
 
 // render draws the progress bar with ETA

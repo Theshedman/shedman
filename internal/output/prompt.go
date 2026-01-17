@@ -161,7 +161,8 @@ func confirmWithTimeout(opts ConfirmOptions) bool {
 			remaining--
 			if remaining > 0 && remaining <= 5 {
 				// Show countdown for last 5 seconds
-				fmt.Printf("\r%s [%s in %ds]: ",
+				_, _ = fmt.Printf(
+					"\r%s [%s in %ds]: ",
 					Colorize(Bold, ""),
 					map[bool]string{true: "Y/n", false: "y/N"}[opts.Default],
 					remaining)
@@ -169,9 +170,11 @@ func confirmWithTimeout(opts ConfirmOptions) bool {
 
 		case <-ctx.Done():
 			// Clear line and show timeout message
-			fmt.Print("\r")
-			fmt.Println(Colorize(Yellow, fmt.Sprintf("(timeout - proceeding with %s)",
-				map[bool]string{true: "yes", false: "no"}[opts.Default])))
+			_, _ = fmt.Print(
+				"\r")
+			_, _ = fmt.Println(
+				Colorize(Yellow, fmt.Sprintf("(timeout - proceeding with %s)",
+					map[bool]string{true: "yes", false: "no"}[opts.Default])))
 			return opts.Default
 		}
 	}
@@ -260,9 +263,10 @@ func PrintSummary(lines []SummaryLine) {
 	}
 
 	for _, line := range lines {
-		fmt.Printf("  %-*s : %s\n", maxWidth, line.Label, Colorize(Cyan, line.Value))
+		_, _ = fmt.Printf(
+			"  %-*s : %s\n", maxWidth, line.Label, Colorize(Cyan, line.Value))
 	}
-	fmt.Println()
+	_, _ = fmt.Println()
 }
 
 // SummaryLine represents a line in the summary display
@@ -277,11 +281,13 @@ func PrintPackageList(title string, packages []string, color string) {
 		return
 	}
 
-	fmt.Println(Colorize(Bold, title+":"))
+	_, _ = fmt.Println(
+		Colorize(Bold, title+":"))
 	for _, pkg := range packages {
-		fmt.Printf("  %s %s\n", Colorize(color, "→"), pkg)
+		_, _ = fmt.Printf(
+			"  %s %s\n", Colorize(color, "→"), pkg)
 	}
-	fmt.Println()
+	_, _ = fmt.Println()
 }
 
 // PrintInstallList prints packages to be installed

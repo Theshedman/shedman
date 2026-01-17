@@ -53,10 +53,12 @@ func RunWhy(deps WhyDeps, w io.Writer, pkg string, tree bool) error {
 
 	args := []string{"-u"}
 	if !tree {
-		fmt.Fprintf(w, "Reverse dependency chain for %s:\n", pkg)
+		_, _ = fmt.Fprintf(w, "Reverse dependency chain for %s:\n", pkg)
+
 		args = append([]string{"-r"}, args...)
 	} else {
-		fmt.Fprintf(w, "Dependency tree for %s:\n", pkg)
+		_, _ = fmt.Fprintf(w, "Dependency tree for %s:\n", pkg)
+
 	}
 	args = append(args, pkg)
 

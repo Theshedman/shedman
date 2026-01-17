@@ -54,7 +54,8 @@ var SnapshotRemotePushCmd = &cobra.Command{
 					return fmt.Errorf("no target specified and no default_remote configured (remotes available: %d)", len(cfg.Snapshot.Remotes))
 				}
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Using default remote: %s\n", targetName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Using default remote: %s\n", targetName)
+
 		}
 
 		target := snapshot.RemoteTarget{
@@ -106,7 +107,8 @@ var SnapshotRemotePullCmd = &cobra.Command{
 					return fmt.Errorf("no source specified and no default_remote configured")
 				}
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Using default remote: %s\n", sourceName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Using default remote: %s\n", sourceName)
+
 		}
 
 		source := snapshot.RemoteTarget{
@@ -213,7 +215,7 @@ func RunSnapshotRemoteAdd(engine *core.Engine, name string, w io.Writer) error {
 	}
 
 	if !found {
-		fmt.Fprintf(w, "Remote '%s' not found locally.\n", name)
+		_, _ = fmt.Fprintf(w, "Remote '%s' not found locally.\n", name)
 
 		create, err := output.ReadInput("Do you want to configure it via rclone? [Y/n]: ")
 		if err != nil {
@@ -228,7 +230,7 @@ func RunSnapshotRemoteAdd(engine *core.Engine, name string, w io.Writer) error {
 				typ = "drive"
 			}
 
-			fmt.Fprintf(w, "Launching rclone config for '%s' (%s).\n", name, typ)
+			_, _ = fmt.Fprintf(w, "Launching rclone config for '%s' (%s).\n", name, typ)
 
 			var args []string
 			args = append(args, "config", "create", name, typ)
@@ -277,8 +279,9 @@ func RunSnapshotRemoteAdd(engine *core.Engine, name string, w io.Writer) error {
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("rclone config failed: %w", err)
 			}
-			fmt.Fprintln(w, "\n----")
-			fmt.Fprintln(w, "Rclone configuration completed.")
+			_, _ = fmt.Fprintln(w, "\n----")
+			_, _ = fmt.Fprintln(w, "Rclone configuration completed.")
+
 		} else {
 			return fmt.Errorf("remote '%s' not found. Please configure it via 'rclone config' first.\nAvailable remotes: %s", name, strings.Join(remotes, ", "))
 		}
@@ -304,28 +307,32 @@ func RunSnapshotRemoteAdd(engine *core.Engine, name string, w io.Writer) error {
 
 	if cfg.Snapshot.DefaultRemote == "" {
 		cfg.Snapshot.DefaultRemote = name
-		fmt.Fprintf(w, "Marked '%s' as default remote.\n", name)
+		_, _ = fmt.Fprintf(w, "Marked '%s' as default remote.\n", name)
+
 	}
 
 	if err := config.Save(config.DefaultConfigPath(), cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Fprintf(w, "Remote '%s' added successfully to shedman.\n", name)
+	_, _ = fmt.Fprintf(w, "Remote '%s' added successfully to shedman.\n", name)
+
 	return nil
 }
 
 func RunSnapshotRemoteList(engine *core.Engine, w io.Writer) error {
 	remotes := engine.GetConfig().Snapshot.Remotes
 	if len(remotes) == 0 {
-		fmt.Fprintln(w, "No remotes configured.")
+		_, _ = fmt.Fprintln(w, "No remotes configured.")
+
 		return nil
 	}
 
-	fmt.Fprintln(w, "NAME\tTYPE\tPATH")
+	_, _ = fmt.Fprintln(w, "NAME\tTYPE\tPATH")
 	for name, r := range remotes {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", name, r.Type, r.Path)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", name, r.Type, r.Path)
 	}
+
 	return nil
 }
 
@@ -345,7 +352,8 @@ func RunSnapshotRemoteRemove(engine *core.Engine, name string, w io.Writer) erro
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Fprintf(w, "Remote '%s' removed.\n", name)
+	_, _ = fmt.Fprintf(w, "Remote '%s' removed.\n", name)
+
 	return nil
 }
 
@@ -356,7 +364,7 @@ func RunSnapshotRemoteTest(engine *core.Engine, name string, w io.Writer) error 
 		return fmt.Errorf("remote '%s' not found in config", name)
 	}
 
-	fmt.Fprintf(w, "Testing connectivity to '%s' (rclone)...\n", name)
+	_, _ = fmt.Fprintf(w, "Testing connectivity to '%s' (rclone)...\n", name)
 
 	target := remote.Path
 	if target == "" {
@@ -368,7 +376,8 @@ func RunSnapshotRemoteTest(engine *core.Engine, name string, w io.Writer) error 
 
 		return fmt.Errorf("connection failed: %w\nOutput: %s", err, string(out))
 	}
-	fmt.Fprintln(w, "Success: Remote is accessible.")
+	_, _ = fmt.Fprintln(w, "Success: Remote is accessible.")
+
 	return nil
 }
 
@@ -394,11 +403,12 @@ func RunSnapshotRemotePush(engine *core.Engine, id string, target snapshot.Remot
 		}
 	}
 
-	fmt.Fprintf(w, "Pushing snapshot %s to %s...\n", id, target.Path)
+	_, _ = fmt.Fprintf(w, "Pushing snapshot %s to %s...\n", id, target.Path)
 	if err := mgr.Push(id, target, opts); err != nil {
 		return fmt.Errorf("push failed: %w", err)
 	}
-	fmt.Fprintln(w, "Push successful.")
+	_, _ = fmt.Fprintln(w, "Push successful.")
+
 	return nil
 }
 
@@ -423,10 +433,11 @@ func RunSnapshotRemotePull(engine *core.Engine, id string, source snapshot.Remot
 		}
 	}
 
-	fmt.Fprintf(w, "Pulling snapshot %s from %s...\n", id, source.Path)
+	_, _ = fmt.Fprintf(w, "Pulling snapshot %s from %s...\n", id, source.Path)
 	if err := mgr.Pull(id, source, opts); err != nil {
 		return fmt.Errorf("pull failed: %w", err)
 	}
-	fmt.Fprintln(w, "Pull successful.")
+	_, _ = fmt.Fprintln(w, "Pull successful.")
+
 	return nil
 }

@@ -197,7 +197,8 @@ func (b *TimeshiftBackend) Push(id string, target RemoteTarget, opts RemoteOptio
 
 	cmdArgs := util.GetPrivilegedRcloneCommand(args)
 
-	fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+	_, _ = fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+
 	cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -234,7 +235,8 @@ func (b *TimeshiftBackend) Pull(id string, source RemoteTarget, opts RemoteOptio
 
 	cmdArgs := util.GetPrivilegedRcloneCommand(args)
 
-	fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+	_, _ = fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+
 	cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

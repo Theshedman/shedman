@@ -238,7 +238,8 @@ func (r *RealAlpmHandle) SetupCallbacks(autoConfirm bool) {
 	r.handle.SetLogCallback(func(_ interface{}, lvl alpm.LogLevel, msg string) {
 		if lvl <= alpm.LogWarning {
 			// Only print warnings and errors
-			fmt.Printf("[%s] %s", logLevelString(lvl), msg)
+			_, _ = fmt.Printf("[%s] %s", logLevelString(lvl), msg)
+
 		}
 	}, nil)
 }

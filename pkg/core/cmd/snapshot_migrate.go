@@ -29,11 +29,12 @@ func RunSnapshotMigrate(engine *core.Engine, targetBackend string, w io.Writer) 
 
 	currentBackend := mgr.GetBackendName()
 	if currentBackend == targetBackend {
-		fmt.Fprintf(w, "Already on backend '%s'. Nothing to do.\n", targetBackend)
+		_, _ = fmt.Fprintf(w, "Already on backend '%s'. Nothing to do.\n", targetBackend)
+
 		return nil
 	}
 
-	fmt.Fprintf(w, "Migrating snapshots from '%s' to '%s'...\n", currentBackend, targetBackend)
+	_, _ = fmt.Fprintf(w, "Migrating snapshots from '%s' to '%s'...\n", currentBackend, targetBackend)
 
 	// Validate Target
 	if targetBackend != "rsync" && targetBackend != "timeshift" && targetBackend != "snapper" {
@@ -41,7 +42,8 @@ func RunSnapshotMigrate(engine *core.Engine, targetBackend string, w io.Writer) 
 	}
 
 	if currentBackend == "rsync" && targetBackend == "rsync" {
-		fmt.Fprintln(w, "To migrate rsync storage location, move the directory manually and update config.")
+		_, _ = fmt.Fprintln(w, "To migrate rsync storage location, move the directory manually and update config.")
+
 		return nil
 	}
 
