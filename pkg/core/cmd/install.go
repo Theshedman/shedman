@@ -92,7 +92,8 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 			registry := core.NewGroupRegistryWithConfig(cfg)
 			expanded, err := registry.ExpandGroups([]string{arg})
 			if err != nil {
-				fmt.Fprintf(w, "Failed to expand group %s: %v\n", arg, err)
+				_, _ = fmt.Fprintf(w, "Failed to expand group %s: %v\n", arg, err)
+
 				continue
 			}
 
@@ -101,11 +102,13 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 				// Fetch package info
 				info, err := backend.Info(p)
 				if err != nil {
-					fmt.Fprintf(w, "Failed to query package %s (from group %s): %v\n", p, arg, err)
+					_, _ = fmt.Fprintf(w, "Failed to query package %s (from group %s): %v\n", p, arg, err)
+
 					continue
 				}
 				if info == nil {
-					fmt.Fprintf(w, "Package %s (from group %s) not found\n", p, arg)
+					_, _ = fmt.Fprintf(w, "Package %s (from group %s) not found\n", p, arg)
+
 					continue
 				}
 				pkgs = append(pkgs, *info)

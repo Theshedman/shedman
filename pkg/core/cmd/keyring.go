@@ -134,12 +134,14 @@ func newKeyringInitCmd() *cobra.Command {
 }
 
 func RunKeyringInit(eng *core.Engine, w io.Writer) error {
-	fmt.Fprintln(w, "Initializing keyring...")
+	_, _ = fmt.Fprintln(w, "Initializing keyring...")
+
 	return eng.KeyringInit()
 }
 
 func RunKeyringRefresh(eng *core.Engine, w io.Writer) error {
-	fmt.Fprintln(w, "Refreshing keys...")
+	_, _ = fmt.Fprintln(w, "Refreshing keys...")
+
 	return eng.KeyringRefresh()
 }
 
@@ -149,7 +151,8 @@ func RunKeyringList(eng *core.Engine, w io.Writer) error {
 		return err
 	}
 	for _, k := range keys {
-		fmt.Fprintln(w, k)
+		_, _ = fmt.Fprintln(w, k)
+
 	}
 	return nil
 }
