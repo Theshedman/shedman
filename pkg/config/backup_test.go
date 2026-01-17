@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/theshedman/shedman/internal/util"
 )
 
 func TestBackupManager_Backup(t *testing.T) {
@@ -18,7 +19,7 @@ func TestBackupManager_Backup(t *testing.T) {
 
 	// Create a dummy config file
 	configFile := filepath.Join(tmpDir, "test.conf")
-	err = os.WriteFile(configFile, []byte("original content"), 0644)
+	err = os.WriteFile(configFile, []byte("original content"), util.FilePermissions)
 	require.NoError(t, err)
 
 	// Initialize manager
@@ -45,7 +46,7 @@ func TestBackupManager_Rotate(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	configFile := filepath.Join(tmpDir, "rotate.conf")
-	err = os.WriteFile(configFile, []byte("data"), 0644)
+	err = os.WriteFile(configFile, []byte("data"), util.FilePermissions)
 	require.NoError(t, err)
 
 	manager := NewFileBackupManager()

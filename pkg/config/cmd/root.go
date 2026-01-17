@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/output"
+	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/config"
 	"github.com/theshedman/shedman/pkg/tui"
 )
@@ -120,8 +121,9 @@ func newResetCmd() *cobra.Command {
 			}
 
 			// Overwrite
-			if err := os.WriteFile(path, original, 0644); err != nil {
+			if err := os.WriteFile(path, original, util.FilePermissions); err != nil {
 				output.Error("Failed to write file: %v", err)
+
 				os.Exit(1)
 			}
 

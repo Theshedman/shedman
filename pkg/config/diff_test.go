@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/theshedman/shedman/internal/util"
 )
 
 func TestDiffer_CalculateHash(t *testing.T) {
@@ -16,7 +17,7 @@ func TestDiffer_CalculateHash(t *testing.T) {
 
 	file := filepath.Join(tmpDir, "test.txt")
 	content := []byte("hello world\n")
-	err = os.WriteFile(file, content, 0644)
+	err = os.WriteFile(file, content, util.FilePermissions)
 	require.NoError(t, err)
 
 	d := NewDiffer()

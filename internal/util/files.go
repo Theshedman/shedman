@@ -1,6 +1,14 @@
 package util
 
-import "os"
+import (
+	"io/fs"
+	"os"
+)
+
+const (
+	DirPermissions  fs.FileMode = 0755
+	FilePermissions fs.FileMode = 0644
+)
 
 // FileExists checks if a file exists and is not a directory.
 func FileExists(path string) (bool, error) {

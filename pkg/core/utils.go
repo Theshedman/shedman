@@ -18,8 +18,3 @@ func CommandExists(name string) bool {
 	return err == nil
 }
 
-// Common file permissions
-const (
-	DirPermissions  = 0755
-	FilePermissions = 0644
-)

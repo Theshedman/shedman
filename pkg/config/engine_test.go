@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/theshedman/shedman/internal/util"
 )
 
 // MockConflictResolver
@@ -44,7 +45,7 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		src := filepath.Join(tmpDir, "pkg.conf")
-		os.WriteFile(src, []byte("pkg content"), 0644)
+		os.WriteFile(src, []byte("pkg content"), util.FilePermissions)
 		target := filepath.Join(tmpDir, "user.conf")
 
 		// Apply
@@ -70,8 +71,8 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		content := []byte("content")
 		src := filepath.Join(tmpDir, "pkg.conf")
 		target := filepath.Join(tmpDir, "user.conf")
-		os.WriteFile(src, content, 0644)
-		os.WriteFile(target, content, 0644)
+		os.WriteFile(src, content, util.FilePermissions)
+		os.WriteFile(target, content, util.FilePermissions)
 
 		// Set State match
 		hash := eng.Differ.CalculateStringHash(string(content))
@@ -98,8 +99,8 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 
 		src := filepath.Join(tmpDir, "pkg.conf")
 		target := filepath.Join(tmpDir, "user.conf")
-		os.WriteFile(src, []byte(pkgContent), 0644)
-		os.WriteFile(target, []byte(userContent), 0644)
+		os.WriteFile(src, []byte(pkgContent), util.FilePermissions)
+		os.WriteFile(target, []byte(userContent), util.FilePermissions)
 
 		// State matches base
 		baseHash := eng.Differ.CalculateStringHash(baseContent)
@@ -124,8 +125,8 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 
 		src := filepath.Join(tmpDir, "pkg.conf")
 		target := filepath.Join(tmpDir, "user.conf")
-		os.WriteFile(src, []byte(pkgContent), 0644)
-		os.WriteFile(target, []byte(userContent), 0644)
+		os.WriteFile(src, []byte(pkgContent), util.FilePermissions)
+		os.WriteFile(target, []byte(userContent), util.FilePermissions)
 
 		baseHash := eng.Differ.CalculateStringHash(baseContent)
 		eng.StateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
@@ -154,8 +155,8 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 
 		src := filepath.Join(tmpDir, "pkg.conf")
 		target := filepath.Join(tmpDir, "user.conf")
-		os.WriteFile(src, []byte(pkgContent), 0644)
-		os.WriteFile(target, []byte(userContent), 0644)
+		os.WriteFile(src, []byte(pkgContent), util.FilePermissions)
+		os.WriteFile(target, []byte(userContent), util.FilePermissions)
 
 		baseHash := eng.Differ.CalculateStringHash(baseContent)
 		eng.StateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})
@@ -185,8 +186,8 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 
 		src := filepath.Join(tmpDir, "pkg.conf")
 		target := filepath.Join(tmpDir, "user.conf")
-		os.WriteFile(src, []byte(pkgContent), 0644)
-		os.WriteFile(target, []byte(userContent), 0644)
+		os.WriteFile(src, []byte(pkgContent), util.FilePermissions)
+		os.WriteFile(target, []byte(userContent), util.FilePermissions)
 
 		baseHash := eng.Differ.CalculateStringHash(baseContent)
 		eng.StateMgr.Set("testpkg", target, FileState{Path: target, Hash: baseHash})

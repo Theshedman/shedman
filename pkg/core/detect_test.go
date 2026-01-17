@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/theshedman/shedman/internal/util"
 )
 
 func TestDetectDistro_Arch(t *testing.T) {
@@ -94,7 +96,7 @@ func testWithOsRelease(t *testing.T, content string) DistroInfo {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "os-release")
 
-	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tmpFile, []byte(content), util.FilePermissions); err != nil {
 		t.Fatalf("Failed to write temp file: %v", err)
 	}
 

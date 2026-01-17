@@ -2,13 +2,16 @@ package config
 
 import (
 	"archive/tar"
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/klauspost/compress/zstd"
+	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -18,15 +21,28 @@ type MockExecutor struct {
 		Output []byte
 		Err    error
 	}
+	// OutputFunc allows for custom mocking of the Output method
+	OutputFunc func(name string, args ...string) ([]byte, error)
 }
 
 func (m *MockExecutor) Output(name string, args ...string) ([]byte, error) {
+	if m.OutputFunc != nil {
+		return m.OutputFunc(name, args...)
+	}
 	key := name + " " + strings.Join(args, " ")
 	// Simple key matching.
 	if resp, ok := m.Responses[key]; ok {
 		return resp.Output, resp.Err
 	}
 	return nil, fmt.Errorf("unexpected command: %s", key)
+}
+
+func (m *MockExecutor) Command(name string, args ...string) *exec.Cmd {
+	return exec.Command(name, args...)
+}
+
+func (m *MockExecutor) CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, name, args...)
 }
 
 func TestGetOriginalContent_Success(t *testing.T) {
@@ -105,9 +121,10 @@ func createDummyArchive(path, filename, content string) error {
 	body := []byte(content)
 	hdr := &tar.Header{
 		Name: filename,
-		Mode: 0644,
+		Mode: int64(util.FilePermissions),
 		Size: int64(len(body)),
 	}
+
 	if err := tw.WriteHeader(hdr); err != nil {
 		return err
 	}

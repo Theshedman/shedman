@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/theshedman/shedman/internal/util"
 )
 
 func TestTransaction_TrackCreate_Rollback(t *testing.T) {
@@ -19,7 +21,8 @@ func TestTransaction_TrackCreate_Rollback(t *testing.T) {
 	tx.TrackCreate(file)
 
 	// 2. Create package (simulate install)
-	if err := os.WriteFile(file, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(file, []byte("content"), util.FilePermissions); err != nil {
+
 		t.Fatalf("WriteFile failed: %v", err)
 	}
 
@@ -45,7 +48,8 @@ func TestTransaction_TrackOverwrite_Rollback(t *testing.T) {
 
 	// 1. Create original file
 	originalContent := []byte("original")
-	if err := os.WriteFile(file, originalContent, 0644); err != nil {
+	if err := os.WriteFile(file, originalContent, util.FilePermissions); err != nil {
+
 		t.Fatalf("Setup failed: %v", err)
 	}
 
@@ -56,7 +60,8 @@ func TestTransaction_TrackOverwrite_Rollback(t *testing.T) {
 
 	// 3. Overwrite it
 	newContent := []byte("new")
-	if err := os.WriteFile(file, newContent, 0644); err != nil {
+	if err := os.WriteFile(file, newContent, util.FilePermissions); err != nil {
+
 		t.Fatalf("Overwrite failed: %v", err)
 	}
 
@@ -85,7 +90,7 @@ func TestTransaction_Commit(t *testing.T) {
 	file := filepath.Join(tmpDir, "committed.txt")
 
 	tx.TrackCreate(file)
-	os.WriteFile(file, []byte("data"), 0644)
+	os.WriteFile(file, []byte("data"), util.FilePermissions)
 
 	// Commit
 	if err := tx.Commit(); err != nil {

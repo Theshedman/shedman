@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/theshedman/shedman/internal/util"
 )
 
 // Logger handles transaction logging
@@ -29,8 +31,9 @@ type Transaction struct {
 
 // Log logs a transaction to the log file in ALPM format
 func (l *Logger) Log(tx Transaction) error {
-	f, err := os.OpenFile(l.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(l.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, util.FilePermissions)
 	if err != nil {
+
 		return err
 	}
 	defer f.Close()

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/theshedman/shedman/internal/cache"
+	"github.com/theshedman/shedman/internal/util"
 )
 
 func TestNewFileSystemCache(t *testing.T) {
@@ -226,7 +227,7 @@ func TestFileSystemCache_FindVersions(t *testing.T) {
 
 	for _, f := range files {
 		path := filepath.Join(tmpDir, f)
-		if err := os.WriteFile(path, []byte("dummy"), 0644); err != nil {
+		if err := os.WriteFile(path, []byte("dummy"), util.FilePermissions); err != nil {
 			t.Fatalf("Failed to create dummy file %s: %v", f, err)
 		}
 	}

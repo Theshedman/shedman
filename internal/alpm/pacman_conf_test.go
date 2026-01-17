@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/theshedman/shedman/internal/util"
 )
 
 func TestParsePacmanConf(t *testing.T) {
@@ -38,7 +40,7 @@ Server = https://mirror.example.com/$repo/os/$arch
 [multilib]
 Server = https://mirror.example.com/$repo/os/$arch
 `
-	if err := os.WriteFile(confPath, []byte(confContent), 0644); err != nil {
+	if err := os.WriteFile(confPath, []byte(confContent), util.FilePermissions); err != nil {
 		t.Fatal(err)
 	}
 
