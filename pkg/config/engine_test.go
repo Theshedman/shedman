@@ -42,7 +42,7 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 	// Scenario 1: Fresh Install (Target Missing)
 	t.Run("FreshInstall", func(t *testing.T) {
 		eng, tmpDir, _ := setupEngineTest(t)
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		src := filepath.Join(tmpDir, "pkg.conf")
 		_ = os.WriteFile(src, []byte("pkg content"), util.FilePermissions)
@@ -67,7 +67,7 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 	// Scenario 2: No Changes (All Match)
 	t.Run("NoChanges", func(t *testing.T) {
 		eng, tmpDir, _ := setupEngineTest(t)
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		content := []byte("content")
 		src := filepath.Join(tmpDir, "pkg.conf")
@@ -93,7 +93,7 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 	// Scenario 3: User Only Change -> Keep User (Default)
 	t.Run("UserChange_Keep", func(t *testing.T) {
 		eng, tmpDir, _ := setupEngineTest(t)
-		defer os.RemoveAll(tmpDir)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		baseContent := "base"
 		userContent := "user modified"

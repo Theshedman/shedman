@@ -97,7 +97,8 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	}
 	// Simple OK
 	printOK := func() {
-		fmt.Fprintln(w, "OK")
+		_, _ = fmt.Fprintln(w, "OK")
+
 	}
 
 	// 1. Check Engine/Backend
@@ -123,11 +124,13 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 		printStatus("Lock file exists: /var/lib/pacman/db.lck", true, false)
 		hasIssues = true
 		if fix {
-			fmt.Fprintln(w, "  Attempting to remove lock file...")
+			_, _ = fmt.Fprintln(w, "  Attempting to remove lock file...")
+
 			if err := repairs.RemoveLock(); err != nil {
 				fmt.Fprintf(w, "  Failed to remove lock: %v\n", err)
 			} else {
-				fmt.Fprintln(w, "  Lock file removed.")
+				_, _ = fmt.Fprintln(w, "  Lock file removed.")
+
 			}
 		}
 	} else {

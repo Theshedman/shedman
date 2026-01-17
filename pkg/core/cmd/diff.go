@@ -38,7 +38,7 @@ func RunDiff(eng *core.Engine, w io.Writer) error {
 		return nil
 	}
 
-	fmt.Fprintf(w, "Found %d pending updates:\n\n", len(diffs))
+	_, _ = fmt.Fprintf(w, "Found %d pending updates:\n\n", len(diffs))
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 	_, _ = fmt.Fprintln(tw, "PACKAGE\tVERSION\tSIZE\tDELTA\tISSUES")
@@ -70,7 +70,8 @@ func RunDiff(eng *core.Engine, w io.Writer) error {
 			issues = "-"
 		}
 
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", d.Name, versionDiff, downloadSize, sizeDelta, issues)
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", d.Name, versionDiff, downloadSize, sizeDelta, issues)
+
 	}
 	_ = tw.Flush()
 
@@ -88,7 +89,8 @@ func RunDiff(eng *core.Engine, w io.Writer) error {
 
 		for _, d := range diffs {
 			if len(d.CVEs) > 0 {
-				fmt.Fprintf(w, "  %s: %v\n", d.Name, d.CVEs)
+				_, _ = fmt.Fprintf(w, "  %s: %v\n", d.Name, d.CVEs)
+
 			}
 		}
 	}

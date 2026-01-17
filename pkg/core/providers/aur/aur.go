@@ -163,7 +163,7 @@ func (b *Backend) Search(query string) ([]core.PackageInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("AUR search failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("AUR API returned status %d", resp.StatusCode)
@@ -209,7 +209,7 @@ func (b *Backend) Info(pkgName string) (*core.PackageInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("AUR info failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("AUR API returned status %d", resp.StatusCode)
