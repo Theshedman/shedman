@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/theshedman/shedman/internal/config"
 	shedhttp "github.com/theshedman/shedman/internal/http"
 	"github.com/theshedman/shedman/pkg/core"
 )
