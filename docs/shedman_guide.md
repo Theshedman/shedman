@@ -598,6 +598,17 @@ shedman snapshot delete <id>
 shedman snapshot delete --older-than 30d
 ```
 
+### `shedman snapshot remote`
+
+Manage remote snapshot targets (cloud storage, SSH, etc.).
+
+```bash
+shedman snapshot remote list                            # List remotes
+shedman snapshot remote add <rclone-remote-name>        # Add existing rclone remote
+shedman snapshot remote remove <name>                   # Remove remote
+shedman snapshot remote test <name>                     # Test connectivity
+```
+
 ### `shedman snapshot push`
 
 ```bash
@@ -1521,7 +1532,6 @@ client.Install("neovim", shedman.WithConfirm(false))
 ```
 
 ---
-
 
 ---
 
