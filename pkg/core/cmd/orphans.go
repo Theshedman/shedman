@@ -36,7 +36,8 @@ func init() {
 }
 
 func RunOrphans(eng *core.Engine, w io.Writer, remove bool) error {
-	fmt.Fprintln(w, "Searching for orphans...")
+	_, _ = fmt.Fprintln(w, "Searching for orphans...")
+
 	orphans, err := eng.ListOrphans()
 	if err != nil {
 		return fmt.Errorf("failed to list orphans: %w", err)
@@ -54,7 +55,8 @@ func RunOrphans(eng *core.Engine, w io.Writer, remove bool) error {
 		if err := eng.RemoveOrphans(orphans); err != nil {
 			return fmt.Errorf("removal failed: %w", err)
 		}
-		fmt.Fprintln(w, "Orphans removed.")
+		_, _ = fmt.Fprintln(w, "Orphans removed.")
+
 	} else {
 		for _, pkg := range orphans {
 			_, _ = fmt.Fprintln(w, pkg)

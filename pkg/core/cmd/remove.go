@@ -137,7 +137,8 @@ func handleRemoveDryRun(w io.Writer, args []string) error {
 	backendName := core.GetBackendName()
 	_, _ = fmt.Fprintf(w, "Dry-run mode (backend: %s):\n", backendName)
 
-	fmt.Fprintln(w, "Would remove the following packages:")
+	_, _ = fmt.Fprintln(w, "Would remove the following packages:")
+
 	for _, pkg := range args {
 		_, _ = fmt.Fprintf(w, "  - %s\n", pkg)
 

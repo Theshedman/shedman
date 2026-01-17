@@ -48,21 +48,22 @@ func RunSnapshotDiff(engine *core.Engine, id1, id2 string, w io.Writer) error {
 		_, _ = fmt.Fprintln(tw, "\n[ADDED]:")
 
 		for _, item := range diff.Added {
-			fmt.Fprintf(tw, "  + %s\n", item)
+			_, _ = fmt.Fprintf(tw, "  + %s\n", item)
+
 		}
 	}
 
 	if len(diff.Removed) > 0 {
-		fmt.Fprintln(tw, "\n[REMOVED]:")
+		_, _ = fmt.Fprintln(tw, "\n[REMOVED]:")
 		for _, item := range diff.Removed {
-			fmt.Fprintf(tw, "  - %s\n", item)
+			_, _ = fmt.Fprintf(tw, "  - %s\n", item)
 		}
 	}
 
 	if len(diff.Modified) > 0 {
-		fmt.Fprintln(tw, "\n[MODIFIED]:")
+		_, _ = fmt.Fprintln(tw, "\n[MODIFIED]:")
 		for _, item := range diff.Modified {
-			fmt.Fprintf(tw, "  * %s\n", item)
+			_, _ = fmt.Fprintf(tw, "  * %s\n", item)
 		}
 	}
 
