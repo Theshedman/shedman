@@ -128,7 +128,8 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 			_, _ = fmt.Fprintln(w, "  Attempting to remove lock file...")
 
 			if err := repairs.RemoveLock(); err != nil {
-				fmt.Fprintf(w, "  Failed to remove lock: %v\n", err)
+				_, _ = fmt.Fprintf(w, "  Failed to remove lock: %v\n", err)
+
 			} else {
 				_, _ = fmt.Fprintln(w, "  Lock file removed.")
 
@@ -166,13 +167,15 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	if len(failed) > 0 {
 		printStatus(fmt.Sprintf("%d failed units", len(failed)), false, true)
 		for _, unit := range failed {
-			fmt.Fprintf(w, "  - %s\n", unit)
+			_, _ = fmt.Fprintf(w, "  - %s\n", unit)
+
 		}
 		hasIssues = true
 		if fix {
 			_, _ = fmt.Fprintln(w, "  Attempting to reset failed services...")
 			if err := repairs.ResetFailedServices(); err != nil {
-				fmt.Fprintf(w, "  Failed to reset services: %v\n", err)
+				_, _ = fmt.Fprintf(w, "  Failed to reset services: %v\n", err)
+
 			} else {
 				_, _ = fmt.Fprintln(w, "  Services reset.")
 			}
@@ -186,12 +189,15 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 
 	if hasIssues {
 		if fix {
-			fmt.Fprintln(w, "Doctor attempted to fix issues. Please re-run to verify.")
+			_, _ = fmt.Fprintln(w, "Doctor attempted to fix issues. Please re-run to verify.")
+
 		} else {
-			fmt.Fprintln(w, "Doctor found issues. Run with --fix to attempt repairs.")
+			_, _ = fmt.Fprintln(w, "Doctor found issues. Run with --fix to attempt repairs.")
+
 		}
 	} else {
-		fmt.Fprintln(w, "Your system looks verify healthy!")
+		_, _ = fmt.Fprintln(w, "Your system looks verify healthy!")
+
 	}
 }
 

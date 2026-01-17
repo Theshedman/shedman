@@ -14,7 +14,7 @@ func TestStateManager_LoadSave(t *testing.T) {
 	// Setup temporary state directory
 	tmpDir, err := os.MkdirTemp("", "shedman-state-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	stateFile := filepath.Join(tmpDir, "config_state.json")
 
@@ -59,7 +59,7 @@ func TestStateManager_LoadSave(t *testing.T) {
 func TestStateManager_AtomicWrite(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "shedman-state-atomic")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	stateFile := filepath.Join(tmpDir, "state.json")
 	manager := NewJSONStateManager(stateFile)
