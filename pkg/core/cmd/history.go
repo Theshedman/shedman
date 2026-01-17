@@ -114,7 +114,6 @@ func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 
 		action := parts[0] // installed, upgraded, removed
 		pkgName := parts[1]
-		version = parts[2]
 
 		if action != "installed" && action != "upgraded" && action != "removed" && action != "reinstalled" {
 			continue
@@ -124,7 +123,7 @@ func RunHistory(r io.Reader, w io.Writer, opts HistoryOptions) error {
 			continue
 		}
 
-		version = strings.Trim(strings.Join(parts[2:], " "), "()")
+		version := strings.Trim(strings.Join(parts[2:], " "), "()")
 
 		transactions = append(transactions, Transaction{
 			Date:    t,
