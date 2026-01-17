@@ -50,7 +50,7 @@ type ShedPackage struct {
 type Backend struct {
 	client       *shedhttp.RetryClient
 	cache        *core.FileSystemCache
-	config       *config.ShedOSConfig
+	config       *config.Config
 	forceRefresh bool
 }
 
