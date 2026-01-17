@@ -207,6 +207,10 @@ func TestAURInstaller_VerifyChecksums(t *testing.T) {
 
 func TestAURInstaller_Build_WithSandbox(t *testing.T) {
 	ai := NewAURInstallerWithBackend(config.Default(), nil)
+	// Check if bwrap is available
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Skip("bwrap not found, skipping sandbox test")
+	}
 	ai.SetSandboxEnabled(true)
 	tmpDir := t.TempDir()
 	ai.SetCacheDir(tmpDir)

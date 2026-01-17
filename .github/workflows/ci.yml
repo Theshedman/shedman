@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   validate:
@@ -15,21 +15,20 @@ jobs:
       - name: System Update & Dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git go golangci-lint
-
+          pacman -S --noconfirm base-devel git go golangci-lint bubblewrap
 
       - uses: actions/checkout@v4
 
       - name: Configure Git Safe Directory
         run: git config --global --add safe.directory '*'
-      
+
       - name: Lint
         env:
           GOFLAGS: "-buildvcs=false"
         run: golangci-lint run
-        
+
       - name: Test
         run: go test -v -race ./...
-        
+
       - name: Build
         run: make build
