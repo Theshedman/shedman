@@ -58,7 +58,7 @@ func (b *AlpmBackend) runTransaction(flags libalpm.TransFlag, addPackages func()
 	if err := b.handle.TransInit(flags); err != nil {
 		return fmt.Errorf("failed to init transaction: %w", err)
 	}
-	defer b.handle.TransRelease()
+	defer func() { _ = b.handle.TransRelease() }()
 
 	// Add packages to transaction
 	count, err := addPackages()
@@ -136,7 +136,8 @@ func (b *AlpmBackend) Info(pkgName string) (*core.PackageInfo, error) {
 	syncDbs := b.handle.SyncDbs()
 	if syncDbs != nil {
 		var found *core.PackageInfo
-		syncDbs.ForEach(func(db alpm.AlpmDB) error {
+		_ = syncDbs.ForEach(func(db alpm.AlpmDB) error {
+
 			if found != nil {
 				return nil // Already found
 			}
@@ -263,7 +264,8 @@ func (b *AlpmBackend) Install(pkgs []string, opts core.InstallOptions) error {
 
 			var found bool
 			var addErr error
-			syncDbs.ForEach(func(db alpm.AlpmDB) error {
+			_ = syncDbs.ForEach(func(db alpm.AlpmDB) error {
+
 				if found {
 					return nil
 				}
@@ -374,7 +376,8 @@ func (b *AlpmBackend) addSpecificPackagesToUpgrade(pkgs []string, opts core.Upgr
 
 		var found bool
 		var addErr error
-		syncDbs.ForEach(func(db alpm.AlpmDB) error {
+		_ = syncDbs.ForEach(func(db alpm.AlpmDB) error {
+
 			if found {
 				return nil
 			}
@@ -420,7 +423,8 @@ func (b *AlpmBackend) addAllPackagesForUpgrade() (int, error) {
 	upgradeCount := 0
 	pkgCache := localDb.PkgCache()
 	if pkgCache != nil {
-		pkgCache.ForEach(func(localPkg alpm.AlpmPackage) error {
+		_ = pkgCache.ForEach(func(localPkg alpm.AlpmPackage) error {
+
 			// Skip ignored packages
 			if b.handle.IsIgnored(localPkg.Name()) {
 				return nil

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/theshedman/shedman/internal/config"
 	shedhttp "github.com/theshedman/shedman/internal/http"
 	"github.com/theshedman/shedman/pkg/core"
 )
@@ -50,7 +49,6 @@ type ShedPackage struct {
 type Backend struct {
 	client       *shedhttp.RetryClient
 	cache        *core.FileSystemCache
-	config       *config.Config
 	forceRefresh bool
 }
 

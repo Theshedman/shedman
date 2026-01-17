@@ -27,7 +27,8 @@ func NewEngineWithConfig(cfg *config.Config) (*core.Engine, error) {
 	e.SetConfig(cfg)
 
 	officialBackend, err := DetectBackendWithConfig(&cfg.Backend)
-	if err == nil && officialBackend != nil {
+	if err == nil {
+
 		e.SetOfficialBackend(officialBackend)
 	}
 

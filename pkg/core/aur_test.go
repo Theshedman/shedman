@@ -81,8 +81,9 @@ func TestAURInstaller_Clone_Update(t *testing.T) {
 	ai.SetCacheDir(tmpDir)
 	pkgDir := filepath.Join(tmpDir, "neovim-nightly")
 	gitDir := filepath.Join(pkgDir, ".git")
-	os.MkdirAll(gitDir, util.DirPermissions)
-	os.WriteFile(filepath.Join(gitDir, "config"), []byte(""), util.FilePermissions)
+	_ = os.MkdirAll(gitDir, util.DirPermissions)
+
+	_ = os.WriteFile(filepath.Join(gitDir, "config"), []byte(""), util.FilePermissions)
 
 	var executedCmds [][]string
 	mockExec := &executor.MockExecutor{
@@ -138,9 +139,10 @@ func TestAURInstaller_GetPKGBUILD(t *testing.T) {
 
 	// Create fake PKGBUILD
 	pkgDir := filepath.Join(tmpDir, "test-pkg")
-	os.MkdirAll(pkgDir, util.DirPermissions)
+	_ = os.MkdirAll(pkgDir, util.DirPermissions)
+
 	expectedContent := "pkgname=test-pkg\npkgver=1.0.0"
-	os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte(expectedContent), util.FilePermissions)
+	_ = os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte(expectedContent), util.FilePermissions)
 
 	content, err := ai.GetPKGBUILD("test-pkg")
 	if err != nil {

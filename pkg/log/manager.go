@@ -48,7 +48,8 @@ func (l *Logger) Log(tx Transaction) error {
 		return err
 	}
 
-	if err := writeLine(fmt.Sprintf("transaction started")); err != nil {
+	if err := writeLine("transaction started"); err != nil {
+
 		return err
 	}
 

@@ -127,7 +127,8 @@ func (t *Transaction) Rollback() error {
 				_ = t.executor("", []string{"sudo", "rm", "-f", entry.Path})
 
 			} else {
-				os.Remove(entry.Path)
+				_ = os.Remove(entry.Path)
+
 			}
 		case OpDirectoryCreated:
 			// Remove directory
@@ -135,7 +136,8 @@ func (t *Transaction) Rollback() error {
 				_ = t.executor("", []string{"sudo", "rmdir", entry.Path})
 
 			} else {
-				os.Remove(entry.Path)
+				_ = os.Remove(entry.Path)
+
 			}
 		case OpOverwritten:
 			// Restore from backup
@@ -151,7 +153,7 @@ func (t *Transaction) Rollback() error {
 	}
 
 	// Cleanup backup dir
-	os.RemoveAll(t.backupDir)
+	_ = os.RemoveAll(t.backupDir)
 
 	return lastErr
 }

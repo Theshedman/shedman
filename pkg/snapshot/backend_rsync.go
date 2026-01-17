@@ -103,7 +103,8 @@ func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error
 		return nil, fmt.Errorf("rsync failed: %w", err)
 	}
 
-	os.Remove(latestLink)
+	_ = os.Remove(latestLink)
+
 	if err := os.Symlink(id, latestLink); err != nil {
 		return nil, fmt.Errorf("failed to update latest symlink: %w", err)
 	}

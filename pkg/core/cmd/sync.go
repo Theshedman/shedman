@@ -72,7 +72,8 @@ By default, syncs all databases. Use flags to sync specific sources:
 			if cfg.Network.Timeout > 0 {
 				timeout = time.Duration(cfg.Network.Timeout) * time.Second
 			}
-			if cfg.Mirrors.ShedOS != nil && len(cfg.Mirrors.ShedOS) > 0 {
+			if len(cfg.Mirrors.ShedOS) > 0 {
+
 				backendList = append(backendList, shedrepo.NewWithMirrors(cfg.Mirrors.ShedOS, fsCache, timeout))
 			} else {
 				backendList = append(backendList, shedrepo.New(fsCache, timeout))

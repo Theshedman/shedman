@@ -32,9 +32,10 @@ func TestShedRepoBackend_Sync_CacheHit(t *testing.T) {
 
 	// Pre-populate cache so sync skips download
 	dbPath := c.GetFilePath("shedrepo", "shedos.db")
-	c.WriteFile(dbPath, []byte("cached"))
+	_ = c.WriteFile(dbPath, []byte("cached"))
+
 	indexPath := c.GetFilePath("shedrepo", "index.json")
-	c.WriteFile(indexPath, []byte("{}"))
+	_ = c.WriteFile(indexPath, []byte("{}"))
 
 	err := b.Sync()
 	if err != nil {

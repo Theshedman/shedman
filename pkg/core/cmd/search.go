@@ -107,7 +107,8 @@ Examples:
 			if cfg.Network.Timeout > 0 {
 				timeout = time.Duration(cfg.Network.Timeout) * time.Second
 			}
-			if cfg.Mirrors.ShedOS != nil && len(cfg.Mirrors.ShedOS) > 0 {
+			if len(cfg.Mirrors.ShedOS) > 0 {
+
 				engine.AddBackend(shedrepo.NewWithMirrors(cfg.Mirrors.ShedOS, fsCache, timeout))
 			} else {
 				engine.AddBackend(shedrepo.New(fsCache, timeout))

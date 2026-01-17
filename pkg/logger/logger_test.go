@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 )
@@ -17,15 +18,18 @@ func TestInit(t *testing.T) {
 	Init(true, false) // Debug mode
 
 	// Check if LevelDebug is enabled
-	if !slog.Default().Enabled(nil, slog.LevelDebug) {
+	if !slog.Default().Enabled(context.TODO(), slog.LevelDebug) {
+
 		t.Error("Expected LevelDebug to be enabled")
 	}
 
 	Init(false, true) // Verbose mode
-	if slog.Default().Enabled(nil, slog.LevelDebug) {
+	if slog.Default().Enabled(context.TODO(), slog.LevelDebug) {
+
 		t.Error("Did not expect LevelDebug to be enabled in Verbose mode")
 	}
-	if !slog.Default().Enabled(nil, slog.LevelInfo) {
+	if !slog.Default().Enabled(context.TODO(), slog.LevelInfo) {
+
 		t.Error("Expected LevelInfo to be enabled in Verbose mode")
 	}
 

@@ -43,7 +43,8 @@ var BuildCmd = &cobra.Command{
 		if err := RunBuild(eng, cmd.OutOrStdout(), dir, opts); err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "Build completed successfully.")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Build completed successfully.")
+
 		return nil
 	},
 }

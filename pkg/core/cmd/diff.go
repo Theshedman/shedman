@@ -71,7 +71,7 @@ func RunDiff(eng *core.Engine, w io.Writer) error {
 
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", d.Name, versionDiff, downloadSize, sizeDelta, issues)
 	}
-	tw.Flush()
+	_ = tw.Flush()
 
 	// Detail CVEs if any
 	hasCVEs := false

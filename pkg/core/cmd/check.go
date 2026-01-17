@@ -31,10 +31,12 @@ func init() {
 }
 
 func RunCheck(eng *core.Engine, w io.Writer) error {
-	fmt.Fprintln(w, "Checking package database consistency...")
+	_, _ = fmt.Fprintln(w, "Checking package database consistency...")
+
 	if err := eng.CheckDatabase(); err != nil {
 		return fmt.Errorf("database check failed: %w", err)
 	}
-	fmt.Fprintln(w, "Package database is consistent")
+	_, _ = fmt.Fprintln(w, "Package database is consistent")
+
 	return nil
 }

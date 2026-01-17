@@ -160,7 +160,6 @@ func (b *SnapperBackend) findSnapshots(queryID string) ([]snapperMatch, error) {
 			if strings.Contains(userdata, fmt.Sprintf("shedman_id=%s", queryID)) {
 				isMatch = true
 			} else if id == queryID {
-			} else if id == queryID {
 				isMatch = true
 			}
 
@@ -351,10 +350,6 @@ func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions
 		cmdArgs := util.GetPrivilegedRcloneCommand(args)
 
 		fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
-
-		if opts.DryRun {
-			continue
-		}
 
 		if opts.DryRun {
 			continue

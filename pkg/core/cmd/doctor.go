@@ -99,7 +99,8 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	}
 
 	// 1. Check Engine/Backend
-	fmt.Fprint(w, "Checking Package Backend... ")
+	_, _ = fmt.Fprint(w, "Checking Package Backend... ")
+
 	if eng == nil {
 		printStatus("Engine Init", true, false)
 		hasIssues = true
@@ -114,7 +115,8 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	}
 
 	// 2. Check Lock File
-	fmt.Fprint(w, "Checking Pacman Lock... ")
+	_, _ = fmt.Fprint(w, "Checking Pacman Lock... ")
+
 	if checks.CheckLockFile() {
 		printStatus("Lock file exists: /var/lib/pacman/db.lck", true, false)
 		hasIssues = true
