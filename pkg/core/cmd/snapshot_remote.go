@@ -13,11 +13,25 @@ import (
 	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/pkg/executor"
 	"github.com/theshedman/shedman/pkg/snapshot"
+	"github.com/theshedman/shedman/pkg/snapshot/restic"
 )
 
 var SnapshotRemoteCmd = &cobra.Command{
 	Use:   "remote",
 	Short: "Manage remote snapshots",
+}
+
+var SnapshotRemoteInitCmd = &cobra.Command{
+	Use:   "init <remote-name>",
+	Short: "Initialize a restic repository on the remote",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		engine, err := NewEngineWithConfig(nil)
+		if err != nil {
+			return err
+		}
+		return RunSnapshotRemoteInit(engine, args[0], cmd.OutOrStdout())
+	},
 }
 
 var SnapshotRemotePushCmd = &cobra.Command{
@@ -178,6 +192,7 @@ var SnapshotRemoteTestCmd = &cobra.Command{
 }
 
 func init() {
+	SnapshotRemoteCmd.AddCommand(SnapshotRemoteInitCmd)
 	SnapshotRemoteCmd.AddCommand(SnapshotRemotePushCmd)
 	SnapshotRemoteCmd.AddCommand(SnapshotRemotePullCmd)
 	SnapshotRemoteCmd.AddCommand(SnapshotRemoteAddCmd)
@@ -439,5 +454,43 @@ func RunSnapshotRemotePull(engine *core.Engine, id string, source snapshot.Remot
 	}
 	_, _ = fmt.Fprintln(w, "Pull successful.")
 
+	return nil
+}
+
+func RunSnapshotRemoteInit(engine *core.Engine, name string, w io.Writer) error {
+	cfg := engine.GetConfig()
+	strategy := cfg.Snapshot.RemoteStrategy
+
+	if strategy != "restic" {
+		_, _ = fmt.Fprintln(w, "Note: Initialization is only required for 'restic' strategy.")
+		_, _ = fmt.Fprintf(w, "Current strategy is '%s' (default: rclone). Rclone remotes are standard folders.\n", strategy)
+		return nil
+	}
+
+	remote, ok := cfg.Snapshot.Remotes[name]
+	if !ok {
+		return fmt.Errorf("remote '%s' not found in shedman config.\nPlease run 'shedman snapshot remote add %s' first to configure it.", name, name)
+	}
+
+	remotePath := remote.Path
+	if remotePath == "" {
+		remotePath = name + ":"
+	}
+
+	pwd := util.GetEnvOrPrompt("RESTIC_PASSWORD", "Enter New Restic Repository Password: ")
+	if pwd == "" {
+		return fmt.Errorf("password is required to initialize restic repository")
+	}
+
+	// Create manager
+	exec := &executor.RealExecutor{}
+	mgr := restic.NewManager(exec, pwd)
+
+	_, _ = fmt.Fprintf(w, "Initializing restic repository at %s...\n", remotePath)
+	if err := mgr.Init(remotePath); err != nil {
+		return fmt.Errorf("initialization failed: %w", err)
+	}
+
+	_, _ = fmt.Fprintln(w, "Repository initialized successfully! Password checks out.")
 	return nil
 }
