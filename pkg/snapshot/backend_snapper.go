@@ -12,6 +12,7 @@ import (
 	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/executor"
+	"github.com/theshedman/shedman/pkg/snapshot/restic"
 )
 
 // SnapperBackend implements SnapshotManager using the 'snapper' CLI
@@ -29,13 +30,25 @@ func NewSnapperBackend(cfg *config.Config, executor executor.Executor) *SnapperB
 	}
 }
 
+// runWithSudo wraps the command with sudo if not running as root
+func (b *SnapperBackend) runWithSudo(args ...string) ([]byte, error) {
+	if os.Geteuid() != 0 {
+		sudoArgs := append([]string{"snapper"}, args...)
+		cmd := b.exec.Command("sudo", sudoArgs...)
+		cmd.Stdin = os.Stdin
+		cmd.Stderr = os.Stderr
+		return cmd.Output()
+	}
+	return b.exec.Output("snapper", args...)
+}
+
 func (b *SnapperBackend) GetBackendName() string {
 	return "snapper"
 }
 
 func (b *SnapperBackend) getConfigs() (map[string]string, error) {
 	args := []string{"--csvout", "list-configs", "--columns", "config,subvolume"}
-	out, err := b.exec.Output("snapper", args...)
+	out, err := b.runWithSudo(args...)
 	if err != nil {
 		return nil, err
 	}
@@ -93,12 +106,9 @@ func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, err
 			continue
 		}
 
-		if _, err := b.exec.Output("snapper", args...); err != nil {
+		if _, err := b.runWithSudo(args...); err != nil {
 			lastErr = err
 			fmt.Printf("Warning: failed to snapshot target '%s': %v\n", target, err)
-			if strings.Contains(err.Error(), "No permissions") {
-				fmt.Printf("(Try running with sudo)\n")
-			}
 		} else {
 			successCount++
 		}
@@ -137,8 +147,10 @@ func (b *SnapperBackend) findSnapshots(queryID string) ([]snapperMatch, error) {
 
 	for cfgName, subvolPath := range configs {
 		args := []string{"-c", cfgName, "--csvout", "list", "--columns", "number,userdata"}
-		out, err := b.exec.Output("snapper", args...)
+		out, err := b.runWithSudo(args...)
 		if err != nil {
+			// Failed to read config, possibly nonexistent or really perm denied even with sudo
+			// We can silence the warning now that we try sudo
 			continue
 		}
 
@@ -187,7 +199,7 @@ func (b *SnapperBackend) List(opts ListOptions) ([]Snapshot, error) {
 
 	for cfgName := range configs {
 		args := []string{"-c", cfgName, "--csvout", "--iso", "list", "--columns", "number,type,date,used-space,description,userdata"}
-		out, err := b.exec.Output("snapper", args...)
+		out, err := b.runWithSudo(args...)
 		if err != nil {
 			continue // Skip configs we can't read
 		}
@@ -276,7 +288,7 @@ func (b *SnapperBackend) Delete(id string) error {
 	}
 
 	for _, match := range matches {
-		if _, err := b.exec.Output("snapper", "-c", match.Config, "delete", match.ID); err != nil {
+		if _, err := b.runWithSudo("-c", match.Config, "delete", match.ID); err != nil {
 			return fmt.Errorf("failed to delete snapshot %s (config %s): %w", match.ID, match.Config, err)
 		}
 	}
@@ -285,10 +297,10 @@ func (b *SnapperBackend) Delete(id string) error {
 
 func (b *SnapperBackend) Restore(id string, opts RestoreOptions) error {
 	if opts.DryRun {
-		fmt.Printf("Dry-run: %s %s %s\n", "snapper", "rollback", id)
+		fmt.Printf("Dry-run: %s %s %s\n", "sudo snapper", "rollback", id)
 		return nil
 	}
-	_, err := b.exec.Output("snapper", "rollback", id)
+	_, err := b.runWithSudo("rollback", id)
 	return err
 }
 func (b *SnapperBackend) Prune(opts PruneOptions) error {
@@ -322,6 +334,28 @@ func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions
 	}
 
 	fmt.Printf("Deep-Pushing snapshot %s (Found %d subcomponents)\n", id, len(matches))
+
+	if b.cfg.Snapshot.RemoteStrategy == "restic" {
+		pwd := util.GetEnvOrPrompt("RESTIC_PASSWORD", "Enter Restic Repository Password: ")
+		resticMgr := restic.NewManager(b.exec, pwd)
+
+		// Backup each subvolume component as a path in the repo
+		for _, match := range matches {
+			localPath := filepath.Join(match.Subvolume, ".snapshots", match.ID, "snapshot")
+			if !strings.HasSuffix(localPath, "/") {
+				localPath += "/"
+			}
+
+			// Tags: shedman, config:name, id:ID
+			tags := []string{"shedman", fmt.Sprintf("config:%s", match.Config), fmt.Sprintf("id:%s", match.ID), fmt.Sprintf("unified:%s", id)}
+			fmt.Printf(">> Restic Backup: %s (ID %s) -> %s\n", match.Config, match.ID, target.Path)
+
+			if err := resticMgr.Backup(target.Path, localPath, tags); err != nil {
+				return fmt.Errorf("restic backup failed for %s: %w", match.Config, err)
+			}
+		}
+		return nil
+	}
 
 	baseRemote := target.Path
 	if !strings.HasSuffix(baseRemote, "/") && !strings.HasSuffix(baseRemote, ":") {
@@ -367,6 +401,35 @@ func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions
 }
 
 func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error {
+	// Check strategy
+	if b.cfg.Snapshot.RemoteStrategy == "restic" {
+		pwd := util.GetEnvOrPrompt("RESTIC_PASSWORD", "Enter Restic Repository Password: ")
+		resticMgr := restic.NewManager(b.exec, pwd)
+
+		fmt.Printf("Searching for snapshot %s in restic repo...\n", id)
+
+		tags := []string{fmt.Sprintf("id:%s", id)}
+		matches, err := resticMgr.FindByTags(source.Path, tags)
+		if err != nil {
+			return fmt.Errorf("failed to list remote snapshots: %w", err)
+		}
+
+		if len(matches) == 0 {
+			return fmt.Errorf("snapshot %s not found in restic repo", id)
+		}
+
+		fmt.Printf("Found %d components for snapshot %s. Restoring...\n", len(matches), id)
+
+		for _, m := range matches {
+			fmt.Printf(">> Restoring component (Restic ID: %s)...\n", m.ShortID)
+
+			if err := resticMgr.Restore(source.Path, m.ID, "/"); err != nil {
+				return fmt.Errorf("failed to restore %s: %w", m.ID, err)
+			}
+		}
+		return nil
+	}
+
 	localPath := fmt.Sprintf("/.snapshots/%s/snapshot/", id)
 
 	remotePath := source.Path
@@ -412,7 +475,7 @@ func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions
 func (b *SnapperBackend) Diff(id1, id2 string) (DiffResult, error) {
 	args := []string{"status", fmt.Sprintf("%s..%s", id1, id2)}
 
-	out, err := b.exec.Output("snapper", args...)
+	out, err := b.runWithSudo(args...)
 	if err != nil {
 		return DiffResult{}, fmt.Errorf("snapper diff failed: %w", err)
 	}
