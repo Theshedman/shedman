@@ -44,7 +44,7 @@ func RunSnapshotList(engine *core.Engine, opts snapshot.ListOptions, w io.Writer
 	}
 
 	if len(snapshots) == 0 {
-		_, _ = fmt.Fprintln(w, "Synchronizing package databases...")
+		_, _ = fmt.Fprintln(w, "No snapshots found.")
 
 		return nil
 	}
