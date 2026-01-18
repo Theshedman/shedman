@@ -15,7 +15,7 @@ jobs:
       - name: System Update & Dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel git go golangci-lint bubblewrap
+          pacman -S --noconfirm base-devel git go golangci-lint bubblewrap restic
 
       - uses: actions/checkout@v4
 
