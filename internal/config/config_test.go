@@ -32,6 +32,10 @@ func TestConfig_Default(t *testing.T) {
 	if cfg.General.Color != true {
 		t.Error("Default color should be true")
 	}
+
+	if cfg.Snapshot.RemoteStrategy != "restic" {
+		t.Errorf("Default remote strategy should be restic, got %s", cfg.Snapshot.RemoteStrategy)
+	}
 }
 
 func TestConfig_Load_FromFile(t *testing.T) {

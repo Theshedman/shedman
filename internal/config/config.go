@@ -32,42 +32,65 @@ type Config struct {
 func Default() *Config {
 	return &Config{
 		General: GeneralConfig{
-			Color:   true,
-			Confirm: true,
+			Color:         true,
+			Confirm:       true,
+			Editor:        "", // Default to $EDITOR
+			PromptTimeout: 0,  // No timeout
 		},
 		Network: NetworkConfig{
 			ParallelDownloads: 5,
 			Timeout:           30,
 			Retry:             3,
+			Proxy:             "",
+			LimitRate:         "",
+			DeltaUpdates:      false,
 		},
 		Cache: CacheConfig{
 			MaxAge:    "1h",
 			CleanKeep: 3,
+			AutoClean: false,
 		},
 		Mirrors: MirrorConfig{
 			ShedOS: []string{"https://repo.shedos.org"},
 			Arch:   []string{"https://geo.mirror.pkgbuild.com/$repo/os/$arch"},
 			AUR:    "https://aur.archlinux.org/rpc/",
 		},
+		Packages: PackageConfig{
+			IgnorePkg:    []string{},
+			IgnoreGroup:  []string{},
+			HoldPkg:      []string{},
+			UpgradeFirst: []string{},
+		},
 		Boot: BootConfig{
 			KeepKernels: 3,
 		},
 		Snapshot: SnapshotConfig{
-			AutoBeforeUpdate: true,
-			KeepLocal:        10,
-			DefaultRemote:    "gdrive",
-			Backend:          "auto",
-			Encrypt:          true,
-			Scheduled:        false,
-			Schedule:         "weekly", // default schedule
-			KeepScheduled:    7,
-			ScheduleDays:     []string{"friday"},
-			ScheduleTime:     "15:00",
-			AutoPush:         true,
-			AutoPushRemote:   "gdrive",
-			RequireACPower:   false,
-			RequireWifi:      false,
-			NotifyOnComplete: true,
+			AutoBeforeUpdate:      true,
+			KeepLocal:             10,
+			DefaultRemote:         "gdrive",
+			Backend:               "auto",
+			Encrypt:               true,
+			Remotes:               make(map[string]RemoteConfig),
+			RemoteStrategy:        "restic",
+			ResticPasswordCommand: "",
+			Scheduled:             false,
+			Schedule:              "weekly",
+			KeepScheduled:         7,
+			ScheduleDays:          []string{"friday"},
+			ScheduleTime:          "15:00",
+			AutoPush:              true,
+			AutoPushRemote:        "gdrive",
+			RequireACPower:        false,
+			RequireWifi:           false,
+			NotifyOnComplete:      true,
+			Rsync: RsyncConfig{
+				Excludes: []string{},
+				Storage:  "",
+			},
+			Hooks: SnapshotHooksConfig{
+				PreCreate:  "",
+				PostCreate: "",
+			},
 		},
 		Notifications: NotificationConfig{
 			Enabled:  true,
@@ -76,22 +99,45 @@ func Default() *Config {
 		},
 		AUR: AURConfig{
 			Enabled:         true,
+			BuildDir:        "/var/tmp/shedman/aur",
 			CleanAfterBuild: true,
 			PGPFetch:        true,
 		},
 		Security: SecurityConfig{
 			SigLevel: "Required",
+			GPGDir:   "/etc/pacman.d/gnupg",
+		},
+		Hooks: HookConfig{
+			PreInstall:  "",
+			PostInstall: "",
+			PreRemove:   "",
+			PostRemove:  "",
+			PreUpgrade:  "",
+			PostUpgrade: "",
+			PreSync:     "",
+			PostSync:    "",
 		},
 		Logging: LoggingConfig{
 			Enabled: true,
 			Level:   "info",
+			File:    "/var/log/shedman/shedman.log",
+			JSON:    false,
 		},
 		UI: UIConfig{
 			ProgressBar: true,
 			Spinner:     true,
+			Pager:       "less",
+		},
+		Cloud: CloudConfig{
+			Provider: "",
+			Bucket:   "",
+			Region:   "",
+			Endpoint: "",
 		},
 		Backend: BackendConfig{
-			AutoDetect: true, // Auto-detect package manager by default
+			AutoDetect: true,
+			Override:   "",
+			BinaryPath: "",
 		},
 	}
 }

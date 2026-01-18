@@ -65,6 +65,10 @@ type SnapshotConfig struct {
 	Encrypt          bool                    `toml:"encrypt"`
 	Remotes          map[string]RemoteConfig `toml:"remotes"`
 
+	// Remote Strategy
+	RemoteStrategy        string `toml:"remote_strategy"`         // "rclone" (default) or "restic"
+	ResticPasswordCommand string `toml:"restic_password_command"` // Command to retrieve repository password
+
 	// Scheduling
 	Scheduled     bool   `toml:"scheduled"`      // Guide key: scheduled
 	Schedule      string `toml:"schedule"`       // Guide key: schedule
