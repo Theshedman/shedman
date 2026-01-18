@@ -469,7 +469,7 @@ func RunSnapshotRemoteInit(engine *core.Engine, name string, w io.Writer) error 
 
 	remote, ok := cfg.Snapshot.Remotes[name]
 	if !ok {
-		return fmt.Errorf("remote '%s' not found in shedman config.\nPlease run 'shedman snapshot remote add %s' first to configure it.", name, name)
+		return fmt.Errorf("remote '%s' not found in shedman config (run 'shedman snapshot remote add %s' first)", name, name)
 	}
 
 	remotePath := remote.Path

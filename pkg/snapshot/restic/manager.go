@@ -169,10 +169,7 @@ func getCurrentUser() string {
 func (m *Manager) prepareCommand(ctx context.Context, name string, args []string, requireRoot bool) (*exec.Cmd, func(), error) {
 	var cleanup func()
 
-	useSudo := false
-	if requireRoot && os.Geteuid() != 0 {
-		useSudo = true
-	}
+	useSudo := requireRoot && os.Geteuid() != 0
 
 	user := getCurrentUser()
 	if (useSudo || os.Geteuid() == 0) && user != "root" && user != "" {
