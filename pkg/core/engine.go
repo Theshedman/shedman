@@ -109,7 +109,6 @@ func (e *Engine) IsOfficialBackendAvailable() bool {
 	return e.officialBackend != nil && e.officialBackend.IsAvailable()
 }
 
-// Sync synchronizes all configured backends.
 // Sync synchronizes all configured backends in parallel.
 func (e *Engine) Sync() error {
 	var errors []string

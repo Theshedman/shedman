@@ -39,7 +39,7 @@ func NewSnapshotsModel(c *core.Engine) SnapshotsModel {
 }
 
 func (m SnapshotsModel) Init() tea.Cmd {
-	m.loading = true
+	// m.loading is already true from NewSnapshotsModel
 	return tea.Batch(m.Spinner.Tick, fetchSnapshotsCmd(m.core))
 }
 

@@ -34,14 +34,14 @@ var deListCmd = &cobra.Command{
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		fmt.Fprintln(w, "ID\tNAME\tINSTALLED\tPACKAGE")
+		_, _ = fmt.Fprintln(w, "ID\tNAME\tINSTALLED\tPACKAGE")
 		for _, d := range des {
 			installed := ""
 			if d.Installed {
 				installed = "[installed]"
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", d.ID, d.Name, installed, d.Package)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", d.ID, d.Name, installed, d.Package)
 		}
-		w.Flush()
+		_ = w.Flush()
 	},
 }

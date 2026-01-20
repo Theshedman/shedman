@@ -96,6 +96,9 @@ func init() {
 	rootCmd.AddCommand(commands.ImportCmd)
 	rootCmd.AddCommand(commands.SecurityCmd)
 	rootCmd.AddCommand(commands.SnapshotCmd)
+	rootCmd.AddCommand(commands.DeCmd)
+	rootCmd.AddCommand(commands.SvcCmd)
+	rootCmd.AddCommand(commands.TUICmd)
 	rootCmd.AddCommand(configcmd.ConfigCmd)
 
 	// Global flags

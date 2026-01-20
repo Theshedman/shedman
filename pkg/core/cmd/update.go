@@ -39,9 +39,14 @@ This command is equivalent to 'pacman -Syu' but handles all configured backends 
 				return fmt.Errorf("failed to initialize engine: %w", err)
 			}
 
+			// Check global noconfirm flag (defined in root command)
+			noconfirm, _ := cmd.Flags().GetBool("noconfirm")
+			// Combine local yes flag with global noconfirm
+			shouldNoConfirm := updateYes || noconfirm
+
 			opts := core.UpgradeOptions{
 				Refresh:      false,
-				NoConfirm:    updateYes,
+				NoConfirm:    shouldNoConfirm,
 				IgnorePkgs:   updateIgnore,
 				IgnoreGroups: updateIgnoreGroup,
 			}

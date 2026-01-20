@@ -39,7 +39,7 @@ func NewUpdatesModel(c *core.Engine) UpdatesModel {
 }
 
 func (m UpdatesModel) Init() tea.Cmd {
-	m.loading = true
+	// m.loading is already true from NewUpdatesModel
 	return tea.Batch(m.Spinner.Tick, fetchUpdatesCmd(m.core))
 }
 

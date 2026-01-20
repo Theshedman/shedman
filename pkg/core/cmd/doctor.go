@@ -80,109 +80,43 @@ func init() {
 // RunDoctor executes health checks
 func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs DoctorRepairs, fix bool) {
 	_, _ = fmt.Fprintln(w, "Running system health checks...")
-
 	_, _ = fmt.Fprintln(w)
 
-	hasIssues := false
-
-	// Helper to print styled status
-	printStatus := func(msg string, isError bool, isWarning bool) {
-		if isError {
-			_, _ = fmt.Fprintf(w, "FAILED (%s)\n", msg)
-		} else if isWarning {
-			_, _ = fmt.Fprintf(w, "WARNING (%s)\n", msg)
-		} else {
-			_, _ = fmt.Fprintf(w, "OK (%s)\n", msg)
-		}
+	// Define core check adapter
+	coreChecks := core.DoctorChecks{
+		CheckConnection: checks.CheckConnection,
+		CheckDiskSpace:  checks.CheckDiskSpace,
+		CheckServices:   checks.CheckServices,
+		CheckLockFile:   checks.CheckLockFile,
 	}
 
-	// Simple OK
-	printOK := func() {
-		_, _ = fmt.Fprintln(w, "OK")
+	report := core.Diagnose(eng, coreChecks)
+	hasIssues := !report.IsHealthy()
 
-	}
-
-	// 1. Check Engine/Backend
-	_, _ = fmt.Fprint(w, "Checking Package Backend... ")
-
-	if eng == nil {
-		printStatus("Engine Init", true, false)
-		hasIssues = true
-	} else {
-		backend := eng.GetOfficialBackend()
-		if backend != nil {
-			printStatus(backend.Name(), false, false)
-		} else {
-			printStatus("No official backend detected", false, true)
-			hasIssues = true
-		}
-	}
-
-	// 2. Check Lock File
-	_, _ = fmt.Fprint(w, "Checking Pacman Lock... ")
-
-	if checks.CheckLockFile() {
-		printStatus("Lock file exists: /var/lib/pacman/db.lck", true, false)
-		hasIssues = true
-		if fix {
-			_, _ = fmt.Fprintln(w, "  Attempting to remove lock file...")
-
-			if err := repairs.RemoveLock(); err != nil {
-				_, _ = fmt.Fprintf(w, "  Failed to remove lock: %v\n", err)
-
-			} else {
-				_, _ = fmt.Fprintln(w, "  Lock file removed.")
-
+	// Convert and Print Report
+	for _, item := range report.Items {
+		switch item.Status {
+		case core.DiagnoseStatusFail:
+			_, _ = fmt.Fprintf(w, "FAILED (%s)\n", item.Name)
+			if item.Name == "Pacman Lock" && fix {
+				if err := repairs.RemoveLock(); err != nil {
+					_, _ = fmt.Fprintf(w, "  Failed to remove lock: %v\n", err)
+				} else {
+					_, _ = fmt.Fprintln(w, "  Lock file removed.")
+				}
 			}
-		}
-	} else {
-		printOK()
-	}
-
-	// 3. Check Internet Connectivity
-	_, _ = fmt.Fprint(w, "Checking Connectivity... ")
-
-	if checks.CheckConnection() {
-		printOK()
-	} else {
-		printStatus("Cannot reach archlinux.org", false, true)
-		hasIssues = true
-	}
-
-	// 4. Check Disk Space (Root)
-	_, _ = fmt.Fprint(w, "Checking Disk Space... ")
-
-	freeGB := checks.CheckDiskSpace("/")
-	if freeGB < 1.0 {
-		printStatus(fmt.Sprintf("Only %.1fGB free on /", freeGB), true, false)
-		hasIssues = true
-	} else {
-		printStatus(fmt.Sprintf("%.1fGB free", freeGB), false, false)
-	}
-
-	// 5. Check Failed Services
-	_, _ = fmt.Fprint(w, "Checking Failed Services... ")
-
-	failed := checks.CheckServices()
-	if len(failed) > 0 {
-		printStatus(fmt.Sprintf("%d failed units", len(failed)), false, true)
-		for _, unit := range failed {
-			_, _ = fmt.Fprintf(w, "  - %s\n", unit)
-
-		}
-		hasIssues = true
-		if fix {
-			_, _ = fmt.Fprintln(w, "  Attempting to reset failed services...")
-			if err := repairs.ResetFailedServices(); err != nil {
-				_, _ = fmt.Fprintf(w, "  Failed to reset services: %v\n", err)
-
-			} else {
-				_, _ = fmt.Fprintln(w, "  Services reset.")
+		case core.DiagnoseStatusWarn:
+			_, _ = fmt.Fprintf(w, "WARNING (%s): %s\n", item.Name, item.Message)
+			if item.Name == "System Services" && fix {
+				if err := repairs.ResetFailedServices(); err != nil {
+					_, _ = fmt.Fprintf(w, "  Failed to reset services: %v\n", err)
+				} else {
+					_, _ = fmt.Fprintln(w, "  Services reset.")
+				}
 			}
-
+		case core.DiagnoseStatusOk:
+			_, _ = fmt.Fprintf(w, "OK (%s)\n", item.Name)
 		}
-	} else {
-		printOK()
 	}
 
 	_, _ = fmt.Fprintln(w)
@@ -190,14 +124,11 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	if hasIssues {
 		if fix {
 			_, _ = fmt.Fprintln(w, "Doctor attempted to fix issues. Please re-run to verify.")
-
 		} else {
 			_, _ = fmt.Fprintln(w, "Doctor found issues. Run with --fix to attempt repairs.")
-
 		}
 	} else {
 		_, _ = fmt.Fprintln(w, "Your system looks verify healthy!")
-
 	}
 }
 

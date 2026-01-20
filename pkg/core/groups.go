@@ -21,6 +21,7 @@ type PackageGroup struct {
 	Packages    []string // Package names in this group
 	Optional    []string // Optional packages in this group
 	Includes    []string // Other groups to include (nested groups)
+	Configs     []string // Tracked configuration files in this group
 }
 
 // DefaultGroups contains the predefined package groups
@@ -209,6 +210,7 @@ type GroupConfigEntry struct {
 	Packages    []string `toml:"packages"`
 	Optional    []string `toml:"optional"`
 	Includes    []string `toml:"includes"`
+	Configs     []string `toml:"configs"`
 }
 
 // GroupRegistry manages package groups
@@ -263,6 +265,7 @@ func (r *GroupRegistry) LoadFromFile(path string) error {
 			Packages:    entry.Packages,
 			Optional:    entry.Optional,
 			Includes:    entry.Includes,
+			Configs:     entry.Configs,
 		}
 	}
 

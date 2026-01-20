@@ -34,7 +34,8 @@ func TestRunDiff(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := RunDiff(eng, &buf)
+
+	err := RunDiff(eng, &buf, "", false)
 	if err != nil {
 		t.Fatalf("RunDiff failed: %v", err)
 	}
@@ -62,7 +63,7 @@ func TestRunDiff_NoUpdates(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := RunDiff(eng, &buf)
+	err := RunDiff(eng, &buf, "", false)
 	if err != nil {
 		t.Fatalf("RunDiff failed: %v", err)
 	}

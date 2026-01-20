@@ -187,6 +187,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var dMsg tea.Model
 		dMsg, cmd = m.desktop.Update(contentMsg)
 		m.desktop = dMsg.(views.DesktopModel)
+		cmds = append(cmds, cmd)
 
 		// Password
 		// We don't always need to resize password view, but consistent state is good
