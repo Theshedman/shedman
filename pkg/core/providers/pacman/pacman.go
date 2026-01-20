@@ -290,6 +290,8 @@ func parsePacmanInfo(output string) *core.PackageInfo {
 				info.Version = value
 			case "Description":
 				info.Description = value
+			case "URL":
+				info.URL = value
 			case "Depends On":
 				if value != "None" {
 					info.Depends = strings.Fields(value)

@@ -9,11 +9,15 @@ import (
 	"github.com/theshedman/shedman/pkg/core"
 )
 
+var showChangelog bool
+
 var DiffCmd = &cobra.Command{
-	Use:   "diff",
+	Use:   "diff [package]",
 	Short: "Show details of pending updates",
 	Long: `Display detailed information about pending system updates.
 this includes version changes, size differences, and potential security vulnerabilities (CVEs).
+
+If a package name is provided, only that package's diff will be shown.
 
 Requires updated sync databases (run 'shedman update --refresh' first if needed).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -21,20 +25,42 @@ Requires updated sync databases (run 'shedman update --refresh' first if needed)
 		if err != nil {
 			return err
 		}
-		return RunDiff(eng, cmd.OutOrStdout())
+		var filterPkg string
+		if len(args) > 0 {
+			filterPkg = args[0]
+		}
+		return RunDiff(eng, cmd.OutOrStdout(), filterPkg, showChangelog)
 	},
 }
 
+func init() {
+	DiffCmd.Flags().BoolVar(&showChangelog, "changelog", false, "Show changelog info (upstream URL)")
+}
+
 // RunDiff compares package lists
-func RunDiff(eng *core.Engine, w io.Writer) error {
+func RunDiff(eng *core.Engine, w io.Writer, filterPkg string, showChangelog bool) error {
 	diffs, err := eng.Diff()
 	if err != nil {
 		return fmt.Errorf("failed to get diff: %w", err)
 	}
 
-	if len(diffs) == 0 {
-		_, _ = fmt.Fprintln(w, "No updates found. System is up to date.")
+	// Filter
+	if filterPkg != "" {
+		var filtered []core.PackageDiff
+		for _, d := range diffs {
+			if d.Name == filterPkg {
+				filtered = append(filtered, d)
+			}
+		}
+		diffs = filtered
+	}
 
+	if len(diffs) == 0 {
+		if filterPkg != "" {
+			_, _ = fmt.Fprintf(w, "No updates found for package '%s'.\n", filterPkg)
+		} else {
+			_, _ = fmt.Fprintln(w, "No updates found. System is up to date.")
+		}
 		return nil
 	}
 
@@ -71,7 +97,6 @@ func RunDiff(eng *core.Engine, w io.Writer) error {
 		}
 
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", d.Name, versionDiff, downloadSize, sizeDelta, issues)
-
 	}
 	_ = tw.Flush()
 
@@ -86,11 +111,31 @@ func RunDiff(eng *core.Engine, w io.Writer) error {
 
 	if hasCVEs {
 		_, _ = fmt.Fprintln(w, "\nSecurity Warnings:")
-
 		for _, d := range diffs {
 			if len(d.CVEs) > 0 {
 				_, _ = fmt.Fprintf(w, "  %s: %v\n", d.Name, d.CVEs)
+			}
+		}
+	}
 
+	// Show Changelog Info if requested
+	if showChangelog {
+		_, _ = fmt.Fprintln(w, "\nChangelog Information:")
+		for _, d := range diffs {
+			info, err := eng.Info(d.Name)
+			if err == nil { // Use Info from sync db (it has the NEW version info typically)
+				_, _ = fmt.Fprintf(w, "\n  %s (%s -> %s)\n", d.Name, d.OldVersion, d.NewVersion)
+				description := info.Description
+				if description == "" {
+					description = "No description available"
+				}
+				_, _ = fmt.Fprintf(w, "    Description: %s\n", description)
+
+				url := info.URL
+				if url != "" {
+					_, _ = fmt.Fprintf(w, "    Upstream: %s\n", url)
+				}
+				_, _ = fmt.Fprintln(w, "    Note: Please check upstream for detailed changelogs.")
 			}
 		}
 	}

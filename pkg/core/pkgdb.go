@@ -36,6 +36,7 @@ type PackageInfo struct {
 	Size          int64
 	InstalledSize int64
 	DownloadURL   string // Direct download URL for ShedOS packages
+	URL           string // Upstream URL (e.g. homepage)
 	Checksum      string // SHA256 checksum for verification
 	Signature     string // GPG signature or signature URL
 }
