@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -12,16 +13,10 @@ import (
 
 var (
 	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FAFAFA")).
-			Background(lipgloss.Color("#7D56F4")).
-			Padding(0, 1)
-
-	diffStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("63")).
-			Padding(0, 1).
-			Width(80)
+		Bold(true).
+		Foreground(lipgloss.Color("#FAFAFA")).
+		Background(lipgloss.Color("#7D56F4")).
+		Padding(0, 1)
 )
 
 // TUIConflictResolver implements config.ConflictResolver using Bubbletea
@@ -35,7 +30,7 @@ func NewConflictResolver() *TUIConflictResolver {
 // Resolve starts the TUI to resolve a conflict
 func (r *TUIConflictResolver) Resolve(file string, diff string) (config.Action, error) {
 	initialModel := newConflictModel(file, diff)
-	p := tea.NewProgram(initialModel)
+	p := tea.NewProgram(initialModel, tea.WithAltScreen())
 
 	// Run the program
 	finalModel, err := p.Run()
@@ -61,15 +56,19 @@ type conflictModel struct {
 	selectedAction config.Action
 	quitting       bool
 	err            error
-	viewportHeight int
-	viewportWidth  int
+	viewport       viewport.Model
+	ready          bool
 }
 
 func newConflictModel(file, diff string) conflictModel {
+	vp := viewport.New(0, 0)
+	vp.SetContent(ColorizeDiff(diff))
+
 	return conflictModel{
 		file:           file,
 		diff:           diff,
-		selectedAction: config.ActionKeepUser, // Default if quit
+		selectedAction: config.ActionKeepUser,
+		viewport:       vp,
 	}
 }
 
@@ -78,16 +77,21 @@ func (m conflictModel) Init() tea.Cmd {
 }
 
 func (m conflictModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			m.quitting = true
-			// Default to keeping user on abort
 			m.selectedAction = config.ActionKeepUser
 			return m, tea.Quit
 
 		case "k", "K":
+			// Intercept K for Keep (otherwise viewport uses k for up)
 			m.selectedAction = config.ActionKeepUser
 			m.quitting = true
 			return m, tea.Quit
@@ -104,33 +108,70 @@ func (m conflictModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		m.viewportWidth = msg.Width
-		m.viewportHeight = msg.Height
+		headerHeight := lipgloss.Height(m.headerView())
+		footerHeight := lipgloss.Height(m.footerView())
+		verticalMarginHeight := headerHeight + footerHeight
+
+		if !m.ready {
+			m.viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
+			m.viewport.SetContent(ColorizeDiff(m.diff))
+			m.ready = true
+		} else {
+			m.viewport.Width = msg.Width
+			m.viewport.Height = msg.Height - verticalMarginHeight
+		}
 	}
 
-	return m, nil
+	// Handle viewport updates
+	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m conflictModel) View() string {
 	if m.quitting {
 		return ""
 	}
+	if !m.ready {
+		return "\n  Initializing..."
+	}
 
+	return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.viewport.View(), m.footerView())
+}
+
+func (m conflictModel) headerView() string {
 	s := strings.Builder{}
-
-	// Header
 	s.WriteString(titleStyle.Render("Configuration Conflict"))
 	s.WriteString(fmt.Sprintf("\n\nFile: %s\n", m.file))
+	return s.String()
+}
 
-	diffView := diffStyle.Render(m.diff)
-	s.WriteString(diffView)
-	s.WriteString("\n\n")
-
-	s.WriteString("Resolution Options:\n")
+func (m conflictModel) footerView() string {
+	s := strings.Builder{}
+	s.WriteString("\nResolution Options:\n")
 	s.WriteString("  [K] Keep Your Version (Default)\n")
 	s.WriteString("  [U] Update to Package Version (Backs up valid user config)\n")
 	s.WriteString("  [R] Reset/Overwrite (Same as Update but explicit)\n")
 	s.WriteString("  [Q] Quit (Keeps user version)\n")
-
+	s.WriteString("  [↑/↓] Scroll Diff")
 	return s.String()
+}
+
+// ColorizeDiff colors diff output
+func ColorizeDiff(diff string) string {
+	lines := strings.Split(diff, "\n")
+	var out []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "+") {
+			out = append(out, lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Render(line)) // Green
+		} else if strings.HasPrefix(line, "-") {
+			out = append(out, lipgloss.NewStyle().Foreground(lipgloss.Color("160")).Render(line)) // Red
+		} else if strings.HasPrefix(line, "@@") {
+			out = append(out, lipgloss.NewStyle().Foreground(lipgloss.Color("243")).Render(line)) // Grey for metadata
+		} else {
+			out = append(out, line)
+		}
+	}
+	return strings.Join(out, "\n")
 }

@@ -46,3 +46,19 @@ func TestConflictModel_Update(t *testing.T) {
 		})
 	}
 }
+
+func TestConflictModel_Resize(t *testing.T) {
+	initial := newConflictModel("test.conf", "long diff content")
+
+	// Send WindowSizeMsg
+	width, height := 100, 50
+	model, _ := initial.Update(tea.WindowSizeMsg{Width: width, Height: height})
+
+	m := model.(conflictModel)
+
+	// Assert viewport dimensions are updated (this assumes we add a viewport field)
+	// We expect the viewport height to be less than window height (accounting for header/footer)
+	assert.Equal(t, width, m.viewport.Width, "Viewport width mismatch")
+	assert.Less(t, m.viewport.Height, height, "Viewport height should account for UI chrome")
+	assert.Greater(t, m.viewport.Height, 0, "Viewport height should be positive")
+}
