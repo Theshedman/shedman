@@ -20,12 +20,12 @@ func (s *SystemdBackend) List() ([]Service, error) {
 }
 
 func (s *SystemdBackend) Enable(name string) error {
-	cmd := exec.Command("systemctl", "enable", name)
+	cmd := exec.Command("systemctl", "enable", "--now", name)
 	return cmd.Run()
 }
 
 func (s *SystemdBackend) Disable(name string) error {
-	cmd := exec.Command("systemctl", "disable", name)
+	cmd := exec.Command("systemctl", "disable", "--now", name)
 	return cmd.Run()
 }
 
