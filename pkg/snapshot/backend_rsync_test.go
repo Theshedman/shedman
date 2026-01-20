@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 func TestRsyncBackend_Create(t *testing.T) {
 	cfg := config.Default()
 
-	mockExec := &MockExecutor{
+	mockExec := &executor.MockExecutor{
 		OutputFunc: func(name string, args ...string) ([]byte, error) {
 			if name != "rsync" {
 				t.Errorf("Expected command 'rsync', got '%s'", name)
@@ -37,7 +38,7 @@ func TestRsyncBackend_Create(t *testing.T) {
 func TestRsyncBackend_DryRun(t *testing.T) {
 	cfg := config.Default()
 
-	mockExec := &MockExecutor{
+	mockExec := &executor.MockExecutor{
 		OutputFunc: func(name string, args ...string) ([]byte, error) {
 			t.Errorf("Unexpected command execution in dry-run: %s %v", name, args)
 			return nil, nil

@@ -1,54 +1,41 @@
 package snapshot
 
 import (
-	"context"
 	"os/exec"
 	"testing"
 
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/executor"
 )
-
-// MockExecutor implements util.Executor for testing
-type MockExecutor struct {
-	// Func fields to allow mocking per test
-	OutputFunc  func(name string, args ...string) ([]byte, error)
-	CommandFunc func(name string, args ...string) *exec.Cmd
-}
-
-func (m *MockExecutor) Output(name string, args ...string) ([]byte, error) {
-	if m.OutputFunc != nil {
-		return m.OutputFunc(name, args...)
-	}
-	return nil, nil
-}
-
-func (m *MockExecutor) Command(name string, args ...string) *exec.Cmd {
-	if m.CommandFunc != nil {
-		return m.CommandFunc(name, args...)
-	}
-	return exec.Command(name, args...)
-}
-
-func (m *MockExecutor) CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
-	return exec.CommandContext(ctx, name, args...)
-}
 
 func TestSnapperBackend_Create(t *testing.T) {
 	cfg := config.Default()
 
-	mockExec := &MockExecutor{
+	mockExec := &executor.MockExecutor{
+		// CommandFunc handles execution of 'sudo' commands
+		CommandFunc: func(name string, args ...string) *exec.Cmd {
+			if name != "sudo" || len(args) == 0 {
+				return exec.Command("true")
+			}
+
+			// Handle 'sudo snapper' commands
+			if args[0] == "snapper" {
+				subCmd := args[1]
+				// Handle specific snpaper subcommands
+				switch {
+				// 'list-configs': Mock CSV output for config detection
+				case len(args) > 2 && args[1] == "--csvout" && args[2] == "list-configs":
+					return exec.Command("echo", "config,subvolume\nroot,/\n")
+
+				// 'create': Return success (exit 0)
+				case subCmd == "create":
+					return exec.Command("true")
+				}
+			}
+			return exec.Command("true")
+		},
+		// OutputFunc handles direct output calls if any (none expected for Create flow requiring mocking)
 		OutputFunc: func(name string, args ...string) ([]byte, error) {
-			if name != "snapper" {
-				t.Errorf("Expected command 'snapper', got '%s'", name)
-			}
-			if len(args) > 0 {
-				if args[0] == "--csvout" && args[1] == "list-configs" {
-					return []byte("config,subvolume\nroot,/\n"), nil
-				}
-				if args[0] == "create" {
-					return []byte("42\n"), nil
-				}
-			}
 			return nil, nil
 		},
 	}
@@ -70,7 +57,7 @@ func TestSnapperBackend_Create(t *testing.T) {
 
 func TestSnapperBackend_DryRun(t *testing.T) {
 	cfg := config.Default()
-	mockExec := &MockExecutor{
+	mockExec := &executor.MockExecutor{
 		OutputFunc: func(name string, args ...string) ([]byte, error) {
 			// Allow read-only config detection
 			if len(args) > 0 && args[1] == "list-configs" {

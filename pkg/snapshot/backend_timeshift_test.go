@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/pkg/executor"
 )
 
 func TestTimeshiftBackend_Create(t *testing.T) {
 	cfg := config.Default()
 
-	mockExec := &MockExecutor{
+	mockExec := &executor.MockExecutor{
 		OutputFunc: func(name string, args ...string) ([]byte, error) {
 			if name != "timeshift" {
 				t.Errorf("Expected command 'timeshift', got '%s'", name)
@@ -53,7 +54,7 @@ func TestTimeshiftBackend_Restore(t *testing.T) {
 	cfg := config.Default()
 	var commandsRun []string
 
-	mockExec := &MockExecutor{
+	mockExec := &executor.MockExecutor{
 		// Mock Output for existence check via list
 		OutputFunc: func(name string, args ...string) ([]byte, error) {
 			if name == "timeshift" && len(args) > 0 && args[0] == "--list" {
@@ -98,7 +99,7 @@ func TestTimeshiftBackend_Restore(t *testing.T) {
 
 func TestTimeshiftBackend_DryRun(t *testing.T) {
 	cfg := config.Default()
-	mockExec := &MockExecutor{
+	mockExec := &executor.MockExecutor{
 		OutputFunc: func(name string, args ...string) ([]byte, error) {
 			t.Errorf("Unexpected command execution in dry-run: %s %v", name, args)
 			return nil, nil
@@ -114,6 +115,3 @@ func TestTimeshiftBackend_DryRun(t *testing.T) {
 		t.Errorf("Expected dry-run ID, got '%s'", snap.ID)
 	}
 }
-
-// Helper mocks (local definition not needed if running as package test, but kept for clarity if standalone)
-// The actual test run should be `go test ./pkg/snapshot` to pick up shared mocks.

@@ -33,9 +33,9 @@ func NewSnapperBackend(cfg *config.Config, executor executor.Executor) *SnapperB
 // runWithSudo wraps the command with sudo if not running as root
 func (b *SnapperBackend) runWithSudo(args ...string) ([]byte, error) {
 	if os.Geteuid() != 0 {
-		sudoArgs := append([]string{"snapper"}, args...)
+		sudoArgs := append([]string{"-n", "snapper"}, args...) // -n: non-interactive
 		cmd := b.exec.Command("sudo", sudoArgs...)
-		cmd.Stdin = os.Stdin
+		// Do NOT bind Stdin, to prevent hanging on password prompt
 		cmd.Stderr = os.Stderr
 		return cmd.Output()
 	}
