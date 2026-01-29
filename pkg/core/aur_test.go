@@ -165,12 +165,12 @@ func TestAURInstaller_GetPKGBUILDDiff(t *testing.T) {
 
 	_ = os.WriteFile(filepath.Join(pkgDir, "PKGBUILD"), []byte("pkgver=2.0"), util.FilePermissions)
 
-	// Note: GetPKGBUILDDiff uses exec.Command directly, not the executor
+	// GetPKGBUILDDiff uses exec.Command directly
 	// This test verifies it returns an error for non-existent package
 	_, err := ai.GetPKGBUILDDiff("test-pkg")
 	// Will fail because there's no git repo - that's expected
 	if err == nil {
-		// If no error, verify it returned something (mock won't work here)
+		// Verify return value on success
 		t.Log("GetPKGBUILDDiff returned no error (may have found a valid repo)")
 	}
 }
@@ -207,7 +207,7 @@ func TestAURInstaller_VerifyChecksums(t *testing.T) {
 
 func TestAURInstaller_Build_WithSandbox(t *testing.T) {
 	ai := NewAURInstallerWithBackend(config.Default(), nil)
-	// Check if bwrap is available
+	// Check availability of bwrap
 	if _, err := exec.LookPath("bwrap"); err != nil {
 		t.Skip("bwrap not found, skipping sandbox test")
 	}

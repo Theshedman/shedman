@@ -40,7 +40,7 @@ func (k *GPGKeyManager) Generate(desc string) (string, error) {
 	// Let's try to find the key we just made.
 	keys, err := k.List()
 	if err != nil {
-		return "", nil // Created but failed to find ID
+		return "", nil // ID lookup failed after creation
 	}
 
 	// Simple heuristic: find latest key matching description

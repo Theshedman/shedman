@@ -284,12 +284,12 @@ func (e *Engine) Search(query string) ([]PackageInfo, error) {
 
 			results, err := searchable.Search(query)
 			if err != nil {
-				// Log error but continue
+				// Continue on error
 				return
 			}
 
 			mu.Lock()
-			// Append source to backend if not already set (impl specific, but good practice here if needed)
+			// Append source if missing
 			allResults = append(allResults, results...)
 			mu.Unlock()
 		}(b)

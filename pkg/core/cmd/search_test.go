@@ -81,7 +81,7 @@ func TestRunSearch(t *testing.T) {
 		t.Errorf("Output missing summary. Got: %s", out)
 	}
 
-	// Test JSON Output
+	// Validate JSON Output
 	buf.Reset()
 	opts.JSON = true
 	if err := RunSearch(eng, &buf, "neovim", opts); err != nil {

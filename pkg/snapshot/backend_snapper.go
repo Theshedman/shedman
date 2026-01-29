@@ -1,7 +1,9 @@
 package snapshot
 
 import (
+	"context"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/output"
 	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/executor"
 	"github.com/theshedman/shedman/pkg/snapshot/restic"
@@ -31,24 +34,27 @@ func NewSnapperBackend(cfg *config.Config, executor executor.Executor) *SnapperB
 }
 
 // runWithSudo wraps the command with sudo if not running as root
-func (b *SnapperBackend) runWithSudo(args ...string) ([]byte, error) {
+func (b *SnapperBackend) runWithSudo(ctx context.Context, args ...string) ([]byte, error) {
 	if os.Geteuid() != 0 {
 		sudoArgs := append([]string{"-n", "snapper"}, args...) // -n: non-interactive
-		cmd := b.exec.Command("sudo", sudoArgs...)
+		// Use CommandContext
+		cmd := b.exec.CommandContext(ctx, "sudo", sudoArgs...)
 		// Do NOT bind Stdin, to prevent hanging on password prompt
 		cmd.Stderr = os.Stderr
 		return cmd.Output()
 	}
-	return b.exec.Output("snapper", args...)
+	// Direct execution with context
+	cmd := b.exec.CommandContext(ctx, "snapper", args...)
+	return cmd.Output()
 }
 
 func (b *SnapperBackend) GetBackendName() string {
-	return "snapper"
+	return BackendSnapper
 }
 
-func (b *SnapperBackend) getConfigs() (map[string]string, error) {
+func (b *SnapperBackend) getConfigs(ctx context.Context) (map[string]string, error) {
 	args := []string{"--csvout", "list-configs", "--columns", "config,subvolume"}
-	out, err := b.runWithSudo(args...)
+	out, err := b.runWithSudo(ctx, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,12 +75,12 @@ func (b *SnapperBackend) getConfigs() (map[string]string, error) {
 }
 
 // Create creates a new snapshot using 'snapper create'
-func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, error) {
+func (b *SnapperBackend) Create(ctx context.Context, desc string, opts CreateOptions) (*Snapshot, error) {
 	unifiedID := time.Now().Format("20060102-150405")
 
 	targets := opts.TargetConfigs
 	if len(targets) == 0 {
-		configMap, err := b.getConfigs()
+		configMap, err := b.getConfigs(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect snapper configs: %w", err)
 		}
@@ -86,7 +92,7 @@ func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, err
 	successCount := 0
 	var lastErr error
 
-	fmt.Printf("Creating unified snapshot %s for targets: %v\n", unifiedID, targets)
+	output.Info("Creating unified snapshot %s for targets: %v", unifiedID, targets)
 
 	for _, target := range targets {
 		args := []string{"create", "--description", desc, "--userdata", fmt.Sprintf("shedman_id=%s", unifiedID), "-c", target}
@@ -101,14 +107,14 @@ func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, err
 		args = append(args, "--cleanup-algorithm", "number")
 
 		if opts.DryRun {
-			fmt.Printf("Dry-run: %s %v\n", "snapper", args)
+			output.Info("Dry-run: %s %v", "snapper", args)
 			successCount++
 			continue
 		}
 
-		if _, err := b.runWithSudo(args...); err != nil {
+		if _, err := b.runWithSudo(ctx, args...); err != nil {
 			lastErr = err
-			fmt.Printf("Warning: failed to snapshot target '%s': %v\n", target, err)
+			output.Warning("failed to snapshot target '%s': %v", target, err)
 		} else {
 			successCount++
 		}
@@ -127,7 +133,7 @@ func (b *SnapperBackend) Create(desc string, opts CreateOptions) (*Snapshot, err
 		Description: desc,
 		Timestamp:   time.Now(),
 		Type:        opts.Type,
-		Backend:     "snapper",
+		Backend:     BackendSnapper,
 	}, nil
 }
 
@@ -137,8 +143,8 @@ type snapperMatch struct {
 	Subvolume string
 }
 
-func (b *SnapperBackend) findSnapshots(queryID string) ([]snapperMatch, error) {
-	configs, err := b.getConfigs()
+func (b *SnapperBackend) findSnapshots(ctx context.Context, queryID string) ([]snapperMatch, error) {
+	configs, err := b.getConfigs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,10 +153,9 @@ func (b *SnapperBackend) findSnapshots(queryID string) ([]snapperMatch, error) {
 
 	for cfgName, subvolPath := range configs {
 		args := []string{"-c", cfgName, "--csvout", "list", "--columns", "number,userdata"}
-		out, err := b.runWithSudo(args...)
+		out, err := b.runWithSudo(ctx, args...)
 		if err != nil {
-			// Failed to read config, possibly nonexistent or really perm denied even with sudo
-			// We can silence the warning now that we try sudo
+			output.Warning("failed to list snapshots for config '%s': %v", cfgName, err)
 			continue
 		}
 
@@ -187,21 +192,84 @@ func (b *SnapperBackend) findSnapshots(queryID string) ([]snapperMatch, error) {
 	return results, nil
 }
 
-func (b *SnapperBackend) List(opts ListOptions) ([]Snapshot, error) {
+func (b *SnapperBackend) List(ctx context.Context, opts ListOptions) ([]Snapshot, error) {
 	// Aggregation Map: UnifiedID -> Snapshot
 	agg := make(map[string]*Snapshot)
 	var others []Snapshot
 
-	configs, err := b.getConfigs()
+	// Handle Remote Listing
+	if opts.Target != nil {
+		if b.cfg.Snapshot.RemoteStrategy == StrategyRestic {
+			pwd := util.GetEnvOrPrompt("RESTIC_PASSWORD", "Enter Restic Repository Password: ")
+			resticMgr := restic.NewManager(b.exec, pwd)
+			rSnaps, err := resticMgr.List(ctx, opts.Target.Path)
+			if err != nil {
+				return nil, err
+			}
+			var results []Snapshot
+			for _, r := range rSnaps {
+				results = append(results, Snapshot{
+					ID:        r.ID,
+					Timestamp: r.Time,
+					Tags:      r.Tags,
+					Backend:   BackendRestic,
+					// Description?
+				})
+			}
+			return results, nil
+		}
+	} else {
+		// Rclone listing
+		args := []string{"lsjson", "--dirs-only", opts.Target.Path}
+		cmdArgs := util.GetPrivilegedRcloneCommand(args)
+
+		out, err := b.exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...).Output()
+		if err != nil {
+			return nil, fmt.Errorf("rclone listing failed: %w", err)
+		}
+
+		var entries []struct {
+			Name    string    `json:"Name"`
+			ModTime time.Time `json:"ModTime"`
+			IsDir   bool      `json:"IsDir"`
+		}
+		if err := json.Unmarshal(out, &entries); err != nil {
+			return nil, fmt.Errorf("failed to parse rclone output: %w", err)
+		}
+
+		var results []Snapshot
+		for _, e := range entries {
+			if !e.IsDir {
+				continue
+			}
+
+			// Parse timestamp from ID if possible (format: 20060102-150405)
+			ts := e.ModTime
+			if parsed, err := time.Parse("20060102-150405", e.Name); err == nil {
+				ts = parsed
+			}
+
+			results = append(results, Snapshot{
+				ID:          e.Name,
+				Timestamp:   ts,
+				Backend:     StrategyRclone,
+				Description: "Remote Snapshot (Rclone)",
+			})
+		}
+		return results, nil
+	}
+
+	configs, err := b.getConfigs(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	for cfgName := range configs {
 		args := []string{"-c", cfgName, "--csvout", "--iso", "list", "--columns", "number,type,date,used-space,description,userdata"}
-		out, err := b.runWithSudo(args...)
+		out, err := b.runWithSudo(ctx, args...)
 		if err != nil {
-			continue // Skip configs we can't read
+			fmt.Fprintf(os.Stderr, "Warning: failed to list snapshots for config '%s': %v\n", cfgName, err)
+			continue
 		}
 
 		r := csv.NewReader(strings.NewReader(string(out)))
@@ -239,7 +307,7 @@ func (b *SnapperBackend) List(opts ListOptions) ([]Snapshot, error) {
 			if unifiedID != "" {
 				if existing, ok := agg[unifiedID]; ok {
 					existing.Size += size // Aggregate size
-					// Description/Timestamp assumed identical
+					// Description/Timestamp match presumed
 				} else {
 					agg[unifiedID] = &Snapshot{
 						ID:          unifiedID,
@@ -247,7 +315,7 @@ func (b *SnapperBackend) List(opts ListOptions) ([]Snapshot, error) {
 						Type:        typ,
 						Timestamp:   ts,
 						Size:        size,
-						Backend:     "snapper",
+						Backend:     BackendSnapper,
 					}
 				}
 			} else {
@@ -258,7 +326,7 @@ func (b *SnapperBackend) List(opts ListOptions) ([]Snapshot, error) {
 					Type:        typ,
 					Timestamp:   ts,
 					Size:        size,
-					Backend:     "snapper",
+					Backend:     BackendSnapper,
 				})
 			}
 		}
@@ -278,8 +346,8 @@ func (b *SnapperBackend) List(opts ListOptions) ([]Snapshot, error) {
 	return final, nil
 }
 
-func (b *SnapperBackend) Delete(id string) error {
-	matches, err := b.findSnapshots(id)
+func (b *SnapperBackend) Delete(ctx context.Context, id string) error {
+	matches, err := b.findSnapshots(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -288,23 +356,23 @@ func (b *SnapperBackend) Delete(id string) error {
 	}
 
 	for _, match := range matches {
-		if _, err := b.runWithSudo("-c", match.Config, "delete", match.ID); err != nil {
+		if _, err := b.runWithSudo(ctx, "-c", match.Config, "delete", match.ID); err != nil {
 			return fmt.Errorf("failed to delete snapshot %s (config %s): %w", match.ID, match.Config, err)
 		}
 	}
 	return nil
 }
 
-func (b *SnapperBackend) Restore(id string, opts RestoreOptions) error {
+func (b *SnapperBackend) Restore(ctx context.Context, id string, opts RestoreOptions) error {
 	if opts.DryRun {
-		fmt.Printf("Dry-run: %s %s %s\n", "sudo snapper", "rollback", id)
+		output.Info("Dry-run: %s %s %s", "sudo snapper", "rollback", id)
 		return nil
 	}
-	_, err := b.runWithSudo("rollback", id)
+	_, err := b.runWithSudo(ctx, "rollback", id)
 	return err
 }
-func (b *SnapperBackend) Prune(opts PruneOptions) error {
-	snaps, err := b.List(ListOptions{})
+func (b *SnapperBackend) Prune(ctx context.Context, opts PruneOptions) error {
+	snaps, err := b.List(ctx, ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -315,7 +383,7 @@ func (b *SnapperBackend) Prune(opts PruneOptions) error {
 			if s.ID == "0" {
 				continue
 			}
-			if err := b.Delete(s.ID); err != nil {
+			if err := b.Delete(ctx, s.ID); err != nil {
 				return fmt.Errorf("failed to prune snapshot %s: %w", s.ID, err)
 			}
 		}
@@ -324,8 +392,8 @@ func (b *SnapperBackend) Prune(opts PruneOptions) error {
 	return nil
 }
 
-func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error {
-	matches, err := b.findSnapshots(id)
+func (b *SnapperBackend) Push(ctx context.Context, id string, target RemoteTarget, opts RemoteOptions) error {
+	matches, err := b.findSnapshots(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to resolve snapshot %s: %w", id, err)
 	}
@@ -333,9 +401,9 @@ func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions
 		return fmt.Errorf("snapshot %s not found (or no permission to list)", id)
 	}
 
-	fmt.Printf("Deep-Pushing snapshot %s (Found %d subcomponents)\n", id, len(matches))
+	output.Info("Deep-Pushing snapshot %s (Found %d subcomponents)", id, len(matches))
 
-	if b.cfg.Snapshot.RemoteStrategy == "restic" {
+	if b.cfg.Snapshot.RemoteStrategy == StrategyRestic {
 		pwd := util.GetEnvOrPrompt("RESTIC_PASSWORD", "Enter Restic Repository Password: ")
 		resticMgr := restic.NewManager(b.exec, pwd)
 
@@ -348,9 +416,9 @@ func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions
 
 			// Tags: shedman, config:name, id:ID
 			tags := []string{"shedman", fmt.Sprintf("config:%s", match.Config), fmt.Sprintf("id:%s", match.ID), fmt.Sprintf("unified:%s", id)}
-			fmt.Printf(">> Restic Backup: %s (ID %s) -> %s\n", match.Config, match.ID, target.Path)
+			output.Info(">> Restic Backup: %s (ID %s) -> %s", match.Config, match.ID, target.Path)
 
-			if err := resticMgr.Backup(target.Path, localPath, tags); err != nil {
+			if err := resticMgr.Backup(ctx, target.Path, localPath, tags, os.Stdout, os.Stderr); err != nil {
 				return fmt.Errorf("restic backup failed for %s: %w", match.Config, err)
 			}
 		}
@@ -371,7 +439,7 @@ func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions
 
 		remotePath := fmt.Sprintf("%s/%s", unifiedBase, match.Config)
 
-		fmt.Printf(">> Pushing component: %s (ID %s) -> %s\n", match.Config, match.ID, remotePath)
+		output.Info(">> Pushing component: %s (ID %s) -> %s", match.Config, match.ID, remotePath)
 
 		args := []string{"sync", "-P", localPath, remotePath}
 		if opts.Delete {
@@ -383,13 +451,13 @@ func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions
 
 		cmdArgs := util.GetPrivilegedRcloneCommand(args)
 
-		fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+		output.Info("Executing: %s", strings.Join(cmdArgs, " "))
 
 		if opts.DryRun {
 			continue
 		}
 
-		cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+		cmd := (&executor.RealExecutor{}).CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
@@ -400,16 +468,16 @@ func (b *SnapperBackend) Push(id string, target RemoteTarget, opts RemoteOptions
 	return nil
 }
 
-func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error {
+func (b *SnapperBackend) Pull(ctx context.Context, id string, source RemoteTarget, opts RemoteOptions) error {
 	// Check strategy
-	if b.cfg.Snapshot.RemoteStrategy == "restic" {
+	if b.cfg.Snapshot.RemoteStrategy == StrategyRestic {
 		pwd := util.GetEnvOrPrompt("RESTIC_PASSWORD", "Enter Restic Repository Password: ")
 		resticMgr := restic.NewManager(b.exec, pwd)
 
-		fmt.Printf("Searching for snapshot %s in restic repo...\n", id)
+		output.Info("Searching for snapshot %s in restic repo...", id)
 
 		tags := []string{fmt.Sprintf("id:%s", id)}
-		matches, err := resticMgr.FindByTags(source.Path, tags)
+		matches, err := resticMgr.FindByTags(ctx, source.Path, tags)
 		if err != nil {
 			return fmt.Errorf("failed to list remote snapshots: %w", err)
 		}
@@ -418,12 +486,12 @@ func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions
 			return fmt.Errorf("snapshot %s not found in restic repo", id)
 		}
 
-		fmt.Printf("Found %d components for snapshot %s. Restoring...\n", len(matches), id)
+		output.Info("Found %d components for snapshot %s. Restoring...", len(matches), id)
 
 		for _, m := range matches {
-			fmt.Printf(">> Restoring component (Restic ID: %s)...\n", m.ShortID)
+			output.Info(">> Restoring component (Restic ID: %s)...", m.ShortID)
 
-			if err := resticMgr.Restore(source.Path, m.ID, "/"); err != nil {
+			if err := resticMgr.Restore(ctx, source.Path, m.ID, "/", os.Stdout, os.Stderr); err != nil {
 				return fmt.Errorf("failed to restore %s: %w", m.ID, err)
 			}
 		}
@@ -447,11 +515,11 @@ func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions
 		args = append(args, "--bwlimit", fmt.Sprintf("%dk", opts.Bandwidth))
 	}
 
-	fmt.Printf("Executing: rclone %s\n", strings.Join(args, " "))
+	output.Info("Executing: rclone %s", strings.Join(args, " "))
 
 	cmdArgs := util.GetPrivilegedRcloneCommand(args)
 
-	fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
+	output.Info("Executing: %s", strings.Join(cmdArgs, " "))
 
 	if opts.DryRun {
 		return nil
@@ -461,7 +529,7 @@ func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions
 		return nil
 	}
 
-	cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd := (&executor.RealExecutor{}).CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -472,10 +540,10 @@ func (b *SnapperBackend) Pull(id string, source RemoteTarget, opts RemoteOptions
 	return nil
 }
 
-func (b *SnapperBackend) Diff(id1, id2 string) (DiffResult, error) {
+func (b *SnapperBackend) Diff(ctx context.Context, id1, id2 string) (DiffResult, error) {
 	args := []string{"status", fmt.Sprintf("%s..%s", id1, id2)}
 
-	out, err := b.runWithSudo(args...)
+	out, err := b.runWithSudo(ctx, args...)
 	if err != nil {
 		return DiffResult{}, fmt.Errorf("snapper diff failed: %w", err)
 	}

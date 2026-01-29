@@ -105,7 +105,7 @@ func TestDependencyTree_CircularDependency(t *testing.T) {
 		t.Error("Expected circular dependency error")
 	}
 	if err != nil && err != ErrCircularDependency {
-		// Check if it's wrapped
+		// Check wrapping
 		if !IsCircularDependency(err) {
 			t.Errorf("Expected ErrCircularDependency, got %v", err)
 		}

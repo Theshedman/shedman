@@ -96,7 +96,7 @@ func TestGPGKeyManager_Generate(t *testing.T) {
 	// Complex mock to handle sequential calls (Generate then List)
 	mockExec.Handler = func(cmd string, args ...string) ([]byte, error) {
 		if cmd == "gpg" {
-			// Check if it's list command
+			// Detect list command
 			isList := false
 			for _, arg := range args {
 				if arg == "--list-secret-keys" {

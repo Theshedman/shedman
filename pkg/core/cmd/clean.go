@@ -25,12 +25,12 @@ var CleanCmd = &cobra.Command{
 		}
 
 		if err := RunClean(eng, cmd.OutOrStdout(), cleanAll, cleanKeep); err != nil {
-			// output.Error handles printing but we return error here for RunE
+			// Return error for RunE after logging
 			return fmt.Errorf("clean failed: %w", err)
 		}
 
 		fmt.Println("Cache cleaned successfully.")
-		// But RunClean writes to 'w'. If success message is specific to CLI, we print it here.
+		// Print success message to writer
 		return nil
 	},
 }

@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,7 +61,7 @@ func (b *RsyncBackend) GetBackendName() string {
 }
 
 // Create creates a new snapshot using 'rsync'
-func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error) {
+func (b *RsyncBackend) Create(ctx context.Context, desc string, opts CreateOptions) (*Snapshot, error) {
 	if opts.DryRun {
 		_, _ = fmt.Println("Dry-run: Creating snapshot directory structure skipped")
 
@@ -100,7 +101,7 @@ func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error
 		}, nil
 	}
 
-	_, err := b.exec.Output("rsync", args...)
+	_, err := b.exec.CommandContext(ctx, "rsync", args...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("rsync failed: %w", err)
 	}
@@ -119,7 +120,7 @@ func (b *RsyncBackend) Create(desc string, opts CreateOptions) (*Snapshot, error
 	}, nil
 }
 
-func (b *RsyncBackend) List(opts ListOptions) ([]Snapshot, error) {
+func (b *RsyncBackend) List(ctx context.Context, opts ListOptions) ([]Snapshot, error) {
 	entries, err := os.ReadDir(b.root)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -152,7 +153,7 @@ func (b *RsyncBackend) List(opts ListOptions) ([]Snapshot, error) {
 		})
 	}
 
-	// Sort reverse chronological
+	// Sort newest first
 	sort.Slice(snapshots, func(i, j int) bool {
 		return snapshots[i].Timestamp.After(snapshots[j].Timestamp)
 	})
@@ -160,7 +161,7 @@ func (b *RsyncBackend) List(opts ListOptions) ([]Snapshot, error) {
 	return snapshots, nil
 }
 
-func (b *RsyncBackend) Delete(id string) error {
+func (b *RsyncBackend) Delete(ctx context.Context, id string) error {
 	path := filepath.Join(b.root, id)
 	// Safety check: ensure path is within root
 	absPath, err := filepath.Abs(path)
@@ -174,7 +175,7 @@ func (b *RsyncBackend) Delete(id string) error {
 	return os.RemoveAll(path)
 }
 
-func (b *RsyncBackend) Restore(id string, opts RestoreOptions) error {
+func (b *RsyncBackend) Restore(ctx context.Context, id string, opts RestoreOptions) error {
 	snapPath := filepath.Join(b.root, id)
 	if _, err := os.Stat(snapPath); os.IsNotExist(err) {
 		return fmt.Errorf("snapshot %s not found", id)
@@ -201,12 +202,12 @@ func (b *RsyncBackend) Restore(id string, opts RestoreOptions) error {
 
 		return nil
 	}
-	_, err := b.exec.Output("rsync", args...)
+	_, err := b.exec.CommandContext(ctx, "rsync", args...).Output()
 	return err
 }
 
-func (b *RsyncBackend) Prune(opts PruneOptions) error {
-	snaps, err := b.List(ListOptions{})
+func (b *RsyncBackend) Prune(ctx context.Context, opts PruneOptions) error {
+	snaps, err := b.List(ctx, ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -214,7 +215,7 @@ func (b *RsyncBackend) Prune(opts PruneOptions) error {
 	if opts.KeepLast > 0 && len(snaps) > opts.KeepLast {
 		toDelete := snaps[opts.KeepLast:] // snaps are sorted newest first
 		for _, s := range toDelete {
-			if err := b.Delete(s.ID); err != nil {
+			if err := b.Delete(ctx, s.ID); err != nil {
 				return err
 			}
 		}
@@ -222,7 +223,7 @@ func (b *RsyncBackend) Prune(opts PruneOptions) error {
 	return nil
 }
 
-func (b *RsyncBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error {
+func (b *RsyncBackend) Push(ctx context.Context, id string, target RemoteTarget, opts RemoteOptions) error {
 	snapPath := filepath.Join(b.root, id)
 	if _, err := os.Stat(snapPath); os.IsNotExist(err) {
 		return fmt.Errorf("snapshot %s not found", id)
@@ -248,11 +249,11 @@ func (b *RsyncBackend) Push(id string, target RemoteTarget, opts RemoteOptions) 
 	if opts.DryRun {
 		return nil
 	}
-	_, err := b.exec.Output(fullCmd[0], fullCmd[1:]...)
+	_, err := b.exec.CommandContext(ctx, fullCmd[0], fullCmd[1:]...).Output()
 	return err
 }
 
-func (b *RsyncBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error {
+func (b *RsyncBackend) Pull(ctx context.Context, id string, source RemoteTarget, opts RemoteOptions) error {
 	snapPath := filepath.Join(b.root, id)
 	if err := os.MkdirAll(snapPath, util.DirPermissions); err != nil {
 		return fmt.Errorf("failed to create snapshot dir: %w", err)
@@ -277,11 +278,11 @@ func (b *RsyncBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) 
 	if opts.DryRun {
 		return nil
 	}
-	_, err := b.exec.Output(fullCmd[0], fullCmd[1:]...)
+	_, err := b.exec.CommandContext(ctx, fullCmd[0], fullCmd[1:]...).Output()
 	return err
 }
 
-func (b *RsyncBackend) Diff(id1, id2 string) (DiffResult, error) {
+func (b *RsyncBackend) Diff(ctx context.Context, id1, id2 string) (DiffResult, error) {
 	path1 := filepath.Join(b.root, id1)
 	path2 := filepath.Join(b.root, id2)
 
@@ -293,7 +294,7 @@ func (b *RsyncBackend) Diff(id1, id2 string) (DiffResult, error) {
 	}
 
 	args := []string{"-n", "-a", "-i", "--delete", path2 + "/", path1 + "/"}
-	output, err := b.exec.Output("rsync", args...)
+	output, err := b.exec.CommandContext(ctx, "rsync", args...).Output()
 	if err != nil {
 		return DiffResult{}, fmt.Errorf("diff failed: %w", err)
 	}

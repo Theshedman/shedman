@@ -30,7 +30,7 @@ func (m *MockAlpmHandle) IsIgnored(pkgName string) bool        { return false }
 type MockAlpmDB struct {
 	NameVal string
 	// Packages map[string]AlpmPackage // Can't easily export map access without getter setter or public field
-	// But tests assign to struct literal. So define exported fields.
+	// Fields exported for test instantiation
 	Packages    map[string]AlpmPackage
 	SearchFn    func([]string) AlpmPackageList
 	PkgCacheVal AlpmPackageList

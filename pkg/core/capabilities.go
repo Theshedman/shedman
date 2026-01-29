@@ -125,6 +125,7 @@ type PackageDiff struct {
 // Differ is the capability to show pending update differences.
 type Differ interface {
 	Diff() ([]PackageDiff, error)
-} // Or just reuse Install, but a dedicated method might be cleaner for stdin/file handling if backend supports it.
+}
+
 // Install installs the capability.
-// But a dedicated backend method allows `pacman -S --needed - < file` optimization if possible.
+// InstallLocal installs a package from a local path.

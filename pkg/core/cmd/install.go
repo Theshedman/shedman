@@ -188,7 +188,7 @@ func RunInstall(eng *core.Engine, args []string, flags InstallFlags, w io.Writer
 		return nil
 	}
 
-	// Execute installation based on source
+	// Execute installation
 	if err := executeInstall(backend, cfg, pkgs, opts); err != nil {
 		return err
 	}

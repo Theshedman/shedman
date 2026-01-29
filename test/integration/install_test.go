@@ -13,7 +13,7 @@ import (
 var binaryPath string
 
 func init() {
-	// Assume binary is in root
+	// Binary expected in root
 	_, filename, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(filename), "../..")
 	binaryPath = filepath.Join(root, "shedman")
@@ -42,13 +42,12 @@ func TestInstall_DryRun_AUR(t *testing.T) {
 	// Use a known AUR package, e.g. 'google-chrome' or 'visual-studio-code-bin'
 	// Using 'yay-bin' to force AUR usage
 	cmd := exec.Command(binaryPath, "install", "yay-bin", "--dry-run", "--noconfirm", "--aur")
-	// Note: This requires AUR enabled in config. Default might be false?
+	// Requires AUR enabled in config
 	// We might need to supply a config or flags.
-	// But let's check output.
-	output, _ := cmd.CombinedOutput() // verify err later, it might fail if package not found but we check format
+	output, _ := cmd.CombinedOutput()
 
 	outStr := string(output)
-	// If it failed finding package, it might still show "AUR" backend source in error or log?
+	// Check for backend source indication in output
 	// Or we can invoke search.
 	// For install, if not found, it errors.
 	if strings.Contains(outStr, "Dry-run mode") && strings.Contains(outStr, "yay-bin") && (strings.Contains(outStr, "[AUR]") || strings.Contains(outStr, "aur/yay-bin")) {

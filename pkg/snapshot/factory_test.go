@@ -36,10 +36,7 @@ func TestFactory_GetManager_Auto(t *testing.T) {
 		t.Fatalf("Failed to get manager: %v", err)
 	}
 
-	// We can't deterministicly know what detection will return on the build server
-	// (it likely won't have snapper or timeshift), so it should fallback to "rsync".
-	// Unless timeshift IS installed on this environment.
-	// But "rsync" is the safe default if nothing satisfies.
+	// Fallback to rsync default if detection fails or is ambiguous
 	name := mgr.GetBackendName()
 	if name == "" {
 		t.Error("Backend name should not be empty")
