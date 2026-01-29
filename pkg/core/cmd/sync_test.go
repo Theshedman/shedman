@@ -26,7 +26,7 @@ func TestSyncCommand_HasRequiredFlags(t *testing.T) {
 
 	for _, flag := range flags {
 		if syncCmd.Flags().Lookup(flag) == nil {
-			// Some flags might be persistent or inherited, so just check local ones
+			// Check local flags
 			if flag == "official" || flag == "aur" || flag == "shedos" || flag == "refresh" {
 				t.Errorf("Missing flag: --%s", flag)
 			}

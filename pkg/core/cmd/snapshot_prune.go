@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -43,7 +44,7 @@ var SnapshotPruneCmd = &cobra.Command{
 			OlderThan:     duration,
 		}
 
-		return RunSnapshotPrune(engine, opts, cmd.OutOrStdout())
+		return RunSnapshotPrune(cmd.Context(), engine, opts, cmd.OutOrStdout())
 	},
 }
 
@@ -53,7 +54,7 @@ var (
 	snapshotPruneOlderThan     string
 )
 
-func RunSnapshotPrune(engine *core.Engine, opts snapshot.PruneOptions, w io.Writer) error {
+func RunSnapshotPrune(ctx context.Context, engine *core.Engine, opts snapshot.PruneOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")
@@ -61,7 +62,7 @@ func RunSnapshotPrune(engine *core.Engine, opts snapshot.PruneOptions, w io.Writ
 
 	_, _ = fmt.Fprintln(w, "Pruning snapshots...")
 
-	if err := mgr.Prune(opts); err != nil {
+	if err := mgr.Prune(ctx, opts); err != nil {
 		return fmt.Errorf("prune failed: %w", err)
 	}
 	_, _ = fmt.Fprintln(w, "Prune completed.")

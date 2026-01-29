@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -36,11 +37,11 @@ var SnapshotCreateCmd = &cobra.Command{
 			TargetConfigs: snapshotCreateTargets,
 		}
 
-		return RunSnapshotCreate(engine, args, opts, cmd.OutOrStdout())
+		return RunSnapshotCreate(cmd.Context(), engine, args, opts, cmd.OutOrStdout())
 	},
 }
 
-func RunSnapshotCreate(engine *core.Engine, args []string, opts snapshot.CreateOptions, w io.Writer) error {
+func RunSnapshotCreate(ctx context.Context, engine *core.Engine, args []string, opts snapshot.CreateOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available (check config or installed tools)")
@@ -74,7 +75,7 @@ func RunSnapshotCreate(engine *core.Engine, args []string, opts snapshot.CreateO
 		}
 	}
 
-	snap, err := mgr.Create(description, opts)
+	snap, err := mgr.Create(ctx, description, opts)
 	if err != nil {
 		return err
 	}

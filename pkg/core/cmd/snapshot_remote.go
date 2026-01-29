@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,7 +31,7 @@ var SnapshotRemoteInitCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return RunSnapshotRemoteInit(engine, args[0], cmd.OutOrStdout())
+		return RunSnapshotRemoteInit(cmd.Context(), engine, args[0], cmd.OutOrStdout())
 	},
 }
 
@@ -83,7 +84,7 @@ var SnapshotRemotePushCmd = &cobra.Command{
 			Delete:    snapshotRemoteDelete,
 		}
 
-		return RunSnapshotRemotePush(engine, args[0], target, opts, cmd.OutOrStdout())
+		return RunSnapshotRemotePush(cmd.Context(), engine, args[0], target, opts, cmd.OutOrStdout())
 	},
 }
 
@@ -136,7 +137,7 @@ var SnapshotRemotePullCmd = &cobra.Command{
 			Delete:    snapshotRemoteDelete,
 		}
 
-		return RunSnapshotRemotePull(engine, args[0], source, opts, cmd.OutOrStdout())
+		return RunSnapshotRemotePull(cmd.Context(), engine, args[0], source, opts, cmd.OutOrStdout())
 	},
 }
 
@@ -316,7 +317,7 @@ func RunSnapshotRemoteAdd(engine *core.Engine, name string, w io.Writer) error {
 	}
 
 	cfg.Snapshot.Remotes[name] = config.RemoteConfig{
-		Type: "rclone",
+		Type: snapshot.StrategyRclone,
 		Path: name + ":",
 	}
 
@@ -396,7 +397,7 @@ func RunSnapshotRemoteTest(engine *core.Engine, name string, w io.Writer) error 
 	return nil
 }
 
-func RunSnapshotRemotePush(engine *core.Engine, id string, target snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
+func RunSnapshotRemotePush(ctx context.Context, engine *core.Engine, id string, target snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")
@@ -412,14 +413,14 @@ func RunSnapshotRemotePush(engine *core.Engine, id string, target snapshot.Remot
 	}
 
 	if target.Type == "" {
-		target.Type = "rclone"
+		target.Type = snapshot.StrategyRclone
 		if target.Path == "" {
 			target.Path = target.Name + ":"
 		}
 	}
 
 	_, _ = fmt.Fprintf(w, "Pushing snapshot %s to %s...\n", id, target.Path)
-	if err := mgr.Push(id, target, opts); err != nil {
+	if err := mgr.Push(ctx, id, target, opts); err != nil {
 		return fmt.Errorf("push failed: %w", err)
 	}
 	_, _ = fmt.Fprintln(w, "Push successful.")
@@ -427,7 +428,7 @@ func RunSnapshotRemotePush(engine *core.Engine, id string, target snapshot.Remot
 	return nil
 }
 
-func RunSnapshotRemotePull(engine *core.Engine, id string, source snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
+func RunSnapshotRemotePull(ctx context.Context, engine *core.Engine, id string, source snapshot.RemoteTarget, opts snapshot.RemoteOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")
@@ -442,14 +443,14 @@ func RunSnapshotRemotePull(engine *core.Engine, id string, source snapshot.Remot
 	}
 
 	if source.Type == "" {
-		source.Type = "rclone"
+		source.Type = snapshot.StrategyRclone
 		if source.Path == "" {
 			source.Path = source.Name + ":"
 		}
 	}
 
 	_, _ = fmt.Fprintf(w, "Pulling snapshot %s from %s...\n", id, source.Path)
-	if err := mgr.Pull(id, source, opts); err != nil {
+	if err := mgr.Pull(ctx, id, source, opts); err != nil {
 		return fmt.Errorf("pull failed: %w", err)
 	}
 	_, _ = fmt.Fprintln(w, "Pull successful.")
@@ -457,11 +458,11 @@ func RunSnapshotRemotePull(engine *core.Engine, id string, source snapshot.Remot
 	return nil
 }
 
-func RunSnapshotRemoteInit(engine *core.Engine, name string, w io.Writer) error {
+func RunSnapshotRemoteInit(ctx context.Context, engine *core.Engine, name string, w io.Writer) error {
 	cfg := engine.GetConfig()
 	strategy := cfg.Snapshot.RemoteStrategy
 
-	if strategy != "restic" {
+	if strategy != snapshot.StrategyRestic {
 		_, _ = fmt.Fprintln(w, "Note: Initialization is only required for 'restic' strategy.")
 		_, _ = fmt.Fprintf(w, "Current strategy is '%s' (default: rclone). Rclone remotes are standard folders.\n", strategy)
 		return nil
@@ -487,7 +488,7 @@ func RunSnapshotRemoteInit(engine *core.Engine, name string, w io.Writer) error 
 	mgr := restic.NewManager(exec, pwd)
 
 	_, _ = fmt.Fprintf(w, "Initializing restic repository at %s...\n", remotePath)
-	if err := mgr.Init(remotePath); err != nil {
+	if err := mgr.Init(ctx, remotePath, w); err != nil {
 		return fmt.Errorf("initialization failed: %w", err)
 	}
 

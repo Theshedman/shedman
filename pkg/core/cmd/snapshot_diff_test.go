@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestSnapshotDiffCmd(t *testing.T) {
 	buf := new(bytes.Buffer)
 	args := []string{"id1", "id2"}
 
-	if err := RunSnapshotDiff(engine, args[0], args[1], buf); err != nil {
+	if err := RunSnapshotDiff(context.Background(), engine, args[0], args[1], buf); err != nil {
 		t.Fatalf("Diff execution failed: %v", err)
 	}
 

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestSnapshotRemoteCmd(t *testing.T) {
 
 	// Test Push
 	opts := snapshot.RemoteOptions{}
-	if err := RunSnapshotRemotePush(engine, "snap-1", target, opts, buf); err != nil {
+	if err := RunSnapshotRemotePush(context.Background(), engine, "snap-1", target, opts, buf); err != nil {
 		t.Fatalf("Push execution failed: %v", err)
 	}
 	if !strings.Contains(buf.String(), "Push successful") {

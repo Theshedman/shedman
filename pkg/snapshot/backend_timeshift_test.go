@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 
@@ -12,14 +13,14 @@ func TestTimeshiftBackend_Create(t *testing.T) {
 	cfg := config.Default()
 
 	mockExec := &executor.MockExecutor{
-		OutputFunc: func(name string, args ...string) ([]byte, error) {
+		CommandFunc: func(name string, args ...string) *exec.Cmd {
 			if name != "timeshift" {
 				t.Errorf("Expected command 'timeshift', got '%s'", name)
 			}
 			if args[0] != "--create" {
 				t.Errorf("Expected flag '--create', got '%s'", args[0])
 			}
-			// Return valid JSON
+			// Return JSON via echo
 			jsonOut := `{
 				"name": "2023-01-01_12-00-00",
 				"comments": "timeshift test",
@@ -27,13 +28,13 @@ func TestTimeshiftBackend_Create(t *testing.T) {
 				"tags": "ondemand",
 				"type": "rsync"
 			}`
-			return []byte(jsonOut), nil
+			return exec.Command("echo", jsonOut)
 		},
 	}
 
 	backend := NewTimeshiftBackend(cfg, mockExec)
 
-	snap, err := backend.Create("timeshift test", CreateOptions{Type: "ondemand"})
+	snap, err := backend.Create(context.Background(), "timeshift test", CreateOptions{Type: "ondemand"})
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -41,7 +42,7 @@ func TestTimeshiftBackend_Create(t *testing.T) {
 	if snap.Description != "timeshift test" {
 		t.Errorf("Expected description 'timeshift test', got '%s'", snap.Description)
 	}
-	// ID maps to "name" in JSON
+	// ID matches "name" field
 	if snap.ID != "2023-01-01_12-00-00" {
 		t.Errorf("Expected ID '2023-01-01_12-00-00', got '%s'", snap.ID)
 	}
@@ -56,21 +57,16 @@ func TestTimeshiftBackend_Restore(t *testing.T) {
 
 	mockExec := &executor.MockExecutor{
 		// Mock Output for existence check via list
-		OutputFunc: func(name string, args ...string) ([]byte, error) {
+		CommandFunc: func(name string, args ...string) *exec.Cmd {
 			if name == "timeshift" && len(args) > 0 && args[0] == "--list" {
 				// Mock list output containing our target snapshot ID
-				return []byte(`[{"name":"snap-id","created":1234567890}]`), nil
+				return exec.Command("echo", `[{"name":"snap-id","created":1234567890}]`)
 			}
-			return nil, nil
-		},
-		// Mock Command for interactive restore
-		CommandFunc: func(name string, args ...string) *exec.Cmd {
 			cmdLine := name
 			for _, arg := range args {
 				cmdLine += " " + arg
 			}
 			commandsRun = append(commandsRun, cmdLine)
-			// return a dummy command that does nothing
 			return exec.Command("true")
 		},
 	}
@@ -78,7 +74,7 @@ func TestTimeshiftBackend_Restore(t *testing.T) {
 	backend := NewTimeshiftBackend(cfg, mockExec)
 
 	// Since we mock exec.Command to be "true", Run() will succeed
-	err := backend.Restore("snap-id", RestoreOptions{})
+	err := backend.Restore(context.Background(), "snap-id", RestoreOptions{})
 	if err != nil {
 		t.Errorf("Restore failed: %v", err)
 	}
@@ -86,7 +82,7 @@ func TestTimeshiftBackend_Restore(t *testing.T) {
 	expectedArg := "--restore"
 	found := false
 	for _, c := range commandsRun {
-		// Just check if we called timeshift with --restore
+		// Verify restore command call
 		if c == "timeshift --restore --snapshot snap-id" {
 			found = true
 			break
@@ -107,7 +103,7 @@ func TestTimeshiftBackend_DryRun(t *testing.T) {
 	}
 	backend := NewTimeshiftBackend(cfg, mockExec)
 
-	snap, err := backend.Create("dry run test", CreateOptions{DryRun: true})
+	snap, err := backend.Create(context.Background(), "dry run test", CreateOptions{DryRun: true})
 	if err != nil {
 		t.Fatalf("DryRun Create failed: %v", err)
 	}

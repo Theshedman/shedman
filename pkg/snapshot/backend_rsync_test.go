@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"testing"
 
 	"github.com/theshedman/shedman/internal/config"
@@ -22,7 +23,7 @@ func TestRsyncBackend_Create(t *testing.T) {
 	backend := NewRsyncBackend(cfg, mockExec)
 	backend.SetRoot(t.TempDir()) // Use temp dir for directory creation
 
-	snap, err := backend.Create("rsync test", CreateOptions{})
+	snap, err := backend.Create(context.Background(), "rsync test", CreateOptions{})
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -48,7 +49,7 @@ func TestRsyncBackend_DryRun(t *testing.T) {
 	backend := NewRsyncBackend(cfg, mockExec)
 	backend.SetRoot(t.TempDir())
 
-	snap, err := backend.Create("dry run test", CreateOptions{DryRun: true})
+	snap, err := backend.Create(context.Background(), "dry run test", CreateOptions{DryRun: true})
 	if err != nil {
 		t.Fatalf("DryRun Create failed: %v", err)
 	}

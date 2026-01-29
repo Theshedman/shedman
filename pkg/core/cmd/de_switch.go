@@ -69,7 +69,7 @@ var deSwitchCmd = &cobra.Command{
 		}
 
 		fmt.Printf("Switching Desktop Environment to %s...\n", deName)
-		if err := mgr.Switch(deName, opts); err != nil {
+		if err := mgr.Switch(cmd.Context(), deName, opts); err != nil {
 			fmt.Fprintf(os.Stderr, "Error switching DE: %v\n", err)
 			os.Exit(1)
 		}

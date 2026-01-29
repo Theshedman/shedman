@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 
@@ -42,7 +43,7 @@ func TestSnapperBackend_Create(t *testing.T) {
 
 	backend := NewSnapperBackend(cfg, mockExec)
 
-	snap, err := backend.Create("test snapshot", CreateOptions{Type: "single"})
+	snap, err := backend.Create(context.Background(), "test snapshot", CreateOptions{Type: "single"})
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -69,7 +70,7 @@ func TestSnapperBackend_DryRun(t *testing.T) {
 	}
 	backend := NewSnapperBackend(cfg, mockExec)
 
-	snap, err := backend.Create("dry run test", CreateOptions{DryRun: true})
+	snap, err := backend.Create(context.Background(), "dry run test", CreateOptions{DryRun: true})
 	if err != nil {
 		t.Fatalf("DryRun Create failed: %v", err)
 	}

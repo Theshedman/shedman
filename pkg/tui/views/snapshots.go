@@ -1,6 +1,7 @@
 package views
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -55,7 +56,7 @@ func fetchSnapshotsCmd(eng *core.Engine) tea.Cmd {
 			return SnapshotsFinishedMsg{Err: fmt.Errorf("snapshot manager not available")}
 		}
 		// List Local Snapshots
-		snaps, err := sm.List(snapshot.ListOptions{Remote: false})
+		snaps, err := sm.List(context.Background(), snapshot.ListOptions{Remote: false})
 		return SnapshotsFinishedMsg{Snapshots: snaps, Err: err}
 	}
 }

@@ -1,6 +1,22 @@
 package snapshot
 
-import "time"
+import (
+	"context"
+	"time"
+)
+
+const (
+	// Remote Strategies
+	StrategyRestic = "restic"
+	StrategyRclone = "rclone"
+	StrategyLocal  = "local" // For disk/USB targets
+
+	// Backends
+	BackendSnapper   = "snapper"
+	BackendTimeshift = "timeshift"
+	BackendRsync     = "rsync"
+	BackendRestic    = "restic" // When list returns remote snapshots
+)
 
 // Snapshot represents a single system snapshot
 type Snapshot struct {
@@ -26,6 +42,7 @@ type CreateOptions struct {
 // ListOptions options for listing snapshots
 type ListOptions struct {
 	Remote bool
+	Target *RemoteTarget // Specific target to list from (e.g. disk)
 }
 
 // RestoreOptions options for restoring
@@ -69,19 +86,18 @@ type RemoteOptions struct {
 // Manager defines the core snapshot operations
 type Manager interface {
 	// CRUD
-	Create(desc string, opts CreateOptions) (*Snapshot, error)
-	List(opts ListOptions) ([]Snapshot, error)
-	Delete(id string) error
-	Restore(id string, opts RestoreOptions) error
-	Prune(opts PruneOptions) error
+	Create(ctx context.Context, desc string, opts CreateOptions) (*Snapshot, error)
+	List(ctx context.Context, opts ListOptions) ([]Snapshot, error)
+	Delete(ctx context.Context, id string) error
+	Restore(ctx context.Context, id string, opts RestoreOptions) error
+	Prune(ctx context.Context, opts PruneOptions) error
 
 	// Remote Capabilities
-	// Remote Capabilities
-	Push(id string, target RemoteTarget, opts RemoteOptions) error
-	Pull(id string, source RemoteTarget, opts RemoteOptions) error
+	Push(ctx context.Context, id string, target RemoteTarget, opts RemoteOptions) error
+	Pull(ctx context.Context, id string, source RemoteTarget, opts RemoteOptions) error
 
 	// Comparison
-	Diff(id1, id2 string) (DiffResult, error)
+	Diff(ctx context.Context, id1, id2 string) (DiffResult, error)
 
 	// Backend Info
 	GetBackendName() string

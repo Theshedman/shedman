@@ -1,6 +1,7 @@
 package de
 
 import (
+	"context"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -13,7 +14,7 @@ type MockSnapshotManager struct {
 	createdSnapshot bool
 }
 
-func (m *MockSnapshotManager) Create(desc string, opts snapshot.CreateOptions) (*snapshot.Snapshot, error) {
+func (m *MockSnapshotManager) Create(ctx context.Context, desc string, opts snapshot.CreateOptions) (*snapshot.Snapshot, error) {
 	m.createdSnapshot = true
 	return &snapshot.Snapshot{ID: "test-snap-id"}, nil
 }
@@ -172,7 +173,7 @@ func TestManager_Switch(t *testing.T) {
 	}
 
 	// Switch to hyprland
-	err := mgr.Switch("hyprland", opts)
+	err := mgr.Switch(context.Background(), "hyprland", opts)
 	if err != nil {
 		t.Fatalf("Switch failed: %v", err)
 	}

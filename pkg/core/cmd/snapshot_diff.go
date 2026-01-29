@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"text/tabwriter"
@@ -19,17 +20,17 @@ var SnapshotDiffCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return RunSnapshotDiff(engine, args[0], args[1], cmd.OutOrStdout())
+		return RunSnapshotDiff(cmd.Context(), engine, args[0], args[1], cmd.OutOrStdout())
 	},
 }
 
-func RunSnapshotDiff(engine *core.Engine, id1, id2 string, w io.Writer) error {
+func RunSnapshotDiff(ctx context.Context, engine *core.Engine, id1, id2 string, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")
 	}
 
-	diff, err := mgr.Diff(id1, id2)
+	diff, err := mgr.Diff(ctx, id1, id2)
 	if err != nil {
 		return fmt.Errorf("diff failed: %w", err)
 	}

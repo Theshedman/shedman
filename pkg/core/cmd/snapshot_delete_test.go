@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -24,7 +25,7 @@ func TestSnapshotDeleteCmd(t *testing.T) {
 	args := []string{"snap-to-delete"}
 
 	// Execute
-	if err := RunSnapshotDelete(engine, args, buf); err != nil {
+	if err := RunSnapshotDelete(context.Background(), engine, args, buf); err != nil {
 		t.Fatalf("Command execution failed: %v", err)
 	}
 

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -26,7 +27,7 @@ var SnapshotRestoreCmd = &cobra.Command{
 			HomeOnly:     snapshotRestoreHomeOnly,
 		}
 
-		return RunSnapshotRestore(engine, args, opts, cmd.OutOrStdout())
+		return RunSnapshotRestore(cmd.Context(), engine, args, opts, cmd.OutOrStdout())
 	},
 }
 
@@ -36,7 +37,7 @@ var (
 	snapshotRestoreHomeOnly     bool
 )
 
-func RunSnapshotRestore(engine *core.Engine, args []string, opts snapshot.RestoreOptions, w io.Writer) error {
+func RunSnapshotRestore(ctx context.Context, engine *core.Engine, args []string, opts snapshot.RestoreOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")
@@ -46,7 +47,7 @@ func RunSnapshotRestore(engine *core.Engine, args []string, opts snapshot.Restor
 
 	_, _ = fmt.Fprintf(w, "Restoring snapshot %s...\n", id)
 
-	if err := mgr.Restore(id, opts); err != nil {
+	if err := mgr.Restore(ctx, id, opts); err != nil {
 		return fmt.Errorf("restore failed: %w", err)
 	}
 

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"text/tabwriter"
@@ -28,17 +29,17 @@ var SnapshotListCmd = &cobra.Command{
 
 		opts := snapshot.ListOptions{}
 
-		return RunSnapshotList(engine, opts, cmd.OutOrStdout())
+		return RunSnapshotList(cmd.Context(), engine, opts, cmd.OutOrStdout())
 	},
 }
 
-func RunSnapshotList(engine *core.Engine, opts snapshot.ListOptions, w io.Writer) error {
+func RunSnapshotList(ctx context.Context, engine *core.Engine, opts snapshot.ListOptions, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available (check config or installed tools)")
 	}
 
-	snapshots, err := mgr.List(opts)
+	snapshots, err := mgr.List(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to list snapshots: %w", err)
 	}

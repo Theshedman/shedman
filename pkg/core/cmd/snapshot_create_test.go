@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -19,7 +20,7 @@ type MockSnapshotManager struct {
 	GetBackendNameFunc func() string
 }
 
-func (m *MockSnapshotManager) Create(desc string, opts snapshot.CreateOptions) (*snapshot.Snapshot, error) {
+func (m *MockSnapshotManager) Create(ctx context.Context, desc string, opts snapshot.CreateOptions) (*snapshot.Snapshot, error) {
 	if m.CreateFunc != nil {
 		return m.CreateFunc(desc, opts)
 	}
@@ -33,34 +34,36 @@ func (m *MockSnapshotManager) GetBackendName() string {
 	return "mock"
 }
 
-func (m *MockSnapshotManager) List(opts snapshot.ListOptions) ([]snapshot.Snapshot, error) {
+func (m *MockSnapshotManager) List(ctx context.Context, opts snapshot.ListOptions) ([]snapshot.Snapshot, error) {
 	if m.ListFunc != nil {
 		return m.ListFunc(opts)
 	}
 	return nil, nil
 }
-func (m *MockSnapshotManager) Delete(id string) error {
+func (m *MockSnapshotManager) Delete(ctx context.Context, id string) error {
 	if m.DeleteFunc != nil {
 		return m.DeleteFunc(id)
 	}
 	return nil
 }
 
-func (m *MockSnapshotManager) Restore(id string, opts snapshot.RestoreOptions) error {
+func (m *MockSnapshotManager) Restore(ctx context.Context, id string, opts snapshot.RestoreOptions) error {
 	if m.RestoreFunc != nil {
 		return m.RestoreFunc(id, opts)
 	}
 	return nil
 }
 
-func (m *MockSnapshotManager) Prune(opts snapshot.PruneOptions) error { return nil }
-func (m *MockSnapshotManager) Push(id string, target snapshot.RemoteTarget, opts snapshot.RemoteOptions) error {
+func (m *MockSnapshotManager) Prune(ctx context.Context, opts snapshot.PruneOptions) error {
 	return nil
 }
-func (m *MockSnapshotManager) Pull(id string, source snapshot.RemoteTarget, opts snapshot.RemoteOptions) error {
+func (m *MockSnapshotManager) Push(ctx context.Context, id string, target snapshot.RemoteTarget, opts snapshot.RemoteOptions) error {
 	return nil
 }
-func (m *MockSnapshotManager) Diff(id1, id2 string) (snapshot.DiffResult, error) {
+func (m *MockSnapshotManager) Pull(ctx context.Context, id string, source snapshot.RemoteTarget, opts snapshot.RemoteOptions) error {
+	return nil
+}
+func (m *MockSnapshotManager) Diff(ctx context.Context, id1, id2 string) (snapshot.DiffResult, error) {
 	if m.DiffFunc != nil {
 		return m.DiffFunc(id1, id2)
 	}
@@ -78,7 +81,7 @@ func TestSnapshotCreateCmd(t *testing.T) {
 	args := []string{"my-snap"}
 
 	// Execute
-	if err := RunSnapshotCreate(engine, args, opts, buf); err != nil {
+	if err := RunSnapshotCreate(context.Background(), engine, args, opts, buf); err != nil {
 		t.Fatalf("Command execution failed: %v", err)
 	}
 

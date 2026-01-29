@@ -1,6 +1,7 @@
 package de
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -82,7 +83,7 @@ var deMetadataRegistry = map[string]deMetadata{
 }
 
 // Switch switches to the specified DE
-func (m *Manager) Switch(name string, opts SwitchOptions) error {
+func (m *Manager) Switch(ctx context.Context, name string, opts SwitchOptions) error {
 	meta, ok := deMetadataRegistry[name]
 	if !ok {
 		return fmt.Errorf("unknown desktop environment: %s", name)
@@ -98,7 +99,7 @@ func (m *Manager) Switch(name string, opts SwitchOptions) error {
 
 	if !opts.NoSnapshot && m.snapMgr != nil && !opts.DryRun {
 		desc := fmt.Sprintf("Pre-switch snapshot: %s", name)
-		_, err := m.snapMgr.Create(desc, snapshot.CreateOptions{
+		_, err := m.snapMgr.Create(ctx, desc, snapshot.CreateOptions{
 			Type: "pre",
 		})
 		if err != nil {

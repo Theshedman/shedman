@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -19,11 +20,11 @@ var SnapshotDeleteCmd = &cobra.Command{
 			return fmt.Errorf("failed to initialize engine: %w", err)
 		}
 
-		return RunSnapshotDelete(engine, args, cmd.OutOrStdout())
+		return RunSnapshotDelete(cmd.Context(), engine, args, cmd.OutOrStdout())
 	},
 }
 
-func RunSnapshotDelete(engine *core.Engine, args []string, w io.Writer) error {
+func RunSnapshotDelete(ctx context.Context, engine *core.Engine, args []string, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")
@@ -33,7 +34,7 @@ func RunSnapshotDelete(engine *core.Engine, args []string, w io.Writer) error {
 
 	_, _ = fmt.Fprintf(w, "Deleting snapshot %s...\n", id)
 
-	if err := mgr.Delete(id); err != nil {
+	if err := mgr.Delete(ctx, id); err != nil {
 		return fmt.Errorf("delete failed: %w", err)
 	}
 

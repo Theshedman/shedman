@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -19,7 +20,7 @@ func TestSnapshotPruneCmd(t *testing.T) {
 	opts := snapshot.PruneOptions{KeepLast: 5}
 
 	// Test Prune
-	if err := RunSnapshotPrune(engine, opts, buf); err != nil {
+	if err := RunSnapshotPrune(context.Background(), engine, opts, buf); err != nil {
 		t.Fatalf("Prune execution failed: %v", err)
 	}
 	if !strings.Contains(buf.String(), "Prune completed") {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -14,7 +15,7 @@ func TestSnapshotRestoreCmd(t *testing.T) {
 	engine := core.NewEngine()
 	// Using MockSnapshotManager defined in snapshot_create_test.go
 	// We need to support RestoreFunc in it.
-	// But since we can't easily rely on parallel file edits for shared structs in mocks without rebuild,
+	// Parallel edit limitation in mocks requires sequential checks
 	// I'll define a local mock or ensure the shared mock is updated.
 
 	restoredID := ""
@@ -31,7 +32,7 @@ func TestSnapshotRestoreCmd(t *testing.T) {
 	args := []string{"snap-123"}
 
 	// Execute
-	if err := RunSnapshotRestore(engine, args, opts, buf); err != nil {
+	if err := RunSnapshotRestore(context.Background(), engine, args, opts, buf); err != nil {
 		t.Fatalf("Command execution failed: %v", err)
 	}
 

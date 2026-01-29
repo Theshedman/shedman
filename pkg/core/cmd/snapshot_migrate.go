@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -17,11 +18,11 @@ var SnapshotMigrateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return RunSnapshotMigrate(engine, args[0], cmd.OutOrStdout())
+		return RunSnapshotMigrate(cmd.Context(), engine, args[0], cmd.OutOrStdout())
 	},
 }
 
-func RunSnapshotMigrate(engine *core.Engine, targetBackend string, w io.Writer) error {
+func RunSnapshotMigrate(ctx context.Context, engine *core.Engine, targetBackend string, w io.Writer) error {
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")

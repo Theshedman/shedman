@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -40,7 +41,7 @@ func TestSnapshotListCmd(t *testing.T) {
 	opts := snapshot.ListOptions{}
 
 	// Execute
-	if err := RunSnapshotList(engine, opts, buf); err != nil {
+	if err := RunSnapshotList(context.Background(), engine, opts, buf); err != nil {
 		t.Fatalf("Command execution failed: %v", err)
 	}
 

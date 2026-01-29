@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/theshedman/shedman/pkg/executor"
@@ -37,12 +39,33 @@ type Snapshot struct {
 	ShortID  string    `json:"short_id"`
 }
 
-// Init initializes a new repository
-func (m *Manager) Init(remote string) error {
-	args := []string{"-r", "rclone:" + remote, "init"}
+// resolveRepo determines the correct prefix for the backend
+func (m *Manager) resolveRepo(remote string) string {
+	if strings.HasPrefix(remote, "/") || strings.HasPrefix(remote, ".") {
+		return remote
+	}
 
-	// Init doesn't strictly need root if called by user, but if called by root, we should de-escalate rclone.
-	cmd, cleanup, err := m.prepareCommand(context.Background(), "restic", args, false)
+	// Supported restic backend schemes
+	schemes := []string{
+		"s3:", "sftp:", "rest:", "b2:", "azure:", "gs:", "swift:", "rclone:",
+	}
+
+	for _, scheme := range schemes {
+		if strings.HasPrefix(remote, scheme) {
+			return remote
+		}
+	}
+
+	// If no scheme is present, assume it is an rclone remote alias
+	return "rclone:" + remote
+}
+
+// Init initializes a new repository
+func (m *Manager) Init(ctx context.Context, remote string, w io.Writer) error {
+	repo := m.resolveRepo(remote)
+	args := []string{"-r", repo, "init"}
+
+	cmd, cleanup, err := m.prepareCommand(ctx, "restic", args, false)
 	if err != nil {
 		return err
 	}
@@ -50,21 +73,24 @@ func (m *Manager) Init(remote string) error {
 		defer cleanup()
 	}
 
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("restic init failed: %s: %w", string(out), err)
+	cmd.Stdout = w
+	cmd.Stderr = w
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("restic init failed: %w", err)
 	}
 	return nil
 }
 
 // Backup creates a backup
-func (m *Manager) Backup(remote, path string, tags []string) error {
-	args := []string{"-r", "rclone:" + remote, "backup", path}
+func (m *Manager) Backup(ctx context.Context, remote, path string, tags []string, stdout, stderr io.Writer) error {
+	repo := m.resolveRepo(remote)
+	args := []string{"-r", repo, "backup", path}
 	for _, tag := range tags {
 		args = append(args, "--tag", tag)
 	}
 
-	// Backup reads source files, so it likely needs root if backing up /.snapshots
-	cmd, cleanup, err := m.prepareCommand(context.Background(), "restic", args, true)
+	cmd, cleanup, err := m.prepareCommand(ctx, "restic", args, true)
 	if err != nil {
 		return err
 	}
@@ -72,18 +98,25 @@ func (m *Manager) Backup(remote, path string, tags []string) error {
 		defer cleanup()
 	}
 
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("restic backup failed: %s: %w", string(out), err)
+	if stdout != nil {
+		cmd.Stdout = stdout
+	}
+	if stderr != nil {
+		cmd.Stderr = stderr
+	}
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("restic backup failed: %w", err)
 	}
 	return nil
 }
 
 // Restore restores a snapshot
-func (m *Manager) Restore(remote, snapshotID, target string) error {
-	args := []string{"-r", "rclone:" + remote, "restore", snapshotID, "--target", target}
+func (m *Manager) Restore(ctx context.Context, remote, snapshotID, target string, stdout, stderr io.Writer) error {
+	repo := m.resolveRepo(remote)
+	args := []string{"-r", repo, "restore", snapshotID, "--target", target}
 
-	// Restore writes files, likely needs root for /.snapshots
-	cmd, cleanup, err := m.prepareCommand(context.Background(), "restic", args, true)
+	cmd, cleanup, err := m.prepareCommand(ctx, "restic", args, true)
 	if err != nil {
 		return err
 	}
@@ -91,18 +124,25 @@ func (m *Manager) Restore(remote, snapshotID, target string) error {
 		defer cleanup()
 	}
 
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("restic restore failed: %s: %w", string(out), err)
+	if stdout != nil {
+		cmd.Stdout = stdout
+	}
+	if stderr != nil {
+		cmd.Stderr = stderr
+	}
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("restic restore failed: %w", err)
 	}
 	return nil
 }
 
 // List lists snapshots
-func (m *Manager) List(remote string) ([]Snapshot, error) {
-	args := []string{"-r", "rclone:" + remote, "snapshots", "--json"}
+func (m *Manager) List(ctx context.Context, remote string) ([]Snapshot, error) {
+	repo := m.resolveRepo(remote)
+	args := []string{"-r", repo, "snapshots", "--json"}
 
-	// List doesn't need root
-	cmd, cleanup, err := m.prepareCommand(context.Background(), "restic", args, false)
+	cmd, cleanup, err := m.prepareCommand(ctx, "restic", args, false)
 	if err != nil {
 		return nil, err
 	}
@@ -110,12 +150,18 @@ func (m *Manager) List(remote string) ([]Snapshot, error) {
 		defer cleanup()
 	}
 
+	// Capture output for List as we need to parse it
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("restic list failed: %w", err)
+		// If exit code is 1, it might be an empty repo or error, checking output might be helpful
+		// JSON output is expected on stdout
+		return nil, fmt.Errorf("failed to parse snapshots JSON: %w", err)
 	}
 
 	var snaps []Snapshot
+	if len(out) == 0 {
+		return []Snapshot{}, nil
+	}
 	if err := json.Unmarshal(out, &snaps); err != nil {
 		return nil, fmt.Errorf("failed to parse restic output: %w", err)
 	}
@@ -123,8 +169,8 @@ func (m *Manager) List(remote string) ([]Snapshot, error) {
 }
 
 // FindByTags finds snapshots matching all provided tags
-func (m *Manager) FindByTags(remote string, tags []string) ([]Snapshot, error) {
-	all, err := m.List(remote)
+func (m *Manager) FindByTags(ctx context.Context, remote string, tags []string) ([]Snapshot, error) {
+	all, err := m.List(ctx, remote)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +178,6 @@ func (m *Manager) FindByTags(remote string, tags []string) ([]Snapshot, error) {
 	var matches []Snapshot
 	for _, s := range all {
 		match := true
-		// Filter by all required tags
 		for _, requiredTag := range tags {
 			found := false
 			for _, t := range s.Tags {
@@ -161,7 +206,6 @@ func getCurrentUser() string {
 	if u := os.Getenv("USER"); u != "" {
 		return u
 	}
-	// Fallback
 	return "root"
 }
 
@@ -200,7 +244,6 @@ func (m *Manager) prepareCommand(ctx context.Context, name string, args []string
 
 	var cmd *exec.Cmd
 	if useSudo {
-		// Use -E to preserve RESTIC_PASSWORD env var
 		fullArgs := append([]string{"-E", "restic"}, args...)
 		if ctx != nil {
 			cmd = m.exec.CommandContext(ctx, "sudo", fullArgs...)

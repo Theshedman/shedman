@@ -20,6 +20,7 @@ func init() {
 	SnapshotCmd.AddCommand(SnapshotKeyCmd)
 	SnapshotCmd.AddCommand(SnapshotDiffCmd)
 	SnapshotCmd.AddCommand(SnapshotRemoteCmd)
+	SnapshotCmd.AddCommand(SnapshotDiskCmd)
 	SnapshotCmd.AddCommand(SnapshotMigrateCmd)
 	// SnapshotPruneCmd registered in its own init()
 }

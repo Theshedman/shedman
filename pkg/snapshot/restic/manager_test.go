@@ -1,6 +1,8 @@
 package restic
 
 import (
+	"context"
+	"io"
 	"os/exec"
 	"testing"
 
@@ -20,7 +22,7 @@ func TestResticManager_Init(t *testing.T) {
 	}
 	mgr := NewManager(mockExec, "password")
 
-	err := mgr.Init("gdrive:repo")
+	err := mgr.Init(context.Background(), "gdrive:repo", io.Discard)
 	if err != nil {
 		t.Errorf("Init failed: %v", err)
 	}
@@ -38,14 +40,14 @@ func TestResticManager_Init(t *testing.T) {
 func TestResticManager_List(t *testing.T) {
 	mockExec := &executor.MockExecutor{
 		CommandFunc: func(name string, args ...string) *exec.Cmd {
-			// Ensure it sees "snapshots --json"
-			// Output valid JSON
+			// Validate JSON flag usage
+			// Return mock JSON
 			return exec.Command("echo", `[{"id":"a1b2c3d4","time":"2023-01-01T12:00:00Z","paths":["/data"],"tags":["snap-1"]}]`)
 		},
 	}
 	mgr := NewManager(mockExec, "password")
 
-	snaps, err := mgr.List("gdrive:repo")
+	snaps, err := mgr.List(context.Background(), "gdrive:repo")
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}

@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,7 +44,7 @@ type TimeshiftJSON struct {
 	UUID     string `json:"uuid"`
 }
 
-func (b *TimeshiftBackend) Create(desc string, opts CreateOptions) (*Snapshot, error) {
+func (b *TimeshiftBackend) Create(ctx context.Context, desc string, opts CreateOptions) (*Snapshot, error) {
 	args := []string{"--create", "--comments", desc, "--json"}
 
 	if len(opts.Tags) > 0 {
@@ -63,7 +64,7 @@ func (b *TimeshiftBackend) Create(desc string, opts CreateOptions) (*Snapshot, e
 		}, nil
 	}
 
-	out, err := b.exec.Output("timeshift", args...)
+	out, err := b.exec.CommandContext(ctx, "timeshift", args...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("timeshift create failed: %w", err)
 	}
@@ -83,9 +84,9 @@ func (b *TimeshiftBackend) Create(desc string, opts CreateOptions) (*Snapshot, e
 	}, nil
 }
 
-func (b *TimeshiftBackend) List(opts ListOptions) ([]Snapshot, error) {
+func (b *TimeshiftBackend) List(ctx context.Context, opts ListOptions) ([]Snapshot, error) {
 	args := []string{"--list", "--json"}
-	out, err := b.exec.Output("timeshift", args...)
+	out, err := b.exec.CommandContext(ctx, "timeshift", args...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("timeshift list failed: %w", err)
 	}
@@ -110,14 +111,14 @@ func (b *TimeshiftBackend) List(opts ListOptions) ([]Snapshot, error) {
 	return snapshots, nil
 }
 
-func (b *TimeshiftBackend) Delete(id string) error {
-	_, err := b.exec.Output("timeshift", "--delete", "--snapshot", id)
+func (b *TimeshiftBackend) Delete(ctx context.Context, id string) error {
+	_, err := b.exec.CommandContext(ctx, "timeshift", "--delete", "--snapshot", id).Output()
 	return err
 }
 
-func (b *TimeshiftBackend) Restore(id string, opts RestoreOptions) error {
+func (b *TimeshiftBackend) Restore(ctx context.Context, id string, opts RestoreOptions) error {
 	// Verify snapshot exists first
-	snaps, err := b.List(ListOptions{})
+	snaps, err := b.List(ctx, ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list snapshots for verification: %w", err)
 	}
@@ -142,7 +143,7 @@ func (b *TimeshiftBackend) Restore(id string, opts RestoreOptions) error {
 		return nil
 	}
 
-	cmd := b.exec.Command("timeshift", "--restore", "--snapshot", id)
+	cmd := b.exec.CommandContext(ctx, "timeshift", "--restore", "--snapshot", id)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -154,9 +155,8 @@ func (b *TimeshiftBackend) Restore(id string, opts RestoreOptions) error {
 	return nil
 }
 
-func (b *TimeshiftBackend) Prune(opts PruneOptions) error {
-
-	snaps, err := b.List(ListOptions{})
+func (b *TimeshiftBackend) Prune(ctx context.Context, opts PruneOptions) error {
+	snaps, err := b.List(ctx, ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -164,14 +164,14 @@ func (b *TimeshiftBackend) Prune(opts PruneOptions) error {
 	if opts.KeepLast > 0 && len(snaps) > opts.KeepLast {
 		toDelete := snaps[:len(snaps)-opts.KeepLast]
 		for _, s := range toDelete {
-			if err := b.Delete(s.ID); err != nil {
+			if err := b.Delete(ctx, s.ID); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
 }
-func (b *TimeshiftBackend) Push(id string, target RemoteTarget, opts RemoteOptions) error {
+func (b *TimeshiftBackend) Push(ctx context.Context, id string, target RemoteTarget, opts RemoteOptions) error {
 	localPath := fmt.Sprintf("/timeshift/snapshots/%s/", id)
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {
 		localPath = fmt.Sprintf("/run/timeshift/backup/timeshift/snapshots/%s/", id)
@@ -199,7 +199,7 @@ func (b *TimeshiftBackend) Push(id string, target RemoteTarget, opts RemoteOptio
 
 	_, _ = fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
 
-	cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd := (&executor.RealExecutor{}).CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -210,7 +210,7 @@ func (b *TimeshiftBackend) Push(id string, target RemoteTarget, opts RemoteOptio
 	return nil
 }
 
-func (b *TimeshiftBackend) Pull(id string, source RemoteTarget, opts RemoteOptions) error {
+func (b *TimeshiftBackend) Pull(ctx context.Context, id string, source RemoteTarget, opts RemoteOptions) error {
 	localPath := fmt.Sprintf("/timeshift/snapshots/%s/", id)
 	if _, err := os.Stat("/timeshift/snapshots"); os.IsNotExist(err) {
 		if _, err := os.Stat("/run/timeshift/backup/timeshift/snapshots"); err == nil {
@@ -237,7 +237,7 @@ func (b *TimeshiftBackend) Pull(id string, source RemoteTarget, opts RemoteOptio
 
 	_, _ = fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
 
-	cmd := (&executor.RealExecutor{}).Command(cmdArgs[0], cmdArgs[1:]...)
+	cmd := (&executor.RealExecutor{}).CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -247,4 +247,6 @@ func (b *TimeshiftBackend) Pull(id string, source RemoteTarget, opts RemoteOptio
 
 	return nil
 }
-func (b *TimeshiftBackend) Diff(id1, id2 string) (DiffResult, error) { return DiffResult{}, nil }
+func (b *TimeshiftBackend) Diff(ctx context.Context, id1, id2 string) (DiffResult, error) {
+	return DiffResult{}, nil
+}
