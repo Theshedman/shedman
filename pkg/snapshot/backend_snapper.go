@@ -218,7 +218,10 @@ func (b *SnapperBackend) List(ctx context.Context, opts ListOptions) ([]Snapshot
 			}
 			return results, nil
 		}
-	} else {
+		if opts.Target.Path == "" {
+			return nil, fmt.Errorf("remote target path is required")
+		}
+
 		// Rclone listing
 		args := []string{"lsjson", "--dirs-only", opts.Target.Path}
 		cmdArgs := util.GetPrivilegedRcloneCommand(args)
@@ -457,7 +460,7 @@ func (b *SnapperBackend) Push(ctx context.Context, id string, target RemoteTarge
 			continue
 		}
 
-		cmd := (&executor.RealExecutor{}).CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+		cmd := b.exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
@@ -525,11 +528,7 @@ func (b *SnapperBackend) Pull(ctx context.Context, id string, source RemoteTarge
 		return nil
 	}
 
-	if opts.DryRun {
-		return nil
-	}
-
-	cmd := (&executor.RealExecutor{}).CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+	cmd := b.exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

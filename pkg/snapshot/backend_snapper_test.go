@@ -78,3 +78,54 @@ func TestSnapperBackend_DryRun(t *testing.T) {
 		t.Errorf("Expected dry-run ID, got '%s'", snap.ID)
 	}
 }
+
+func TestSnapperBackend_List_Local(t *testing.T) {
+	cfg := config.Default()
+
+	mockExec := &executor.MockExecutor{
+		CommandFunc: func(name string, args ...string) *exec.Cmd {
+			if name != "sudo" {
+				return exec.Command("true")
+			}
+			if len(args) < 3 || args[1] != "snapper" {
+				return exec.Command("true")
+			}
+			if hasArgs(args, "--csvout", "list-configs") {
+				return exec.Command("echo", "config,subvolume\nroot,/\n")
+			}
+			if hasArgs(args, "--csvout", "--iso", "list") {
+				return exec.Command("echo", "number,type,date,used-space,description,userdata\n"+
+					"1,single,2023-01-01 00:00:00,1.0 MiB,Test,shedman_id=20230101-000000\n")
+			}
+			return exec.Command("true")
+		},
+	}
+
+	backend := NewSnapperBackend(cfg, mockExec)
+	snaps, err := backend.List(context.Background(), ListOptions{})
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(snaps) != 1 {
+		t.Fatalf("Expected 1 snapshot, got %d", len(snaps))
+	}
+	if snaps[0].ID != "20230101-000000" {
+		t.Errorf("Unexpected snapshot ID: %s", snaps[0].ID)
+	}
+}
+
+func hasArgs(args []string, items ...string) bool {
+	for i := 0; i <= len(args)-len(items); i++ {
+		match := true
+		for j, item := range items {
+			if args[i+j] != item {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}
