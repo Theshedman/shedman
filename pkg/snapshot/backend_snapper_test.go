@@ -84,16 +84,14 @@ func TestSnapperBackend_List_Local(t *testing.T) {
 
 	mockExec := &executor.MockExecutor{
 		CommandFunc: func(name string, args ...string) *exec.Cmd {
-			if name != "sudo" {
+			cmdName, cmdArgs := normalizeSnapperCmd(name, args)
+			if cmdName != "snapper" {
 				return exec.Command("true")
 			}
-			if len(args) < 3 || args[1] != "snapper" {
-				return exec.Command("true")
-			}
-			if hasArgs(args, "--csvout", "list-configs") {
+			if hasArgs(cmdArgs, "--csvout", "list-configs") {
 				return exec.Command("echo", "config,subvolume\nroot,/\n")
 			}
-			if hasArgs(args, "--csvout", "--iso", "list") {
+			if hasArgs(cmdArgs, "--csvout", "--iso", "list") {
 				return exec.Command("echo", "number,type,date,used-space,description,userdata\n"+
 					"1,single,2023-01-01 00:00:00,1.0 MiB,Test,shedman_id=20230101-000000\n")
 			}
@@ -128,4 +126,11 @@ func hasArgs(args []string, items ...string) bool {
 		}
 	}
 	return false
+}
+
+func normalizeSnapperCmd(name string, args []string) (string, []string) {
+	if name == "sudo" && len(args) >= 2 && args[1] == "snapper" {
+		return "snapper", args[2:]
+	}
+	return name, args
 }
