@@ -199,7 +199,11 @@ func (b *TimeshiftBackend) Push(ctx context.Context, id string, target RemoteTar
 
 	_, _ = fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
 
-	cmd := (&executor.RealExecutor{}).CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+	if opts.DryRun {
+		return nil
+	}
+
+	cmd := b.exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -237,7 +241,11 @@ func (b *TimeshiftBackend) Pull(ctx context.Context, id string, source RemoteTar
 
 	_, _ = fmt.Printf("Executing: %s\n", strings.Join(cmdArgs, " "))
 
-	cmd := (&executor.RealExecutor{}).CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+	if opts.DryRun {
+		return nil
+	}
+
+	cmd := b.exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -248,5 +256,5 @@ func (b *TimeshiftBackend) Pull(ctx context.Context, id string, source RemoteTar
 	return nil
 }
 func (b *TimeshiftBackend) Diff(ctx context.Context, id1, id2 string) (DiffResult, error) {
-	return DiffResult{}, nil
+	return DiffResult{}, fmt.Errorf("diff not supported for timeshift backend")
 }
