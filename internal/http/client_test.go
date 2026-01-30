@@ -90,3 +90,12 @@ func TestRetryClient_ReturnsError_WhenAllFail(t *testing.T) {
 		t.Error("Expected error when all mirrors fail")
 	}
 }
+
+func TestRetryClient_ReturnsError_WhenNoMirrors(t *testing.T) {
+	client := shedhttp.NewRetryClient(nil, 0)
+
+	_, err := client.Get("/test")
+	if err == nil {
+		t.Error("Expected error when no mirrors are configured")
+	}
+}

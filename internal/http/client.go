@@ -30,6 +30,10 @@ func NewRetryClient(mirrors []string, timeout time.Duration) *RetryClient {
 
 // Get performs a GET request, trying each mirror in order until one succeeds
 func (c *RetryClient) Get(path string) (*http.Response, error) {
+	if len(c.mirrors) == 0 {
+		return nil, fmt.Errorf("no mirrors configured")
+	}
+
 	var lastErr error
 	var errors []string
 
