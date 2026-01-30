@@ -193,7 +193,7 @@ func TestAURInstaller_VerifyChecksums(t *testing.T) {
 	}
 	ai.SetExecutor(mockExec)
 
-	err := ai.VerifyChecksums("test-pkg")
+	err := ai.VerifyChecksumsWithOptions("test-pkg", AUROptions{SkipPGPCheck: true})
 	if err != nil {
 		t.Fatalf("VerifyChecksums failed: %v", err)
 	}
@@ -202,6 +202,9 @@ func TestAURInstaller_VerifyChecksums(t *testing.T) {
 	cmdStr := strings.Join(executedCmd, " ")
 	if !strings.Contains(cmdStr, "makepkg") || !strings.Contains(cmdStr, "verif") {
 		t.Errorf("Expected makepkg verification command, got %v", executedCmd)
+	}
+	if !strings.Contains(cmdStr, "skippgpcheck") {
+		t.Errorf("Expected --skippgpcheck to be passed, got %v", executedCmd)
 	}
 }
 
@@ -253,7 +256,7 @@ func TestAURInstaller_Build_WithoutSandbox(t *testing.T) {
 	}
 	ai.SetExecutor(mockExec)
 
-	err := ai.Build("test-pkg")
+	err := ai.BuildWithOptions("test-pkg", AUROptions{SkipPGPCheck: true})
 	if err != nil {
 		t.Fatalf("Build failed: %v", err)
 	}
@@ -265,6 +268,9 @@ func TestAURInstaller_Build_WithoutSandbox(t *testing.T) {
 	}
 	if !strings.Contains(cmdStr, "makepkg") {
 		t.Errorf("Expected makepkg command, got %v", executedCmd)
+	}
+	if !strings.Contains(cmdStr, "skippgpcheck") {
+		t.Errorf("Expected --skippgpcheck to be passed, got %v", executedCmd)
 	}
 }
 

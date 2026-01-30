@@ -153,6 +153,11 @@ func (a *AURInstaller) GetPKGBUILDDiff(pkgName string) (string, error) {
 
 // VerifyChecksums verifies source file checksums
 func (a *AURInstaller) VerifyChecksums(pkgName string) error {
+	return a.VerifyChecksumsWithOptions(pkgName, AUROptions{})
+}
+
+// VerifyChecksumsWithOptions verifies source file checksums with options
+func (a *AURInstaller) VerifyChecksumsWithOptions(pkgName string, opts AUROptions) error {
 	if !CommandExists("makepkg") {
 		return ErrMakepkgNotFound
 	}
@@ -162,6 +167,9 @@ func (a *AURInstaller) VerifyChecksums(pkgName string) error {
 	// Execute makepkg directly in the directory
 	// Use executor with dir parameter
 	cmd := []string{"makepkg", "--verifysource"}
+	if opts.SkipPGPCheck {
+		cmd = append(cmd, "--skippgpcheck")
+	}
 
 	if err := Execute(a.executor, pkgDir, cmd); err != nil {
 		return fmt.Errorf("makepkg --verifysource failed: %w", err)
@@ -172,6 +180,11 @@ func (a *AURInstaller) VerifyChecksums(pkgName string) error {
 
 // Build builds the AUR package using makepkg
 func (a *AURInstaller) Build(pkgName string) error {
+	return a.BuildWithOptions(pkgName, AUROptions{})
+}
+
+// BuildWithOptions builds the AUR package using makepkg with options
+func (a *AURInstaller) BuildWithOptions(pkgName string, opts AUROptions) error {
 	if !CommandExists("makepkg") {
 		return ErrMakepkgNotFound
 	}
@@ -182,13 +195,13 @@ func (a *AURInstaller) Build(pkgName string) error {
 		if !CommandExists("bwrap") {
 			return ErrBwrapNotFound
 		}
-		return a.buildWithSandbox(pkgDir)
+		return a.buildWithSandbox(pkgDir, opts)
 	}
-	return a.buildWithoutSandbox(pkgDir)
+	return a.buildWithoutSandbox(pkgDir, opts)
 }
 
 // buildWithSandbox builds using bubblewrap for isolation
-func (a *AURInstaller) buildWithSandbox(pkgDir string) error {
+func (a *AURInstaller) buildWithSandbox(pkgDir string, opts AUROptions) error {
 	// Bubblewrap command with security restrictions:
 	// - No network access (--unshare-net)
 	// - Isolated home directory
@@ -225,9 +238,19 @@ func (a *AURInstaller) buildWithSandbox(pkgDir string) error {
 		"--tmpfs", "/home",
 		"--bind", pkgDir, pkgDir,
 		"--chdir", pkgDir,
-		"--",
-		"makepkg", "-s", "--noconfirm",
 	)
+
+	if gnupgHome, ok := resolveGnuPGHome(); ok {
+		cmd = append(cmd, "--bind", gnupgHome, "/tmp/gnupg", "--setenv", "GNUPGHOME", "/tmp/gnupg")
+	}
+
+	makepkgArgs := []string{"makepkg", "-s", "--noconfirm"}
+	if opts.SkipPGPCheck {
+		makepkgArgs = append(makepkgArgs, "--skippgpcheck")
+	}
+
+	cmd = append(cmd, "--")
+	cmd = append(cmd, makepkgArgs...)
 
 	return Execute(a.executor, pkgDir, cmd)
 }
@@ -238,9 +261,29 @@ func sandboxPathExists(path string) bool {
 	return err == nil
 }
 
+func resolveGnuPGHome() (string, bool) {
+	if home := os.Getenv("GNUPGHOME"); home != "" {
+		if _, err := os.Stat(home); err == nil {
+			return home, true
+		}
+	}
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		return "", false
+	}
+	gnupgHome := filepath.Join(userHome, ".gnupg")
+	if _, err := os.Stat(gnupgHome); err != nil {
+		return "", false
+	}
+	return gnupgHome, true
+}
+
 // buildWithoutSandbox builds directly without isolation
-func (a *AURInstaller) buildWithoutSandbox(pkgDir string) error {
+func (a *AURInstaller) buildWithoutSandbox(pkgDir string, opts AUROptions) error {
 	cmd := []string{"makepkg", "-s", "--noconfirm"}
+	if opts.SkipPGPCheck {
+		cmd = append(cmd, "--skippgpcheck")
+	}
 
 	if err := Execute(a.executor, pkgDir, cmd); err != nil {
 
@@ -327,13 +370,19 @@ func (a *AURInstaller) InstallFull(pkgName string, opts AUROptions) error {
 		return fmt.Errorf("clone failed: %w", err)
 	}
 
+	if opts.FetchPGPKeys {
+		if err := a.FetchPGPKeys(pkgName); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: PGP key fetch: %v\n", err)
+		}
+	}
+
 	if opts.VerifyChecksums {
-		if err := a.VerifyChecksums(pkgName); err != nil {
+		if err := a.VerifyChecksumsWithOptions(pkgName, opts); err != nil {
 			return fmt.Errorf("checksum verification failed: %w", err)
 		}
 	}
 
-	if err := a.Build(pkgName); err != nil {
+	if err := a.BuildWithOptions(pkgName, opts); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
@@ -526,14 +575,14 @@ func (a *AURInstaller) InstallFullWithProgress(pkgName string, opts AUROptions, 
 	// 3. Verify checksums if enabled
 	if opts.VerifyChecksums {
 		report(AURStageVerify, "Verifying source checksums...")
-		if err := a.VerifyChecksums(pkgName); err != nil {
+		if err := a.VerifyChecksumsWithOptions(pkgName, opts); err != nil {
 			return fmt.Errorf("checksum verification failed: %w", err)
 		}
 	}
 
 	// 4. Build the package
 	report(AURStageBuild, "Building package...")
-	if err := a.Build(pkgName); err != nil {
+	if err := a.BuildWithOptions(pkgName, opts); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
