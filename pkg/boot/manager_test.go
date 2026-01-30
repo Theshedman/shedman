@@ -3,7 +3,9 @@ package boot
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -45,11 +47,17 @@ func (m *MockBackend) Remove(pkgs []string, opts core.RemoveOptions) error      
 func (m *MockBackend) Upgrade(pkgs []string, opts core.UpgradeOptions) error    { return nil }
 func (m *MockBackend) GetInstalledPackages() ([]core.PackageInfo, error)        { return nil, nil }
 func (m *MockBackend) GetPackageFiles(pkgName string) ([]string, error)         { return nil, nil }
+func (m *MockBackend) GetFileOwner(path string) (string, error)                 { return "", nil }
+func (m *MockBackend) SearchFiles(query string) ([]string, error)               { return nil, nil }
+func (m *MockBackend) ListExplicitPackages() ([]string, error)                  { return nil, nil }
+func (m *MockBackend) Audit() ([]string, error)                                 { return nil, nil }
+func (m *MockBackend) Diff() ([]core.PackageDiff, error)                        { return nil, nil }
 
 // MockExecutor implements Executor interface for testing
 type MockExecutor struct {
 	LookPathFunc       func(file string) (string, error)
 	CombinedOutputFunc func(name string, args ...string) ([]byte, error)
+	CombinedCalls      []string
 }
 
 func (m *MockExecutor) LookPath(file string) (string, error) {
@@ -69,6 +77,7 @@ func (m *MockExecutor) CommandContext(ctx context.Context, name string, args ...
 }
 
 func (m *MockExecutor) CombinedOutput(name string, args ...string) ([]byte, error) {
+	m.CombinedCalls = append(m.CombinedCalls, name+" "+strings.Join(args, " "))
 	if m.CombinedOutputFunc != nil {
 		return m.CombinedOutputFunc(name, args...)
 	}
@@ -84,7 +93,15 @@ func TestManager_List(t *testing.T) {
 		},
 	}
 	engine := core.NewEngineWithBackend(mock)
-	mgr := New(engine)
+	mockExec := &MockExecutor{
+		CombinedOutputFunc: func(name string, args ...string) ([]byte, error) {
+			if name == "uname" {
+				return []byte("6.6.1-arch1-1"), nil
+			}
+			return []byte(""), nil
+		},
+	}
+	mgr := NewWithExecutor(engine, mockExec)
 
 	kernels, err := mgr.List()
 	if err != nil {
@@ -106,6 +123,9 @@ func TestManager_List(t *testing.T) {
 			if k.Version != "6.6.1-arch1-1" {
 				t.Errorf("Expected linux version 6.6.1-arch1-1, got %s", k.Version)
 			}
+			if !k.Current {
+				t.Error("Expected linux to be marked current")
+			}
 		case "linux-lts":
 			foundLTS = true
 		}
@@ -118,6 +138,63 @@ func TestManager_List(t *testing.T) {
 	if !foundLTS {
 		t.Error("linux-lts kernel not found")
 	}
+}
+
+func TestManager_SetDefault_GRUB(t *testing.T) {
+	mock := &MockBackend{
+		installed: map[string]string{
+			"linux": "6.6.1",
+		},
+	}
+	engine := core.NewEngineWithBackend(mock)
+
+	grubCfg := "submenu 'Advanced options for Arch Linux' {\n" +
+		"  menuentry 'Arch Linux, with Linux linux' {\n" +
+		"    linux /boot/vmlinuz-linux root=UUID=123\n" +
+		"  }\n" +
+		"  menuentry 'Arch Linux, with Linux linux (fallback initramfs)' {\n" +
+		"    linux /boot/vmlinuz-linux root=UUID=123\n" +
+		"  }\n" +
+		"}\n"
+
+	tmp := t.TempDir() + "/grub.cfg"
+	if err := os.WriteFile(tmp, []byte(grubCfg), 0644); err != nil {
+		t.Fatalf("Failed to write grub cfg: %v", err)
+	}
+
+	mockExec := &MockExecutor{
+		LookPathFunc: func(file string) (string, error) {
+			if file == "bootctl" {
+				return "", fmt.Errorf("not found")
+			}
+			if file == "grub-set-default" {
+				return "/usr/bin/grub-set-default", nil
+			}
+			return "", fmt.Errorf("not found")
+		},
+		CombinedOutputFunc: func(name string, args ...string) ([]byte, error) {
+			return []byte("ok"), nil
+		},
+	}
+
+	mgr := NewWithExecutor(engine, mockExec)
+	mgr.grubConfigPaths = []string{tmp}
+
+	if err := mgr.SetDefault("linux"); err != nil {
+		t.Fatalf("SetDefault(linux) via grub failed: %v", err)
+	}
+	if !callContains(mockExec.CombinedCalls, "grub-set-default Advanced options for Arch Linux>Arch Linux, with Linux linux") {
+		t.Errorf("Expected grub-set-default call, got: %v", mockExec.CombinedCalls)
+	}
+}
+
+func callContains(calls []string, target string) bool {
+	for _, call := range calls {
+		if call == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestManager_SetDefault(t *testing.T) {
