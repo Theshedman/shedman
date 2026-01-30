@@ -380,23 +380,43 @@ func (e *Engine) GetFileOwner(path string) (string, error) {
 
 // SearchFiles searches for files in the package database.
 func (e *Engine) SearchFiles(query string) ([]string, error) {
+	supported := false
+	var lastErr error
 	// Try official backend
 	if e.officialBackend != nil {
 		if fp, ok := e.officialBackend.(FileProvider); ok {
+			supported = true
 			if files, err := fp.SearchFiles(query); err == nil {
+				if files == nil {
+					return []string{}, nil
+				}
 				return files, nil
+			} else {
+				lastErr = err
 			}
 		}
 	}
 	// Try other backends
 	for _, b := range e.backends {
 		if fp, ok := b.(FileProvider); ok {
+			supported = true
 			if files, err := fp.SearchFiles(query); err == nil {
+				if files == nil {
+					return []string{}, nil
+				}
 				return files, nil
+			} else {
+				lastErr = err
 			}
 		}
 	}
-	return nil, nil
+	if supported {
+		if lastErr != nil {
+			return nil, lastErr
+		}
+		return []string{}, nil
+	}
+	return nil, fmt.Errorf("no backend supports file search")
 }
 
 // VerifyAll verifies all packages.

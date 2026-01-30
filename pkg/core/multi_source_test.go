@@ -1,8 +1,8 @@
 package core
 
 import (
+	"errors"
 	"testing"
-
 )
 
 // mockDB implements PackageDB for testing multi-source resolver
@@ -20,6 +20,18 @@ func (m *multiSourceMockDB) GetInfo(name string) (*PackageInfo, error) {
 		return info, nil
 	}
 	return nil, nil
+}
+
+type errorMockDB struct {
+	err error
+}
+
+func (e *errorMockDB) Search(query string) ([]PackageInfo, error) {
+	return nil, e.err
+}
+
+func (e *errorMockDB) GetInfo(name string) (*PackageInfo, error) {
+	return nil, e.err
 }
 
 func TestMultiSourceResolver_New(t *testing.T) {
@@ -158,5 +170,38 @@ func TestMultiSourceResolver_FindPackage_NotFound(t *testing.T) {
 	}
 	if info != nil {
 		t.Error("Expected nil for non-existent package")
+	}
+}
+
+func TestMultiSourceResolver_FindPackage_ForcedSourceMissing(t *testing.T) {
+	r := NewMultiSource()
+
+	_, err := r.FindPackage("test-pkg", SourceAUR)
+	if err == nil {
+		t.Fatal("Expected error when forced source is missing")
+	}
+}
+
+func TestMultiSourceResolver_FindPackage_AllSourcesError(t *testing.T) {
+	r := NewMultiSource()
+
+	r.AddSource(SourceShedOS, &errorMockDB{err: errors.New("shedos down")})
+	r.AddSource(SourceOfficial, &errorMockDB{err: errors.New("official down")})
+
+	_, err := r.FindPackage("test-pkg", "")
+	if err == nil {
+		t.Fatal("Expected error when all sources fail")
+	}
+}
+
+func TestMultiSourceResolver_Search_AllSourcesError(t *testing.T) {
+	r := NewMultiSource()
+
+	r.AddSource(SourceShedOS, &errorMockDB{err: errors.New("shedos down")})
+	r.AddSource(SourceOfficial, &errorMockDB{err: errors.New("official down")})
+
+	_, err := r.Search("test-pkg")
+	if err == nil {
+		t.Fatal("Expected error when all sources fail")
 	}
 }

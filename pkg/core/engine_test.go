@@ -118,3 +118,66 @@ func TestEngine_IsOfficialBackendAvailable_NoBackend(t *testing.T) {
 		t.Error("Expected false when no backend is set")
 	}
 }
+
+type searchFilesBackend struct {
+	files []string
+	err   error
+}
+
+func (b *searchFilesBackend) Name() string                                     { return "search-files" }
+func (b *searchFilesBackend) Sync() error                                      { return nil }
+func (b *searchFilesBackend) IsAvailable() bool                                { return true }
+func (b *searchFilesBackend) Install(pkgs []string, opts InstallOptions) error { return nil }
+func (b *searchFilesBackend) Remove(pkgs []string, opts RemoveOptions) error   { return nil }
+func (b *searchFilesBackend) IsInstalled(pkgName string) bool                  { return false }
+func (b *searchFilesBackend) Search(query string) ([]PackageInfo, error)       { return nil, nil }
+func (b *searchFilesBackend) Info(pkgName string) (*PackageInfo, error)        { return nil, nil }
+func (b *searchFilesBackend) GetInstalledPackages() ([]PackageInfo, error)     { return nil, nil }
+func (b *searchFilesBackend) Upgrade(pkgs []string, opts UpgradeOptions) error {
+	return nil
+}
+func (b *searchFilesBackend) InstallLocal(path string, opts InstallOptions) error {
+	return nil
+}
+func (b *searchFilesBackend) GetPackageFiles(pkgName string) ([]string, error) {
+	return nil, nil
+}
+func (b *searchFilesBackend) GetFileOwner(path string) (string, error) {
+	return "", nil
+}
+func (b *searchFilesBackend) SearchFiles(query string) ([]string, error) {
+	return b.files, b.err
+}
+func (b *searchFilesBackend) ListExplicitPackages() ([]string, error) { return nil, nil }
+func (b *searchFilesBackend) Audit() ([]string, error)                { return nil, nil }
+func (b *searchFilesBackend) Diff() ([]PackageDiff, error)            { return nil, nil }
+
+func TestEngine_SearchFiles_Unsupported(t *testing.T) {
+	engine := NewEngine()
+
+	_, err := engine.SearchFiles("vimrc")
+	if err == nil {
+		t.Fatal("Expected error when no backend supports file search")
+	}
+}
+
+func TestEngine_SearchFiles_EmptyResult(t *testing.T) {
+	engine := NewEngineWithBackend(&searchFilesBackend{})
+
+	files, err := engine.SearchFiles("vimrc")
+	if err != nil {
+		t.Fatalf("SearchFiles returned error: %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("Expected empty results, got %v", files)
+	}
+}
+
+func TestEngine_SearchFiles_PropagatesError(t *testing.T) {
+	engine := NewEngineWithBackend(&searchFilesBackend{err: fmt.Errorf("backend failed")})
+
+	_, err := engine.SearchFiles("vimrc")
+	if err == nil {
+		t.Fatal("Expected error from backend")
+	}
+}

@@ -1,5 +1,10 @@
 package core
 
+import (
+	"fmt"
+	"strings"
+)
+
 var defaultSourcePriority = []string{
 	SourceShedOS,
 	SourceOfficial,
@@ -38,10 +43,11 @@ func (m *MultiSourceResolver) FindPackage(name string, forceSource string) (*Pac
 		if db, ok := m.sources[forceSource]; ok {
 			return db.GetInfo(name)
 		}
-		return nil, nil
+		return nil, fmt.Errorf("source %s not configured", forceSource)
 	}
 
 	// Check sources in priority order
+	var errors []string
 	for _, source := range m.priority {
 		db, ok := m.sources[source]
 		if !ok {
@@ -51,6 +57,7 @@ func (m *MultiSourceResolver) FindPackage(name string, forceSource string) (*Pac
 		info, err := db.GetInfo(name)
 		if err != nil {
 			// Continue to next source on error (e.g. network failure)
+			errors = append(errors, fmt.Sprintf("%s: %v", source, err))
 			continue
 		}
 		if info != nil {
@@ -58,12 +65,16 @@ func (m *MultiSourceResolver) FindPackage(name string, forceSource string) (*Pac
 		}
 	}
 
+	if len(errors) > 0 {
+		return nil, fmt.Errorf("all sources failed: %s", strings.Join(errors, "; "))
+	}
 	return nil, nil
 }
 
 // Search searches for packages across all sources
 func (m *MultiSourceResolver) Search(query string) ([]PackageInfo, error) {
 	var results []PackageInfo
+	var errors []string
 
 	for _, source := range m.priority {
 		db, ok := m.sources[source]
@@ -73,12 +84,19 @@ func (m *MultiSourceResolver) Search(query string) ([]PackageInfo, error) {
 
 		sourceResults, err := db.Search(query)
 		if err != nil {
-			continue // Skip failed sources
+			errors = append(errors, fmt.Sprintf("%s: %v", source, err))
+			continue
 		}
 
 		results = append(results, sourceResults...)
 	}
 
+	if len(results) == 0 && len(errors) > 0 {
+		return nil, fmt.Errorf("all sources failed: %s", strings.Join(errors, "; "))
+	}
+	if results == nil {
+		return []PackageInfo{}, nil
+	}
 	return results, nil
 }
 
