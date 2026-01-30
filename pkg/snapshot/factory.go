@@ -81,6 +81,8 @@ func (f *Factory) createBackend(name string) (Manager, error) {
 		return NewTimeshiftBackend(f.cfg, f.exec), nil
 	case "rsync":
 		return NewRsyncBackend(f.cfg, f.exec), nil
+	case "zfs":
+		return NewZFSBackend(f.cfg, f.exec), nil
 	default:
 		return nil, fmt.Errorf("unknown snapshot backend: %s", name)
 	}
