@@ -1,7 +1,9 @@
 package snapshot
 
 import (
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/theshedman/shedman/pkg/executor"
 )
@@ -33,9 +35,38 @@ func (s *SystemdScheduler) Disable() error {
 func (s *SystemdScheduler) Status() (ScheduleStatus, error) {
 	status := ScheduleStatus{}
 
-	// Check if active
-	out, err := s.exec.Output("systemctl", "--user", "is-active", "shedman-snapshot.timer")
-	status.Enabled = err == nil && strings.TrimSpace(string(out)) == "active"
+	out, err := s.exec.Output(
+		"systemctl",
+		"--user",
+		"show",
+		"shedman-snapshot.timer",
+		"-p", "UnitFileState",
+		"-p", "ActiveState",
+		"-p", "NextElapseUSecRealtime",
+		"-p", "LastTriggerUSecRealtime",
+		"-p", "OnCalendar",
+	)
+	if err != nil {
+		activeOut, activeErr := s.exec.Output("systemctl", "--user", "is-active", "shedman-snapshot.timer")
+		status.Enabled = activeErr == nil && strings.TrimSpace(string(activeOut)) == "active"
+		return status, nil
+	}
+
+	props := parseSystemdShow(string(out))
+	status.Enabled = isEnabledState(props["UnitFileState"])
+	if !status.Enabled && strings.TrimSpace(props["ActiveState"]) == "active" {
+		status.Enabled = true
+	}
+
+	if next, ok := parseSystemdUSec(props["NextElapseUSecRealtime"]); ok {
+		status.NextRun = next
+	}
+	if last, ok := parseSystemdUSec(props["LastTriggerUSecRealtime"]); ok {
+		status.LastRun = last
+	}
+	if freq := strings.TrimSpace(props["OnCalendar"]); freq != "" && freq != "n/a" {
+		status.Frequency = freq
+	}
 
 	return status, nil
 }
@@ -44,4 +75,41 @@ func (s *SystemdScheduler) Status() (ScheduleStatus, error) {
 func (s *SystemdScheduler) RunNow() error {
 	_, err := s.exec.Output("systemctl", "--user", "start", "shedman-snapshot.service")
 	return err
+}
+
+func parseSystemdShow(output string) map[string]string {
+	props := make(map[string]string)
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		props[parts[0]] = parts[1]
+	}
+	return props
+}
+
+func parseSystemdUSec(value string) (time.Time, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "n/a" {
+		return time.Time{}, false
+	}
+	us, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return time.Unix(0, us*1000), true
+}
+
+func isEnabledState(state string) bool {
+	switch strings.TrimSpace(state) {
+	case "enabled", "enabled-runtime":
+		return true
+	default:
+		return false
+	}
 }
