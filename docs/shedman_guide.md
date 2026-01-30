@@ -1243,6 +1243,11 @@ shedman install docker
 | LVM | LVM snapshot |
 | ext4/xfs | rsync incremental backup |
 
+### ZFS Notes
+
+- Local snapshots use `zfs snapshot` (recursive for root datasets).
+- Remote push/pull uses `zfs send` / `zfs receive` with either a local stream file or SSH transport.
+
 ### Cloud Providers (via rclone)
 
 - Google Drive
@@ -1258,6 +1263,8 @@ shedman install docker
 - Build in `bwrap` container
 - No network during build
 - Temporary `$HOME`
+- Host GPG keyring is bound into the sandbox for signature verification
+- `FetchPGPKeys` and `SkipPGPCheck` options are honored during InstallFull
 - Show PKGBUILD diff before build
 
 ---
