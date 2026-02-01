@@ -26,6 +26,10 @@ type UpgradeOptions struct {
 	IgnorePkgs     []string // Packages to ignore during upgrade
 	IgnoreGroups   []string // Groups to ignore during upgrade
 	TargetBackends []string // Specific backends to target (empty = all)
+	Delta          bool     // Enable delta updates
+	LimitRate      string   // Download rate limit (e.g., 500K, 2M)
+	Retry          int      // Download retry count
+	Timeout        int      // Network timeout in seconds
 }
 
 // DefaultInstallOptions returns sensible defaults

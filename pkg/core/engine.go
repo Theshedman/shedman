@@ -12,12 +12,13 @@ import (
 
 // Engine orchestrates package management operations across multiple backends.
 type Engine struct {
-	backends        []PackageBackend
-	officialBackend OfficialBackend
-	config          *config.Config
-	snapshotManager snapshot.Manager
-	scheduler       snapshot.Scheduler
-	keyManager      snapshot.KeyManager
+	backends         []PackageBackend
+	officialBackend  OfficialBackend
+	config           *config.Config
+	snapshotManager  snapshot.Manager
+	scheduler        snapshot.Scheduler
+	keyManager       snapshot.KeyManager
+	syncForceRefresh bool
 }
 
 // NewEngine creates a new Engine with no backends configured.
@@ -79,6 +80,11 @@ func (e *Engine) SetScheduler(s snapshot.Scheduler) {
 	e.scheduler = s
 }
 
+// SetSyncForceRefresh toggles forced refresh for the next Sync call.
+func (e *Engine) SetSyncForceRefresh(force bool) {
+	e.syncForceRefresh = force
+}
+
 // GetScheduler returns the snapshot scheduler.
 func (e *Engine) GetScheduler() snapshot.Scheduler {
 	return e.scheduler
@@ -111,6 +117,20 @@ func (e *Engine) IsOfficialBackendAvailable() bool {
 
 // Sync synchronizes all configured backends in parallel.
 func (e *Engine) Sync() error {
+	if e.syncForceRefresh {
+		e.applySyncForceRefresh()
+	}
+	preSync := ""
+	postSync := ""
+	if e.config != nil {
+		preSync = e.config.Hooks.PreSync
+		postSync = e.config.Hooks.PostSync
+	}
+
+	if err := e.runHook(preSync, "pre-sync", nil); err != nil {
+		return err
+	}
+
 	var errors []string
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -130,10 +150,25 @@ func (e *Engine) Sync() error {
 	wg.Wait()
 
 	if len(errors) > 0 {
+		e.syncForceRefresh = false
 		return fmt.Errorf("sync failed for backends: %s", strings.Join(errors, "; "))
 	}
 
+	if err := e.runHook(postSync, "post-sync", nil); err != nil {
+		e.syncForceRefresh = false
+		return err
+	}
+
+	e.syncForceRefresh = false
 	return nil
+}
+
+func (e *Engine) applySyncForceRefresh() {
+	for _, backend := range e.backends {
+		if setter, ok := backend.(interface{ SetForceRefresh(bool) }); ok {
+			setter.SetForceRefresh(true)
+		}
+	}
 }
 
 // Install installs packages using the official backend.
@@ -146,7 +181,25 @@ func (e *Engine) Install(pkgs []string, opts InstallOptions) error {
 	if !ok {
 		return fmt.Errorf("backend %s does not support package management", e.officialBackend.Name())
 	}
-	return pm.Install(pkgs, opts)
+	preInstall := ""
+	postInstall := ""
+	if e.config != nil {
+		preInstall = e.config.Hooks.PreInstall
+		postInstall = e.config.Hooks.PostInstall
+	}
+
+	if err := e.runHook(preInstall, "pre-install", pkgs); err != nil {
+		return err
+	}
+	if err := pm.Install(pkgs, opts); err != nil {
+		e.logTransaction("installed", pkgs, false)
+		return err
+	}
+	if err := e.runHook(postInstall, "post-install", pkgs); err != nil {
+		return err
+	}
+	e.logTransaction("installed", pkgs, true)
+	return nil
 }
 
 // InstallFile installs a local package file (wraps InstallLocal).
@@ -160,7 +213,25 @@ func (e *Engine) InstallFile(path string, opts InstallOptions) error {
 		return fmt.Errorf("backend %s does not support local package installation", e.officialBackend.Name())
 	}
 
-	return installer.InstallLocal(path, opts)
+	preInstall := ""
+	postInstall := ""
+	if e.config != nil {
+		preInstall = e.config.Hooks.PreInstall
+		postInstall = e.config.Hooks.PostInstall
+	}
+
+	if err := e.runHook(preInstall, "pre-install", []string{path}); err != nil {
+		return err
+	}
+	if err := installer.InstallLocal(path, opts); err != nil {
+		e.logTransaction("installed", []string{path}, false)
+		return err
+	}
+	if err := e.runHook(postInstall, "post-install", []string{path}); err != nil {
+		return err
+	}
+	e.logTransaction("installed", []string{path}, true)
+	return nil
 }
 
 // Remove removes packages using the official backend.
@@ -172,7 +243,25 @@ func (e *Engine) Remove(pkgs []string, opts RemoveOptions) error {
 	if !ok {
 		return fmt.Errorf("backend %s does not support package removal", e.officialBackend.Name())
 	}
-	return pm.Remove(pkgs, opts)
+	preRemove := ""
+	postRemove := ""
+	if e.config != nil {
+		preRemove = e.config.Hooks.PreRemove
+		postRemove = e.config.Hooks.PostRemove
+	}
+
+	if err := e.runHook(preRemove, "pre-remove", pkgs); err != nil {
+		return err
+	}
+	if err := pm.Remove(pkgs, opts); err != nil {
+		e.logTransaction("removed", pkgs, false)
+		return err
+	}
+	if err := e.runHook(postRemove, "post-remove", pkgs); err != nil {
+		return err
+	}
+	e.logTransaction("removed", pkgs, true)
+	return nil
 }
 
 // Upgrade upgrades packages across all supported backends.
@@ -181,6 +270,17 @@ func (e *Engine) Upgrade(pkgs []string, opts UpgradeOptions) error {
 
 	// Track whether we found any backend capable of upgrading
 	upgradableFound := false
+
+	preUpgrade := ""
+	postUpgrade := ""
+	if e.config != nil {
+		preUpgrade = e.config.Hooks.PreUpgrade
+		postUpgrade = e.config.Hooks.PostUpgrade
+	}
+
+	if err := e.runHook(preUpgrade, "pre-upgrade", pkgs); err != nil {
+		return err
+	}
 
 	// Iterate all backends
 	for _, b := range e.backends {
@@ -215,13 +315,27 @@ func (e *Engine) Upgrade(pkgs []string, opts UpgradeOptions) error {
 			return ErrBackendNotFound
 		}
 		// Fallback to official backend
-		return e.officialBackend.Upgrade(pkgs, opts)
+		if err := e.officialBackend.Upgrade(pkgs, opts); err != nil {
+			e.logTransaction("upgraded", pkgs, false)
+			return err
+		}
+		if err := e.runHook(postUpgrade, "post-upgrade", pkgs); err != nil {
+			return err
+		}
+		e.logTransaction("upgraded", pkgs, true)
+		return nil
 	}
 
 	if len(errors) > 0 {
+		e.logTransaction("upgraded", pkgs, false)
 		return fmt.Errorf("upgrade failed for backends: %s", strings.Join(errors, "; "))
 	}
 
+	if err := e.runHook(postUpgrade, "post-upgrade", pkgs); err != nil {
+		return err
+	}
+
+	e.logTransaction("upgraded", pkgs, true)
 	return nil
 }
 

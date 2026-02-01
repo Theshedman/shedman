@@ -119,6 +119,30 @@ func TestEngine_IsOfficialBackendAvailable_NoBackend(t *testing.T) {
 	}
 }
 
+type refreshBackend struct {
+	called bool
+}
+
+func (b *refreshBackend) Name() string { return "refresh" }
+func (b *refreshBackend) Sync() error  { return nil }
+func (b *refreshBackend) SetForceRefresh(force bool) {
+	b.called = force
+}
+
+func TestEngine_SetSyncForceRefresh(t *testing.T) {
+	engine := NewEngine()
+	backend := &refreshBackend{}
+	engine.AddBackend(backend)
+
+	engine.SetSyncForceRefresh(true)
+	if err := engine.Sync(); err != nil {
+		t.Fatalf("Sync failed: %v", err)
+	}
+	if !backend.called {
+		t.Fatal("expected SetForceRefresh to be called")
+	}
+}
+
 type searchFilesBackend struct {
 	files []string
 	err   error
