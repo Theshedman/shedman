@@ -103,3 +103,19 @@ func (m *Manager) CheckSafeguards(devicePath string) error {
 	}
 	return nil
 }
+
+// FormatExt4 formats the device as ext4, refusing to format mounted devices.
+func (m *Manager) FormatExt4(devicePath string) error {
+	info, err := m.GetDeviceInfo(devicePath)
+	if err != nil {
+		return err
+	}
+	if info.MountPoint != "" {
+		return fmt.Errorf("device %s is mounted at %s", devicePath, info.MountPoint)
+	}
+	cmd := m.exec.Command("sudo", "mkfs.ext4", "-F", devicePath)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("mkfs.ext4 failed: %w", err)
+	}
+	return nil
+}
