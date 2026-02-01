@@ -153,6 +153,27 @@ func (e *ConfigEngine) Apply(packageName, sourcePath, targetPath string) error {
 	return nil
 }
 
+// Reset overwrites the target with the package version, backing up when possible.
+func (e *ConfigEngine) Reset(packageName, sourcePath, targetPath string) error {
+	newHash, err := e.Differ.CalculateHash(sourcePath)
+	if err != nil {
+		return fmt.Errorf("failed to hash source: %w", err)
+	}
+
+	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(targetPath), util.DirPermissions); err != nil {
+			return fmt.Errorf("mkdir failed: %w", err)
+		}
+		if err := e.copyFile(sourcePath, targetPath); err != nil {
+			return fmt.Errorf("reset copy failed: %w", err)
+		}
+		e.updateState(packageName, targetPath, newHash)
+		return nil
+	}
+
+	return e.applyPackageVersion(packageName, sourcePath, targetPath, newHash)
+}
+
 // applyPackageVersion backs up the current file (if exists), overwrites it with source, and updates state
 func (e *ConfigEngine) applyPackageVersion(packageName, sourcePath, targetPath, newHash string) error {
 	if _, err := e.BackupMgr.Backup(targetPath); err != nil {

@@ -214,3 +214,43 @@ func TestEngine_DecisionMatrix(t *testing.T) {
 		assert.Greater(t, len(matches), 0, "Backup should be created on overwrite conflict")
 	})
 }
+
+func TestEngine_Reset(t *testing.T) {
+	t.Run("ResetMissingTarget", func(t *testing.T) {
+		eng, tmpDir, _ := setupEngineTest(t)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
+
+		src := filepath.Join(tmpDir, "pkg.conf")
+		target := filepath.Join(tmpDir, "user.conf")
+
+		require.NoError(t, os.WriteFile(src, []byte("pkg content"), util.FilePermissions))
+
+		err := eng.Reset("testpkg", src, target)
+		require.NoError(t, err)
+
+		content, readErr := os.ReadFile(target)
+		require.NoError(t, readErr)
+		assert.Equal(t, "pkg content", string(content))
+	})
+
+	t.Run("ResetOverwritesAndBackups", func(t *testing.T) {
+		eng, tmpDir, _ := setupEngineTest(t)
+		defer func() { _ = os.RemoveAll(tmpDir) }()
+
+		src := filepath.Join(tmpDir, "pkg.conf")
+		target := filepath.Join(tmpDir, "user.conf")
+
+		require.NoError(t, os.WriteFile(src, []byte("pkg content"), util.FilePermissions))
+		require.NoError(t, os.WriteFile(target, []byte("user content"), util.FilePermissions))
+
+		err := eng.Reset("testpkg", src, target)
+		require.NoError(t, err)
+
+		content, readErr := os.ReadFile(target)
+		require.NoError(t, readErr)
+		assert.Equal(t, "pkg content", string(content))
+
+		matches, _ := filepath.Glob(target + ".*.bak")
+		assert.Greater(t, len(matches), 0, "Reset should create a backup")
+	})
+}
