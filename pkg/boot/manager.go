@@ -123,6 +123,38 @@ func (m *Manager) SetDefault(kernel string) error {
 	return fmt.Errorf("no supported bootloader management tool found (bootctl/grub-set-default)")
 }
 
+// SetOneshot sets the next boot to use a specific kernel once.
+func (m *Manager) SetOneshot(kernel string) error {
+	// Validate kernel is installed
+	if !m.core.IsInstalled(kernel) {
+		return fmt.Errorf("kernel %s is not installed", kernel)
+	}
+
+	// Check for systemd-boot
+	if _, err := m.exec.LookPath("bootctl"); err == nil {
+		out, err := m.exec.CombinedOutput("bootctl", "set-oneshot", kernel+".conf")
+		if err != nil {
+			return fmt.Errorf("bootctl failed (entry '%s.conf' might not exist): %w\nOutput: %s", kernel, err, string(out))
+		}
+		return nil
+	}
+
+	// GRUB oneshot (grub-reboot)
+	if _, err := m.exec.LookPath("grub-reboot"); err == nil {
+		entry, err := m.findGrubEntry(kernel)
+		if err != nil {
+			return err
+		}
+		out, err := m.exec.CombinedOutput("grub-reboot", entry)
+		if err != nil {
+			return fmt.Errorf("grub-reboot failed: %w\nOutput: %s", err, string(out))
+		}
+		return nil
+	}
+
+	return fmt.Errorf("no supported bootloader management tool found (bootctl/grub-reboot)")
+}
+
 func (m *Manager) currentKernel() string {
 	if m.exec == nil {
 		return ""
