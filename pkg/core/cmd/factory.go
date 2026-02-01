@@ -36,6 +36,12 @@ func NewEngineWithConfig(cfg *config.Config) (*core.Engine, error) {
 	if snapMgr, err := snapFactory.GetManager(); err == nil {
 		e.SetSnapshotManager(snapMgr)
 	}
+	if scheduler, err := snapFactory.GetScheduler(); err == nil {
+		e.SetScheduler(scheduler)
+	}
+	if keyMgr, err := snapFactory.GetKeyManager(); err == nil {
+		e.SetKeyManager(keyMgr)
+	}
 
 	return e, nil
 }

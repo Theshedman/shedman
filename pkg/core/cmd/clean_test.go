@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 
+	"github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -12,38 +14,35 @@ func TestRunClean(t *testing.T) {
 	mock := &MockBackend{}
 	eng := core.NewEngineWithBackend(mock)
 
+	cfg := config.Default()
+
 	tests := []struct {
 		name      string
-		all       bool
-		keep      int
+		opts      CleanOptions
 		mockError error
 		wantError bool
 	}{
 		{
-			name:      "Clean Success (Standard)",
-			all:       false,
-			keep:      0,
+			name:      "Clean Success (Cache Default)",
+			opts:      CleanOptions{Cache: true},
 			mockError: nil,
 			wantError: false,
 		},
 		{
 			name:      "Clean Keep 2",
-			all:       false,
-			keep:      2,
+			opts:      CleanOptions{Cache: true, Keep: 2},
 			mockError: nil,
 			wantError: false,
 		},
 		{
 			name:      "Clean Error",
-			all:       false,
-			keep:      0,
+			opts:      CleanOptions{Cache: true},
 			mockError: fmt.Errorf("failed"),
 			wantError: true,
 		},
 		{
 			name:      "Clean All Success",
-			all:       true,
-			keep:      0,
+			opts:      CleanOptions{All: true},
 			mockError: nil,
 			wantError: false,
 		},
@@ -54,17 +53,17 @@ func TestRunClean(t *testing.T) {
 			// Mock behavior
 			cleaned := false
 			mock.CleanCacheFunc = func(opts core.CleanOptions) error {
-				if opts.All != tt.all {
-					t.Errorf("expected all=%v, got %v", tt.all, opts.All)
+				if opts.All != tt.opts.All {
+					t.Errorf("expected all=%v, got %v", tt.opts.All, opts.All)
 				}
-				if opts.Keep != tt.keep {
-					t.Errorf("expected keep=%v, got %v", tt.keep, opts.Keep)
+				if tt.opts.Keep > 0 && opts.Keep != tt.opts.Keep {
+					t.Errorf("expected keep=%v, got %v", tt.opts.Keep, opts.Keep)
 				}
 				cleaned = true
 				return tt.mockError
 			}
 
-			err := RunClean(eng, &bytes.Buffer{}, tt.all, tt.keep)
+			err := RunClean(context.Background(), eng, &bytes.Buffer{}, cfg, tt.opts)
 			if (err != nil) != tt.wantError {
 				t.Errorf("RunClean() error = %v, wantError %v", err, tt.wantError)
 			}

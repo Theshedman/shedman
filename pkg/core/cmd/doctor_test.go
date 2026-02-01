@@ -83,4 +83,27 @@ func TestRunDoctor(t *testing.T) {
 			t.Error("Expected Engine Init failure")
 		}
 	})
+
+	t.Run("OrphansAndConflictsWarning", func(t *testing.T) {
+		checks := DoctorChecks{
+			CheckConnection: func() bool { return true },
+			CheckDiskSpace:  func(path string) float64 { return 100.0 },
+			CheckServices:   func() []string { return nil },
+			CheckLockFile:   func() bool { return false },
+			CheckOrphans:    func() ([]string, error) { return []string{"pkg1"}, nil },
+			CheckDatabase:   func() error { return nil },
+			CheckConflicts:  func() ([]core.FileConflict, error) { return []core.FileConflict{{FilePath: "/etc/test"}}, nil },
+		}
+
+		var buf bytes.Buffer
+		RunDoctor(mockEng, &buf, checks, mocks, false)
+
+		output := buf.String()
+		if !strings.Contains(output, "WARNING (Orphan Packages)") {
+			t.Error("Expected orphan warning output")
+		}
+		if !strings.Contains(output, "WARNING (File Conflicts)") {
+			t.Error("Expected file conflict warning output")
+		}
+	})
 }

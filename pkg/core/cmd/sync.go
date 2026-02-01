@@ -80,6 +80,8 @@ By default, syncs all databases. Use flags to sync specific sources:
 			}
 		}
 
+		applySyncRefresh(backendList, syncRefresh || syncForce)
+
 		engine := core.NewEngine()
 		for _, b := range backendList {
 			engine.AddBackend(b)
@@ -109,6 +111,21 @@ func RunSync(eng *core.Engine, w io.Writer) error {
 	_, _ = fmt.Fprintln(w, "Synchronizing package databases...")
 
 	return eng.Sync()
+}
+
+type forceRefreshSetter interface {
+	SetForceRefresh(force bool)
+}
+
+func applySyncRefresh(backends []core.PackageBackend, refresh bool) {
+	if !refresh {
+		return
+	}
+	for _, backend := range backends {
+		if setter, ok := backend.(forceRefreshSetter); ok {
+			setter.SetForceRefresh(true)
+		}
+	}
 }
 
 func init() {

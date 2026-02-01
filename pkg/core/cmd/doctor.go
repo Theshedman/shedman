@@ -20,6 +20,9 @@ type DoctorChecks struct {
 	CheckDiskSpace  func(path string) float64
 	CheckServices   func() []string
 	CheckLockFile   func() bool
+	CheckOrphans    func() ([]string, error)
+	CheckDatabase   func() error
+	CheckConflicts  func() ([]core.FileConflict, error)
 }
 
 // Real checks
@@ -119,7 +122,58 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 		}
 	}
 
+	// Additional checks: orphans, database integrity, file conflicts
+	extraFailed := false
+	runCheck := func(name string, status core.DiagnoseStatus, msg string) {
+		switch status {
+		case core.DiagnoseStatusFail:
+			extraFailed = true
+			_, _ = fmt.Fprintf(w, "FAILED (%s): %s\n", name, msg)
+		case core.DiagnoseStatusWarn:
+			_, _ = fmt.Fprintf(w, "WARNING (%s): %s\n", name, msg)
+		default:
+			_, _ = fmt.Fprintf(w, "OK (%s)\n", name)
+		}
+	}
+
+	// Orphans
+	if eng != nil {
+		orphans, err := checkOrphans(eng, checks)
+		if err != nil {
+			runCheck("Orphan Packages", core.DiagnoseStatusFail, err.Error())
+		} else if len(orphans) > 0 {
+			runCheck("Orphan Packages", core.DiagnoseStatusWarn, fmt.Sprintf("%d packages", len(orphans)))
+		} else {
+			runCheck("Orphan Packages", core.DiagnoseStatusOk, "")
+		}
+	}
+
+	// Database integrity / missing deps
+	if eng != nil {
+		if err := checkDatabase(eng, checks); err != nil {
+			runCheck("Database Integrity", core.DiagnoseStatusFail, err.Error())
+		} else {
+			runCheck("Database Integrity", core.DiagnoseStatusOk, "")
+		}
+	}
+
+	// File conflicts
+	if eng != nil {
+		conflicts, err := checkConflicts(eng, checks)
+		if err != nil {
+			runCheck("File Conflicts", core.DiagnoseStatusFail, err.Error())
+		} else if len(conflicts) > 0 {
+			runCheck("File Conflicts", core.DiagnoseStatusWarn, fmt.Sprintf("%d conflicts", len(conflicts)))
+		} else {
+			runCheck("File Conflicts", core.DiagnoseStatusOk, "")
+		}
+	}
+
 	_, _ = fmt.Fprintln(w)
+
+	if extraFailed {
+		hasIssues = true
+	}
 
 	if hasIssues {
 		if fix {
@@ -130,6 +184,43 @@ func RunDoctor(eng *core.Engine, w io.Writer, checks DoctorChecks, repairs Docto
 	} else {
 		_, _ = fmt.Fprintln(w, "Your system looks verify healthy!")
 	}
+}
+
+func checkOrphans(eng *core.Engine, checks DoctorChecks) ([]string, error) {
+	if checks.CheckOrphans != nil {
+		return checks.CheckOrphans()
+	}
+	return eng.ListOrphans()
+}
+
+func checkDatabase(eng *core.Engine, checks DoctorChecks) error {
+	if checks.CheckDatabase != nil {
+		return checks.CheckDatabase()
+	}
+	return eng.CheckDatabase()
+}
+
+func checkConflicts(eng *core.Engine, checks DoctorChecks) ([]core.FileConflict, error) {
+	if checks.CheckConflicts != nil {
+		return checks.CheckConflicts()
+	}
+
+	backend := eng.GetOfficialBackend()
+	if backend == nil {
+		return nil, nil
+	}
+
+	packageFiles, err := core.GetInstalledPackageFilesWithBackend(backend)
+	if err != nil {
+		return nil, err
+	}
+
+	checker := core.NewFileConflictChecker()
+	for pkg, files := range packageFiles {
+		checker.RegisterPackageFiles(pkg, files)
+	}
+
+	return checker.CheckConflicts(), nil
 }
 
 func checkConnection() bool {

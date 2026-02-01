@@ -8,27 +8,64 @@ import (
 	"github.com/theshedman/shedman/pkg/core"
 )
 
-func TestRunSecurity(t *testing.T) {
+func TestRunSecurityCheck_FiltersSeverity(t *testing.T) {
 	mock := &MockBackend{}
 	eng := core.NewEngineWithBackend(mock)
 
 	mock.AuditFunc = func() ([]string, error) {
-		return []string{"vuln1", "vuln2"}, nil
+		return []string{
+			"openssl 1.1 (CVE-2023-1234) HIGH: tls issue",
+			"bash 5.1 (CVE-2020-1111) medium",
+		}, nil
 	}
 
 	var buf bytes.Buffer
-	err := RunSecurity(eng, &buf)
-	if err != nil {
-		t.Fatalf("RunSecurity failed: %v", err)
+	opts := SecurityOptions{Severity: "high"}
+	if err := RunSecurityCheck(eng, &buf, opts); err != nil {
+		t.Fatalf("RunSecurityCheck failed: %v", err)
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "vuln1") || !strings.Contains(out, "vuln2") {
-		t.Errorf("Expected vulnerabilities in output, got: %s", out)
+	if !strings.Contains(out, "openssl") {
+		t.Errorf("expected high severity package in output, got: %s", out)
+	}
+	if strings.Contains(out, "bash") {
+		t.Errorf("did not expect medium severity package in output, got: %s", out)
 	}
 }
 
-func TestRunSecurity_NoVulns(t *testing.T) {
+func TestRunSecurityFix_UpgradesPackages(t *testing.T) {
+	mock := &MockBackend{}
+	eng := core.NewEngineWithBackend(mock)
+
+	mock.AuditFunc = func() ([]string, error) {
+		return []string{
+			"openssl 1.1 (CVE-2023-1234) HIGH: tls issue",
+			"openssl 1.1 (CVE-2023-9999) HIGH: other issue",
+			"bash 5.1 (CVE-2020-1111) medium",
+		}, nil
+	}
+
+	upgradeCalled := false
+	mock.UpgradeFunc = func(pkgs []string, _ core.UpgradeOptions) error {
+		upgradeCalled = true
+		if len(pkgs) != 2 {
+			t.Fatalf("expected 2 packages to upgrade, got %v", pkgs)
+		}
+		return nil
+	}
+
+	var buf bytes.Buffer
+	if err := RunSecurityFix(eng, &buf, SecurityOptions{}, true); err != nil {
+		t.Fatalf("RunSecurityFix failed: %v", err)
+	}
+
+	if !upgradeCalled {
+		t.Error("expected upgrade to be called")
+	}
+}
+
+func TestRunSecurityCheck_NoVulns(t *testing.T) {
 	mock := &MockBackend{}
 	eng := core.NewEngineWithBackend(mock)
 
@@ -37,9 +74,8 @@ func TestRunSecurity_NoVulns(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := RunSecurity(eng, &buf)
-	if err != nil {
-		t.Fatalf("RunSecurity failed: %v", err)
+	if err := RunSecurityCheck(eng, &buf, SecurityOptions{}); err != nil {
+		t.Fatalf("RunSecurityCheck failed: %v", err)
 	}
 
 	out := buf.String()

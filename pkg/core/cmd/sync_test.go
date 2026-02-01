@@ -67,3 +67,41 @@ func TestRunSync(t *testing.T) {
 		t.Errorf("Expected output to contain 'Synchronizing package databases', got: %s", output)
 	}
 }
+
+type refreshBackend struct {
+	setCalled bool
+}
+
+func (r *refreshBackend) Name() string { return "refresh" }
+func (r *refreshBackend) Sync() error  { return nil }
+func (r *refreshBackend) SetForceRefresh(force bool) {
+	r.setCalled = force
+}
+
+type noRefreshBackend struct{}
+
+func (n *noRefreshBackend) Name() string { return "norefresh" }
+func (n *noRefreshBackend) Sync() error  { return nil }
+
+func TestApplySyncRefresh_SetsForceRefresh(t *testing.T) {
+	backend := &refreshBackend{}
+	applySyncRefresh([]core.PackageBackend{backend}, true)
+
+	if !backend.setCalled {
+		t.Error("expected SetForceRefresh to be called")
+	}
+}
+
+func TestApplySyncRefresh_SkipsWhenDisabled(t *testing.T) {
+	backend := &refreshBackend{}
+	applySyncRefresh([]core.PackageBackend{backend}, false)
+
+	if backend.setCalled {
+		t.Error("expected SetForceRefresh to be skipped when disabled")
+	}
+}
+
+func TestApplySyncRefresh_IgnoresMissingMethod(t *testing.T) {
+	backend := &noRefreshBackend{}
+	applySyncRefresh([]core.PackageBackend{backend}, true)
+}
