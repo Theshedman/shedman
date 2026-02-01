@@ -2,6 +2,8 @@ package log
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -69,5 +71,30 @@ func TestManager_ParsesDate(t *testing.T) {
 	expectedTime, _ := time.Parse("2006-01-02T15:04:05-0700", "2023-11-20T10:00:00+0000")
 	if !txs[0].Timestamp.Equal(expectedTime) {
 		t.Errorf("Timestamp mismatch. Got %v, want %v", txs[0].Timestamp, expectedTime)
+	}
+}
+
+func TestLogger_LogCreatesFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "logs", "shedman.log")
+
+	logger := New(logPath)
+	tx := Transaction{
+		Timestamp: time.Now(),
+		Action:    "installed",
+		Packages:  []string{"vim"},
+		Success:   true,
+	}
+
+	if err := logger.Log(tx); err != nil {
+		t.Fatalf("Log failed: %v", err)
+	}
+
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read log: %v", err)
+	}
+	if !strings.Contains(string(data), "installed vim") {
+		t.Errorf("expected log to contain package entry, got: %s", string(data))
 	}
 }

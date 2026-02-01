@@ -3,6 +3,7 @@ package log
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/theshedman/shedman/internal/util"
@@ -31,6 +32,9 @@ type Transaction struct {
 
 // Log logs a transaction to the log file in ALPM format
 func (l *Logger) Log(tx Transaction) error {
+	if err := os.MkdirAll(filepath.Dir(l.path), util.DirPermissions); err != nil {
+		return err
+	}
 	f, err := os.OpenFile(l.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, util.FilePermissions)
 	if err != nil {
 
