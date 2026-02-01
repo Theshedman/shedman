@@ -22,6 +22,7 @@ const (
 type Config struct {
 	BinaryPath string // Path to pacman binary (default: "pacman")
 	SudoPath   string // Path to sudo binary (default: "sudo")
+	ConfigPath string // Path to pacman.conf (default: "/etc/pacman.conf")
 }
 
 // DefaultConfig returns the default configuration
@@ -29,6 +30,7 @@ func DefaultConfig() Config {
 	return Config{
 		BinaryPath: DefaultPacmanPath,
 		SudoPath:   DefaultSudoPath,
+		ConfigPath: "/etc/pacman.conf",
 	}
 }
 
@@ -37,6 +39,7 @@ type Backend struct {
 	executor   CommandExecutor
 	binaryPath string
 	sudoPath   string
+	configPath string
 }
 
 // CommandExecutor allows mocking command execution in tests
@@ -91,11 +94,15 @@ func NewWithConfig(cfg Config) (*Backend, error) {
 	if cfg.SudoPath == "" {
 		cfg.SudoPath = DefaultSudoPath
 	}
+	if cfg.ConfigPath == "" {
+		cfg.ConfigPath = "/etc/pacman.conf"
+	}
 
 	b := &Backend{
 		executor:   &RealExecutor{},
 		binaryPath: cfg.BinaryPath,
 		sudoPath:   cfg.SudoPath,
+		configPath: cfg.ConfigPath,
 	}
 
 	if !b.IsAvailable() {
@@ -110,6 +117,7 @@ func NewWithExecutor(exec CommandExecutor) *Backend {
 		executor:   exec,
 		binaryPath: DefaultPacmanPath,
 		sudoPath:   DefaultSudoPath,
+		configPath: "/etc/pacman.conf",
 	}
 }
 
@@ -197,7 +205,15 @@ func (b *Backend) Upgrade(pkgs []string, opts core.UpgradeOptions) error {
 		args = append(args, pkgs...)
 	}
 
-	return b.executor.Run(b.sudoPath, append([]string{b.binaryPath}, args...)...)
+	finalArgs, cleanup, err := b.preparePacmanArgs(args, opts)
+	if err != nil {
+		return err
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	return b.executor.Run(b.sudoPath, append([]string{b.binaryPath}, finalArgs...)...)
 }
 
 // Sync refreshes package database

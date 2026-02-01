@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/theshedman/shedman/pkg/core"
@@ -351,5 +354,86 @@ func TestBackend_Upgrade_BuildsCorrectCommand(t *testing.T) {
 	}
 	if !found["-u"] {
 		t.Error("Expected -u flag for upgrade")
+	}
+}
+
+func TestPreparePacmanArgs_AddsDeltaRatio(t *testing.T) {
+	mock := &MockExecutor{}
+	b := NewWithExecutor(mock)
+
+	args, cleanup, err := b.preparePacmanArgs([]string{"-S", "-u"}, core.UpgradeOptions{Delta: true})
+	if err != nil {
+		t.Fatalf("preparePacmanArgs failed: %v", err)
+	}
+	if cleanup != nil {
+		cleanup()
+	}
+
+	found := map[string]bool{}
+	for _, arg := range args {
+		found[arg] = true
+	}
+	if !found["--deltaratio"] {
+		t.Error("expected --deltaratio flag when delta is enabled")
+	}
+}
+
+func TestPreparePacmanArgs_WritesXferCommandConfig(t *testing.T) {
+	mock := &MockExecutor{}
+	b := NewWithExecutor(mock)
+
+	tmpDir := t.TempDir()
+	baseConf := filepath.Join(tmpDir, "pacman.conf")
+	if err := os.WriteFile(baseConf, []byte("[options]\n"), 0600); err != nil {
+		t.Fatalf("write base config: %v", err)
+	}
+	b.configPath = baseConf
+
+	opts := core.UpgradeOptions{
+		LimitRate: "1M",
+		Retry:     3,
+		Timeout:   20,
+	}
+
+	args, cleanup, err := b.preparePacmanArgs([]string{"-S", "-u"}, opts)
+	if err != nil {
+		t.Fatalf("preparePacmanArgs failed: %v", err)
+	}
+	if cleanup == nil {
+		t.Fatal("expected cleanup function when config is generated")
+	}
+
+	configPath := ""
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "--config" {
+			configPath = args[i+1]
+			break
+		}
+	}
+	if configPath == "" {
+		t.Fatal("expected --config argument to be added")
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read generated config: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "XferCommand") {
+		t.Fatal("expected XferCommand to be written")
+	}
+	if !strings.Contains(content, "--limit-rate 1M") {
+		t.Errorf("expected limit rate in XferCommand, got: %s", content)
+	}
+	if !strings.Contains(content, "--retry 3") {
+		t.Errorf("expected retry in XferCommand, got: %s", content)
+	}
+	if !strings.Contains(content, "--connect-timeout 20") {
+		t.Errorf("expected timeout in XferCommand, got: %s", content)
+	}
+
+	cleanup()
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+		t.Errorf("expected generated config to be removed")
 	}
 }
