@@ -22,9 +22,17 @@ func NewRetryClient(mirrors []string, timeout time.Duration) *RetryClient {
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
+	return NewRetryClientWithClient(mirrors, &http.Client{Timeout: timeout})
+}
+
+// NewRetryClientWithClient creates a RetryClient using a custom http.Client.
+func NewRetryClientWithClient(mirrors []string, client *http.Client) *RetryClient {
+	if client == nil {
+		client = &http.Client{Timeout: DefaultTimeout}
+	}
 	return &RetryClient{
 		mirrors: mirrors,
-		client:  &http.Client{Timeout: timeout},
+		client:  client,
 	}
 }
 

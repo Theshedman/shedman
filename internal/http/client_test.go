@@ -1,28 +1,36 @@
 package http_test
 
 import (
+	"io"
 	"net/http"
-	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
 	shedhttp "github.com/theshedman/shedman/internal/http"
 )
 
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
 func TestRetryClient_UsesFirstMirror_WhenSucceeds(t *testing.T) {
 	var callCount int32
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 		atomic.AddInt32(&callCount, 1)
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("success"))
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("success")),
+			Header:     make(http.Header),
+		}, nil
+	})}
 
-	}))
-	defer server.Close()
+	rc := shedhttp.NewRetryClientWithClient([]string{"http://mirror1"}, client)
 
-	client := shedhttp.NewRetryClient([]string{server.URL}, 0)
-
-	resp, err := client.Get("/test")
+	resp, err := rc.Get("/test")
 	if err != nil {
 		t.Fatalf("Expected success, got error: %v", err)
 	}
@@ -40,25 +48,34 @@ func TestRetryClient_UsesFirstMirror_WhenSucceeds(t *testing.T) {
 func TestRetryClient_FailsOver_WhenFirstFails(t *testing.T) {
 	var firstCalls, secondCalls int32
 
-	// First server always fails
-	first := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddInt32(&firstCalls, 1)
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer first.Close()
+	client := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Host {
+		case "mirror1":
+			atomic.AddInt32(&firstCalls, 1)
+			return &http.Response{
+				StatusCode: http.StatusInternalServerError,
+				Body:       io.NopCloser(strings.NewReader("fail")),
+				Header:     make(http.Header),
+			}, nil
+		case "mirror2":
+			atomic.AddInt32(&secondCalls, 1)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("success from second")),
+				Header:     make(http.Header),
+			}, nil
+		default:
+			return &http.Response{
+				StatusCode: http.StatusInternalServerError,
+				Body:       io.NopCloser(strings.NewReader("unknown")),
+				Header:     make(http.Header),
+			}, nil
+		}
+	})}
 
-	// Second server succeeds
-	second := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddInt32(&secondCalls, 1)
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("success from second"))
+	rc := shedhttp.NewRetryClientWithClient([]string{"http://mirror1", "http://mirror2"}, client)
 
-	}))
-	defer second.Close()
-
-	client := shedhttp.NewRetryClient([]string{first.URL, second.URL}, 0)
-
-	resp, err := client.Get("/test")
+	resp, err := rc.Get("/test")
 	if err != nil {
 		t.Fatalf("Expected success from failover, got error: %v", err)
 	}
@@ -73,28 +90,26 @@ func TestRetryClient_FailsOver_WhenFirstFails(t *testing.T) {
 }
 
 func TestRetryClient_ReturnsError_WhenAllFail(t *testing.T) {
-	first := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer first.Close()
+	client := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(strings.NewReader("fail")),
+			Header:     make(http.Header),
+		}, nil
+	})}
 
-	second := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer second.Close()
+	rc := shedhttp.NewRetryClientWithClient([]string{"http://mirror1", "http://mirror2"}, client)
 
-	client := shedhttp.NewRetryClient([]string{first.URL, second.URL}, 0)
-
-	_, err := client.Get("/test")
+	_, err := rc.Get("/test")
 	if err == nil {
 		t.Error("Expected error when all mirrors fail")
 	}
 }
 
 func TestRetryClient_ReturnsError_WhenNoMirrors(t *testing.T) {
-	client := shedhttp.NewRetryClient(nil, 0)
+	rc := shedhttp.NewRetryClientWithClient(nil, &http.Client{})
 
-	_, err := client.Get("/test")
+	_, err := rc.Get("/test")
 	if err == nil {
 		t.Error("Expected error when no mirrors are configured")
 	}
