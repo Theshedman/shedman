@@ -28,6 +28,37 @@ var SnapshotListCmd = &cobra.Command{
 		}
 
 		opts := snapshot.ListOptions{}
+		if snapshotListRemote {
+			cfg := engine.GetConfig()
+			if cfg == nil {
+				return fmt.Errorf("snapshot config not available")
+			}
+
+			targetName := cfg.Snapshot.DefaultRemote
+			if targetName == "" {
+				if len(cfg.Snapshot.Remotes) == 1 {
+					for k := range cfg.Snapshot.Remotes {
+						targetName = k
+						break
+					}
+				} else {
+					return fmt.Errorf("no remote specified and no default_remote configured")
+				}
+			}
+
+			remote := cfg.Snapshot.Remotes[targetName]
+			target := snapshot.RemoteTarget{
+				Name: targetName,
+				Type: remote.Type,
+				Path: remote.Path,
+			}
+			if target.Path == "" {
+				target.Path = targetName + ":"
+			}
+
+			opts.Remote = true
+			opts.Target = &target
+		}
 
 		return RunSnapshotList(cmd.Context(), engine, opts, cmd.OutOrStdout())
 	},

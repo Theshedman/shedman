@@ -202,9 +202,13 @@ func init() {
 	SnapshotRemoteCmd.AddCommand(SnapshotRemoteTestCmd)
 
 	SnapshotRemotePushCmd.Flags().BoolVar(&snapshotRemoteDelete, "delete", false, "Delete extraneous files on destination")
+	SnapshotRemotePushCmd.Flags().BoolVar(&snapshotRemoteCompress, "compress", false, "Enable compression during transfer")
+	SnapshotRemotePushCmd.Flags().BoolVar(&snapshotRemoteEncrypt, "encrypt", false, "Require encrypted (restic) transfer")
 	SnapshotRemotePushCmd.Flags().IntVar(&snapshotRemoteBandwidth, "bwlimit", 0, "Bandwidth limit in KB/s")
 
 	SnapshotRemotePullCmd.Flags().BoolVar(&snapshotRemoteDelete, "delete", false, "Delete extraneous files on local (cautious usage)")
+	SnapshotRemotePullCmd.Flags().BoolVar(&snapshotRemoteCompress, "compress", false, "Enable compression during transfer")
+	SnapshotRemotePullCmd.Flags().BoolVar(&snapshotRemoteDecrypt, "decrypt", false, "Require encrypted (restic) transfer")
 	SnapshotRemotePullCmd.Flags().IntVar(&snapshotRemoteBandwidth, "bwlimit", 0, "Bandwidth limit in KB/s")
 }
 
@@ -212,6 +216,8 @@ var (
 	snapshotRemoteCompress  bool
 	snapshotRemoteDelete    bool
 	snapshotRemoteBandwidth int
+	snapshotRemoteEncrypt   bool
+	snapshotRemoteDecrypt   bool
 )
 
 func RunSnapshotRemoteAdd(engine *core.Engine, name string, w io.Writer) error {
@@ -403,6 +409,13 @@ func RunSnapshotRemotePush(ctx context.Context, engine *core.Engine, id string, 
 		return fmt.Errorf("snapshot manager not available")
 	}
 
+	if snapshotRemoteEncrypt {
+		cfg := engine.GetConfig()
+		if cfg == nil || cfg.Snapshot.RemoteStrategy != snapshot.StrategyRestic {
+			return fmt.Errorf("encryption requires snapshot.remote_strategy=restic")
+		}
+	}
+
 	// Lookup config
 	if cfg := engine.GetConfig(); cfg != nil {
 		if r, ok := cfg.Snapshot.Remotes[target.Name]; ok {
@@ -432,6 +445,13 @@ func RunSnapshotRemotePull(ctx context.Context, engine *core.Engine, id string, 
 	mgr := engine.GetSnapshotManager()
 	if mgr == nil {
 		return fmt.Errorf("snapshot manager not available")
+	}
+
+	if snapshotRemoteDecrypt {
+		cfg := engine.GetConfig()
+		if cfg == nil || cfg.Snapshot.RemoteStrategy != snapshot.StrategyRestic {
+			return fmt.Errorf("decryption requires snapshot.remote_strategy=restic")
+		}
 	}
 
 	// Lookup config

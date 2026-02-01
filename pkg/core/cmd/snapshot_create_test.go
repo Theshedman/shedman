@@ -17,6 +17,7 @@ type MockSnapshotManager struct {
 	RestoreFunc        func(id string, opts snapshot.RestoreOptions) error
 	DeleteFunc         func(id string) error
 	DiffFunc           func(id1, id2 string) (snapshot.DiffResult, error)
+	PruneFunc          func(opts snapshot.PruneOptions) error
 	GetBackendNameFunc func() string
 }
 
@@ -55,6 +56,9 @@ func (m *MockSnapshotManager) Restore(ctx context.Context, id string, opts snaps
 }
 
 func (m *MockSnapshotManager) Prune(ctx context.Context, opts snapshot.PruneOptions) error {
+	if m.PruneFunc != nil {
+		return m.PruneFunc(opts)
+	}
 	return nil
 }
 func (m *MockSnapshotManager) Push(ctx context.Context, id string, target snapshot.RemoteTarget, opts snapshot.RemoteOptions) error {
@@ -87,14 +91,14 @@ func TestSnapshotCreateCmd(t *testing.T) {
 
 	// Verify
 	output := buf.String()
-	if !contains(output, "Snapshot created successfully") {
+	if !containsString(output, "Snapshot created successfully") {
 		t.Errorf("Expected success message, got: %s", output)
 	}
-	if !contains(output, "ID: test-snap-1") {
+	if !containsString(output, "ID: test-snap-1") {
 		t.Errorf("Expected ID, got: %s", output)
 	}
 }
 
-func contains(s, substr string) bool {
+func containsString(s, substr string) bool {
 	return strings.Contains(s, substr)
 }

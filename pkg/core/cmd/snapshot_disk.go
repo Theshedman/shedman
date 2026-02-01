@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/disk"
+	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/pkg/executor"
 	"github.com/theshedman/shedman/pkg/snapshot"
@@ -66,16 +67,31 @@ func init() {
 	SnapshotDiskCmd.AddCommand(SnapshotDiskSaveCmd)
 	SnapshotDiskCmd.AddCommand(SnapshotDiskRestoreCmd)
 	SnapshotDiskCmd.AddCommand(SnapshotDiskListCmd)
-	// Add format flag to save? "shedman snapshot disk save ... --format"
+
+	SnapshotDiskSaveCmd.Flags().BoolVar(&snapshotDiskFormat, "format", false, "Format target as ext4 first")
+	SnapshotDiskSaveCmd.Flags().BoolVar(&snapshotDiskCompress, "compress", false, "Enable compression during transfer")
+	SnapshotDiskSaveCmd.Flags().BoolVar(&snapshotDiskVerify, "verify", false, "Verify after write")
 }
 
+var (
+	snapshotDiskFormat   bool
+	snapshotDiskCompress bool
+	snapshotDiskVerify   bool
+)
+
 // resolveDiskTarget handles mounting if necessary
-func resolveDiskTarget(target string) (string, func(), error) {
+func resolveDiskTarget(target string, format bool) (string, func(), error) {
 	cleanup := func() {}
 
 	// If it's a block device
 	if strings.HasPrefix(target, "/dev/") {
 		diskMgr := disk.NewManager(&executor.RealExecutor{})
+
+		if format {
+			if err := diskMgr.FormatExt4(target); err != nil {
+				return "", cleanup, fmt.Errorf("failed to format device: %w", err)
+			}
+		}
 
 		if err := diskMgr.CheckSafeguards(target); err != nil {
 			return "", cleanup, fmt.Errorf("safety check failed for %s: %w", target, err)
@@ -118,7 +134,7 @@ func resolveDiskTarget(target string) (string, func(), error) {
 }
 
 func RunSnapshotDiskSave(ctx context.Context, engine *core.Engine, id string, targetDevice string, w io.Writer) error {
-	repoPath, cleanup, err := resolveDiskTarget(targetDevice)
+	repoPath, cleanup, err := resolveDiskTarget(targetDevice, snapshotDiskFormat)
 	if err != nil {
 		return err
 	}
@@ -133,13 +149,13 @@ func RunSnapshotDiskSave(ctx context.Context, engine *core.Engine, id string, ta
 
 	// Ensure repository is initialized
 	configPath := filepath.Join(repoPath, "config")
+	diskPwd := os.Getenv("RESTIC_PASSWORD")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		_, _ = fmt.Fprintln(w, "Repository not initialized. Initializing...")
 
 		// Initialize new restic repository for local disk
 		// We need to establish a password here which will be used by the Push operation later.
 
-		diskPwd := os.Getenv("RESTIC_PASSWORD")
 		if diskPwd == "" {
 			fmt.Println("Initializing new disk repository.")
 			fmt.Print("Enter password (leave empty for 'shedman'): ")
@@ -168,11 +184,26 @@ func RunSnapshotDiskSave(ctx context.Context, engine *core.Engine, id string, ta
 	}
 
 	opts := snapshot.RemoteOptions{
-		// Defaults?
+		Compress: snapshotDiskCompress,
 	}
 
 	if err := mgr.Push(ctx, id, target, opts); err != nil {
 		return err
+	}
+
+	if snapshotDiskVerify {
+		cfg := engine.GetConfig()
+		if cfg != nil && cfg.Snapshot.RemoteStrategy == snapshot.StrategyRestic {
+			if diskPwd == "" {
+				diskPwd = util.GetEnvOrPrompt("RESTIC_PASSWORD", "Enter Restic Repository Password: ")
+			}
+			resticMgr := restic.NewManager(&executor.RealExecutor{}, diskPwd)
+			if err := resticMgr.Check(ctx, repoPath, w); err != nil {
+				return fmt.Errorf("verification failed: %w", err)
+			}
+		} else {
+			_, _ = fmt.Fprintln(w, "Verification not supported for current remote strategy.")
+		}
 	}
 
 	_, _ = fmt.Fprintln(w, "Snapshot saved successfully.")
@@ -180,7 +211,7 @@ func RunSnapshotDiskSave(ctx context.Context, engine *core.Engine, id string, ta
 }
 
 func RunSnapshotDiskRestore(ctx context.Context, engine *core.Engine, targetDevice string, id string, w io.Writer) error {
-	repoPath, cleanup, err := resolveDiskTarget(targetDevice)
+	repoPath, cleanup, err := resolveDiskTarget(targetDevice, false)
 	if err != nil {
 		return err
 	}
@@ -210,7 +241,7 @@ func RunSnapshotDiskRestore(ctx context.Context, engine *core.Engine, targetDevi
 }
 
 func RunSnapshotDiskList(ctx context.Context, engine *core.Engine, targetDevice string, w io.Writer) error {
-	repoPath, cleanup, err := resolveDiskTarget(targetDevice)
+	repoPath, cleanup, err := resolveDiskTarget(targetDevice, false)
 	if err != nil {
 		return err
 	}

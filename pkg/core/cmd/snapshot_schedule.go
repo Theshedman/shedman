@@ -50,10 +50,23 @@ var SnapshotScheduleStatusCmd = &cobra.Command{
 	},
 }
 
+var SnapshotScheduleRunCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run scheduled snapshot now",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		engine, err := NewEngineWithConfig(nil)
+		if err != nil {
+			return err
+		}
+		return RunSnapshotScheduleRun(engine, cmd.OutOrStdout())
+	},
+}
+
 func init() {
 	SnapshotScheduleCmd.AddCommand(SnapshotScheduleEnableCmd)
 	SnapshotScheduleCmd.AddCommand(SnapshotScheduleDisableCmd)
 	SnapshotScheduleCmd.AddCommand(SnapshotScheduleStatusCmd)
+	SnapshotScheduleCmd.AddCommand(SnapshotScheduleRunCmd)
 }
 
 func RunSnapshotScheduleEnable(engine *core.Engine, w io.Writer) error {
@@ -97,5 +110,17 @@ func RunSnapshotScheduleStatus(engine *core.Engine, w io.Writer) error {
 	}
 	_, _ = fmt.Fprintf(w, "Scheduler Status: %s\n", state)
 
+	return nil
+}
+
+func RunSnapshotScheduleRun(engine *core.Engine, w io.Writer) error {
+	sch := engine.GetScheduler()
+	if sch == nil {
+		return fmt.Errorf("scheduler not available")
+	}
+	if err := sch.RunNow(); err != nil {
+		return fmt.Errorf("failed to run scheduler: %w", err)
+	}
+	_, _ = fmt.Fprintln(w, "Snapshot scheduling triggered.")
 	return nil
 }
