@@ -1,12 +1,20 @@
 package shedrepo
 
 import (
+	"io"
 	"net/http"
-	"net/http/httptest"
+	"strings"
 	"testing"
 
+	shedhttp "github.com/theshedman/shedman/internal/http"
 	"github.com/theshedman/shedman/pkg/core"
 )
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func TestShedRepoBackend_Name(t *testing.T) {
 	c := core.NewFileSystemCacheWithDir(t.TempDir())
@@ -44,15 +52,17 @@ func TestShedRepoBackend_Sync_CacheHit(t *testing.T) {
 }
 
 func TestShedRepoBackend_Sync_WithServer(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("test data"))
-
-	}))
-	defer server.Close()
+	client := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("test data")),
+			Header:     make(http.Header),
+		}, nil
+	})}
 
 	c := core.NewFileSystemCacheWithDir(t.TempDir())
-	b := NewWithURL(server.URL, c, 0)
+	b := NewWithURL("http://mirror1", c, 0)
+	b.client = shedhttp.NewRetryClientWithClient([]string{"http://mirror1"}, client)
 	b.SetForceRefresh(true) // Force download
 
 	err := b.Sync()

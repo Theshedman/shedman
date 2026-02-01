@@ -1,13 +1,21 @@
 package aur
 
 import (
+	"io"
 	"net/http"
-	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/theshedman/shedman/pkg/core"
 )
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func TestAURBackend_Name(t *testing.T) {
 	c := core.NewPackageFileCache(24 * time.Hour)
@@ -18,15 +26,21 @@ func TestAURBackend_Name(t *testing.T) {
 }
 
 func TestAURBackend_Sync_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"version":5,"type":"multiinfo","resultcount":1,"results":[]}`))
+	origPath := os.Getenv("PATH")
+	_ = os.Setenv("PATH", "/nonexistent")
+	t.Cleanup(func() { _ = os.Setenv("PATH", origPath) })
 
-	}))
-	defer server.Close()
+	client := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"version":5,"type":"multiinfo","resultcount":1,"results":[]}`)),
+			Header:     make(http.Header),
+		}, nil
+	})}
 
 	c := core.NewPackageFileCache(24 * time.Hour)
-	b := NewWithURL(server.URL+"/", c)
+	b := NewWithURL("http://aur.test/rpc/", c)
+	b.client = client
 	err := b.Sync()
 	if err != nil {
 		t.Errorf("Sync failed: %v", err)
@@ -34,13 +48,21 @@ func TestAURBackend_Sync_Success(t *testing.T) {
 }
 
 func TestAURBackend_Sync_Failure(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
+	origPath := os.Getenv("PATH")
+	_ = os.Setenv("PATH", "/nonexistent")
+	t.Cleanup(func() { _ = os.Setenv("PATH", origPath) })
+
+	client := &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(strings.NewReader("fail")),
+			Header:     make(http.Header),
+		}, nil
+	})}
 
 	c := core.NewPackageFileCache(24 * time.Hour)
-	b := NewWithURL(server.URL+"/", c)
+	b := NewWithURL("http://aur.test/rpc/", c)
+	b.client = client
 	err := b.Sync()
 	if err == nil {
 		t.Error("Expected error for 500 response")
