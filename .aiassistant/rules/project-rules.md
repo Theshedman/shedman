@@ -14,3 +14,4 @@ apply: always
 8. Don't overwrite any file, only update but never overwrite. (I REPEAT, DON't OVERWRITE FILES).
 9. NO MONOLOGUE COMMENTS IN THE CODEBASE. I REPEAT, NO MONOLOGUE COMMENTS IN THE CODEBASE. I STRICTLY PROHIBIT IT AT ALL COSTS.
 10. Follow DRY (Don't Repeat Yourself) principles and make sure that you always write clean code.
+11. Sign all commits when you are approved to commit changes.
