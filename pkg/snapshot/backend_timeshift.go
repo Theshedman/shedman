@@ -191,6 +191,9 @@ func (b *TimeshiftBackend) Push(ctx context.Context, id string, target RemoteTar
 	if opts.Delete {
 		args = append(args, "--delete")
 	}
+	if opts.Compress {
+		args = append(args, "--compress")
+	}
 	if opts.Bandwidth > 0 {
 		args = append(args, "--bwlimit", fmt.Sprintf("%dk", opts.Bandwidth))
 	}
@@ -232,6 +235,9 @@ func (b *TimeshiftBackend) Pull(ctx context.Context, id string, source RemoteTar
 
 	if opts.Delete {
 		args = append(args, "--delete")
+	}
+	if opts.Compress {
+		args = append(args, "--compress")
 	}
 	if opts.Bandwidth > 0 {
 		args = append(args, "--bwlimit", fmt.Sprintf("%dk", opts.Bandwidth))

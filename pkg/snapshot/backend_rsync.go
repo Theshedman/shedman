@@ -240,6 +240,9 @@ func (b *RsyncBackend) Push(ctx context.Context, id string, target RemoteTarget,
 	if opts.Bandwidth > 0 {
 		args = append(args, fmt.Sprintf("--bwlimit=%dK", opts.Bandwidth))
 	}
+	if opts.Compress {
+		args = append(args, "--compress")
+	}
 
 	args = append(args, snapPath, dest)
 
@@ -268,6 +271,9 @@ func (b *RsyncBackend) Pull(ctx context.Context, id string, source RemoteTarget,
 	args := []string{"sync", "-P"}
 	if opts.Bandwidth > 0 {
 		args = append(args, fmt.Sprintf("--bwlimit=%dK", opts.Bandwidth))
+	}
+	if opts.Compress {
+		args = append(args, "--compress")
 	}
 
 	args = append(args, src, snapPath)

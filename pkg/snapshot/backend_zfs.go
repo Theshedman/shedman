@@ -1015,6 +1015,9 @@ func (b *ZFSBackend) sendViaRclone(ctx context.Context, snapName, dataset, targe
 	if opts.Bandwidth > 0 {
 		args = append(args, fmt.Sprintf("--bwlimit=%dK", opts.Bandwidth))
 	}
+	if opts.Compress {
+		args = append(args, "--compress")
+	}
 	cmdArgs := util.GetPrivilegedRcloneCommand(args)
 	out, err := b.exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...).CombinedOutput()
 	if err != nil {
@@ -1056,6 +1059,9 @@ func (b *ZFSBackend) receiveViaRclone(ctx context.Context, sourcePath, dataset, 
 	args := []string{"copy", src, tmpPath}
 	if opts.Bandwidth > 0 {
 		args = append(args, fmt.Sprintf("--bwlimit=%dK", opts.Bandwidth))
+	}
+	if opts.Compress {
+		args = append(args, "--compress")
 	}
 	cmdArgs := util.GetPrivilegedRcloneCommand(args)
 	out, err := b.exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...).CombinedOutput()

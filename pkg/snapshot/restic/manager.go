@@ -137,6 +137,30 @@ func (m *Manager) Restore(ctx context.Context, remote, snapshotID, target string
 	return nil
 }
 
+// Check verifies the integrity of a repository.
+func (m *Manager) Check(ctx context.Context, remote string, w io.Writer) error {
+	repo := m.resolveRepo(remote)
+	args := []string{"-r", repo, "check"}
+
+	cmd, cleanup, err := m.prepareCommand(ctx, "restic", args, true)
+	if err != nil {
+		return err
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	if w != nil {
+		cmd.Stdout = w
+		cmd.Stderr = w
+	}
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("restic check failed: %w", err)
+	}
+	return nil
+}
+
 // List lists snapshots
 func (m *Manager) List(ctx context.Context, remote string) ([]Snapshot, error) {
 	repo := m.resolveRepo(remote)

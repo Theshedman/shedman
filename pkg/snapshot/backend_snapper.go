@@ -448,6 +448,9 @@ func (b *SnapperBackend) Push(ctx context.Context, id string, target RemoteTarge
 		if opts.Delete {
 			args = append(args, "--delete")
 		}
+		if opts.Compress {
+			args = append(args, "--compress")
+		}
 		if opts.Bandwidth > 0 {
 			args = append(args, "--bwlimit", fmt.Sprintf("%dk", opts.Bandwidth))
 		}
@@ -513,6 +516,9 @@ func (b *SnapperBackend) Pull(ctx context.Context, id string, source RemoteTarge
 
 	if opts.Delete {
 		args = append(args, "--delete")
+	}
+	if opts.Compress {
+		args = append(args, "--compress")
 	}
 	if opts.Bandwidth > 0 {
 		args = append(args, "--bwlimit", fmt.Sprintf("%dk", opts.Bandwidth))
