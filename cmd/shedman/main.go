@@ -24,6 +24,8 @@ var (
 	colorFlag     bool
 	noColorFlag   bool
 	configFile    string
+	apiFlag       bool
+	apiAddrFlag   string
 )
 
 var rootCmd = &cobra.Command{
@@ -51,11 +53,25 @@ var rootCmd = &cobra.Command{
 		} else {
 			_, _ = config.Load(configFile)
 		}
+
+		if apiFlag {
+			eng, err := commands.NewEngineWithConfig(nil)
+			if err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			if err := commands.RunAPI(eng, apiAddrFlag); err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
 	},
 }
 
 // Execute runs the root command
 func Execute() {
+	rootCmd.SetArgs(rewritePacmanArgs(os.Args[1:]))
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 
@@ -94,11 +110,21 @@ func init() {
 	rootCmd.AddCommand(commands.DownloadCmd)
 	rootCmd.AddCommand(commands.ExportCmd)
 	rootCmd.AddCommand(commands.ImportCmd)
+	rootCmd.AddCommand(commands.LogCmd)
 	rootCmd.AddCommand(commands.SecurityCmd)
+	rootCmd.AddCommand(commands.BootCmd)
+	rootCmd.AddCommand(commands.ThemeCmd)
 	rootCmd.AddCommand(commands.SnapshotCmd)
 	rootCmd.AddCommand(commands.DeCmd)
 	rootCmd.AddCommand(commands.SvcCmd)
+	rootCmd.AddCommand(commands.MirrorCmd)
+	rootCmd.AddCommand(commands.NotifierCmd)
 	rootCmd.AddCommand(commands.TUICmd)
+	rootCmd.AddCommand(commands.CompletionCmd)
+	rootCmd.AddCommand(commands.HoldCmd)
+	rootCmd.AddCommand(commands.UnholdCmd)
+	rootCmd.AddCommand(commands.MigrateCmd)
+	rootCmd.AddCommand(commands.ApiCmd)
 	rootCmd.AddCommand(configcmd.ConfigCmd)
 
 	// Global flags
@@ -111,6 +137,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&colorFlag, "color", false, "Force colored output")
 	rootCmd.PersistentFlags().BoolVar(&noColorFlag, "no-color", false, "Disable colors")
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Custom config file path")
+	rootCmd.PersistentFlags().BoolVar(&apiFlag, "api", false, "Start API server mode")
+	rootCmd.PersistentFlags().StringVar(&apiAddrFlag, "api-addr", "127.0.0.1:7337", "API listen address")
 }
 
 func main() {
