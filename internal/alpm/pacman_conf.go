@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/theshedman/shedman/internal/util"
@@ -23,6 +24,7 @@ type PacmanConf struct {
 	IgnoreGroup  []string
 	Architecture string
 	SigLevel     string
+	ParallelDownloads int
 	Repositories []RepoConfig
 }
 
@@ -109,6 +111,10 @@ func ParsePacmanConf(path string) (*PacmanConf, error) {
 				conf.Architecture = value
 			case "SigLevel":
 				conf.SigLevel = value
+			case "ParallelDownloads":
+				if parsed, err := strconv.Atoi(value); err == nil {
+					conf.ParallelDownloads = parsed
+				}
 			}
 		} else {
 			idx := len(conf.Repositories) - 1

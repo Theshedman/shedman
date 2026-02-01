@@ -30,6 +30,7 @@ HoldPkg     = pacman glibc
 IgnorePkg   = linux linux-headers
 Architecture = auto
 SigLevel    = Required DatabaseOptional
+ParallelDownloads = 4
 
 [core]
 Server = https://mirror.example.com/$repo/os/$arch
@@ -61,6 +62,9 @@ Server = https://mirror.example.com/$repo/os/$arch
 	}
 	if len(conf.IgnorePkg) != 2 {
 		t.Errorf("IgnorePkg count = %d, want 2", len(conf.IgnorePkg))
+	}
+	if conf.ParallelDownloads != 4 {
+		t.Errorf("ParallelDownloads = %d, want 4", conf.ParallelDownloads)
 	}
 
 	// Test repositories
