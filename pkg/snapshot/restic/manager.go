@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/executor"
 )
 
@@ -222,15 +223,22 @@ func (m *Manager) FindByTags(ctx context.Context, remote string, tags []string) 
 	return matches, nil
 }
 
-// Helper to determine current user
-func getCurrentUser() string {
+// getCurrentUser returns the current user, preferring SUDO_USER if set.
+// Returns an error if the username fails validation (security check against injection).
+func getCurrentUser() (string, error) {
 	if u := os.Getenv("SUDO_USER"); u != "" {
-		return u
+		if err := util.ValidateUsername(u); err != nil {
+			return "", fmt.Errorf("invalid SUDO_USER: %w", err)
+		}
+		return u, nil
 	}
 	if u := os.Getenv("USER"); u != "" {
-		return u
+		if err := util.ValidateUsername(u); err != nil {
+			return "", fmt.Errorf("invalid USER: %w", err)
+		}
+		return u, nil
 	}
-	return "root"
+	return "root", nil
 }
 
 // prepareCommand handles privilege escalation and rclone isolation
@@ -239,13 +247,18 @@ func (m *Manager) prepareCommand(ctx context.Context, name string, args []string
 
 	useSudo := requireRoot && os.Geteuid() != 0
 
-	user := getCurrentUser()
+	user, err := getCurrentUser()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get current user: %w", err)
+	}
+
 	if (useSudo || os.Geteuid() == 0) && user != "root" && user != "" {
 		tmpScript, err := os.CreateTemp("", "shedman-rclone-wrapper-*.sh")
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create rclone wrapper: %w", err)
 		}
 
+		// Username is validated by getCurrentUser(), safe to use in script
 		scriptContent := fmt.Sprintf("#!/bin/sh\nexec sudo -u %s rclone \"$@\"\n", user)
 		if _, err := tmpScript.WriteString(scriptContent); err != nil {
 			_ = tmpScript.Close()
