@@ -26,10 +26,15 @@ func GetPrivilegedRcloneCommand(args []string) []string {
 	}
 
 	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
-		userConfig := filepath.Join("/home", sudoUser, ".config/rclone/rclone.conf")
-		if _, err := os.Stat(userConfig); err == nil {
-			return append([]string{"rclone", "--config", userConfig}, args...)
+		// Validate username to prevent path traversal attacks
+		// e.g., SUDO_USER="../../../etc" would be rejected
+		if err := ValidateUsername(sudoUser); err == nil {
+			userConfig := filepath.Join("/home", sudoUser, ".config/rclone/rclone.conf")
+			if _, err := os.Stat(userConfig); err == nil {
+				return append([]string{"rclone", "--config", userConfig}, args...)
+			}
 		}
+		// If validation fails, fall through to default behavior
 	}
 
 	return append([]string{"rclone"}, args...)
