@@ -130,15 +130,24 @@ func (m ExecutionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.Running && m.stdin != nil {
 			// Forward keys to subprocess
+			// Note: Write errors are logged but not propagated to avoid interrupting
+			// the user's typing flow. The subprocess will handle EOF/broken pipe.
+			var writeErr error
 			switch msg.String() {
 			case "enter":
-				_, _ = m.stdin.Write([]byte("\n"))
+				_, writeErr = m.stdin.Write([]byte("\n"))
 			case "backspace":
-				_, _ = m.stdin.Write([]byte("\x7f"))
+				_, writeErr = m.stdin.Write([]byte("\x7f"))
 			default:
 				if len(msg.Runes) > 0 {
-					_, _ = m.stdin.Write([]byte(string(msg.Runes)))
+					_, writeErr = m.stdin.Write([]byte(string(msg.Runes)))
 				}
+			}
+			if writeErr != nil {
+				// Stdin write failed - subprocess may have exited
+				// Continue gracefully, the finish message will arrive shortly
+				m.Output.WriteString("\n[input write failed: " + writeErr.Error() + "]\n")
+				m.Viewport.SetContent(m.Output.String())
 			}
 			return m, nil
 		}
