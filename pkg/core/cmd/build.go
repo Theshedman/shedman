@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/theshedman/shedman/internal/config"
+	"github.com/theshedman/shedman/internal/util"
 	"github.com/theshedman/shedman/pkg/core"
 )
 
@@ -87,6 +88,9 @@ var editorRunner = func(editor string, args []string) error {
 	return cmd.Run()
 }
 
+// editorValidator validates the editor path. Can be replaced in tests.
+var editorValidator = util.ValidateExecutablePath
+
 func editPKGBUILD(dir, editor string) error {
 	pkgbuild := filepath.Join(dir, "PKGBUILD")
 	if _, err := os.Stat(pkgbuild); err != nil {
@@ -95,6 +99,11 @@ func editPKGBUILD(dir, editor string) error {
 
 	if editor == "" {
 		editor = "vim"
+	}
+
+	// Validate the editor path to prevent command injection
+	if err := editorValidator(editor); err != nil {
+		return fmt.Errorf("invalid editor: %w", err)
 	}
 
 	return editorRunner(editor, []string{pkgbuild})

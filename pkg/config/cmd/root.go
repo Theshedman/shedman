@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	appconfig "github.com/theshedman/shedman/internal/config"
 	"github.com/theshedman/shedman/internal/output"
+	"github.com/theshedman/shedman/internal/util"
 	pkgconfig "github.com/theshedman/shedman/pkg/config"
 	"github.com/theshedman/shedman/pkg/core"
 	"github.com/theshedman/shedman/pkg/core/providers/pacman"
@@ -320,15 +321,22 @@ func resolveEditor(cfg *appconfig.Config) string {
 	return "vimdiff"
 }
 
-func runMergeTool(editor, target, source string) error {
-	args := strings.Fields(editor)
-	if len(args) == 0 {
-		args = []string{"vimdiff"}
-	}
-	cmd := args[0]
-	cmdArgs := append(args[1:], target, source)
+// mergeToolValidator validates the merge tool path. Can be replaced in tests.
+var mergeToolValidator = util.ValidateExecutablePath
 
-	proc := exec.Command(cmd, cmdArgs...)
+func runMergeTool(editor, target, source string) error {
+	// Default to vimdiff if no editor specified
+	if editor == "" {
+		editor = "vimdiff"
+	}
+
+	// Validate the merge tool path to prevent command injection
+	// We only accept the command name, not arguments embedded in the string
+	if err := mergeToolValidator(editor); err != nil {
+		return fmt.Errorf("invalid merge tool: %w", err)
+	}
+
+	proc := exec.Command(editor, target, source)
 	proc.Stdin = os.Stdin
 	proc.Stdout = os.Stdout
 	proc.Stderr = os.Stderr

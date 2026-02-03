@@ -56,6 +56,7 @@ func TestEditPKGBUILD(t *testing.T) {
 	}
 
 	origRunner := editorRunner
+	origValidator := editorValidator
 	called := false
 	editorRunner = func(_ string, args []string) error {
 		called = true
@@ -64,7 +65,14 @@ func TestEditPKGBUILD(t *testing.T) {
 		}
 		return nil
 	}
-	t.Cleanup(func() { editorRunner = origRunner })
+	// Mock validator to avoid filesystem checks
+	editorValidator = func(path string) error {
+		return nil
+	}
+	t.Cleanup(func() {
+		editorRunner = origRunner
+		editorValidator = origValidator
+	})
 
 	if err := editPKGBUILD(tmpDir, "vim"); err != nil {
 		t.Fatalf("editPKGBUILD failed: %v", err)
