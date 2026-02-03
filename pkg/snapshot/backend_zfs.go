@@ -21,6 +21,16 @@ import (
 	"github.com/theshedman/shedman/pkg/executor"
 )
 
+// validateSSHHost validates the host parameter for SSH connections.
+func validateSSHHost(host string) error {
+	return util.ValidateHostname(host)
+}
+
+// validateDatasetName validates a ZFS dataset name.
+func validateDatasetName(name string) error {
+	return util.ValidateZFSDatasetName(name)
+}
+
 const (
 	zfsPropertyDescription = "com.shedman:description"
 	zfsPropertyType        = "com.shedman:type"
@@ -656,6 +666,9 @@ func (b *ZFSBackend) findRemoteSnapshotsByID(ctx context.Context, host, id strin
 	if host == "" {
 		return nil, fmt.Errorf("ssh host is required")
 	}
+	if err := validateSSHHost(host); err != nil {
+		return nil, fmt.Errorf("invalid ssh host: %w", err)
+	}
 	columns := fmt.Sprintf("name,%s", zfsPropertyID)
 	args := []string{"sudo", "-n", "zfs", "list", "-H", "-t", "snapshot", "-o", columns}
 	cmd := b.exec.CommandContext(ctx, "ssh", append([]string{host}, args...)...)
@@ -1081,6 +1094,12 @@ func (b *ZFSBackend) receiveViaRclone(ctx context.Context, sourcePath, dataset, 
 }
 
 func (b *ZFSBackend) sendOverSSH(ctx context.Context, snapName, host, dataset string) error {
+	if err := validateSSHHost(host); err != nil {
+		return fmt.Errorf("invalid ssh host: %w", err)
+	}
+	if err := validateDatasetName(dataset); err != nil {
+		return fmt.Errorf("invalid dataset name: %w", err)
+	}
 	sendCmd := b.zfsCommand(ctx, "send", "-R", snapName)
 	recvCmd := b.exec.CommandContext(ctx, "ssh", host, "sudo", "-n", "zfs", "receive", "-F", dataset)
 
@@ -1108,6 +1127,15 @@ func (b *ZFSBackend) sendOverSSH(ctx context.Context, snapName, host, dataset st
 }
 
 func (b *ZFSBackend) receiveOverSSH(ctx context.Context, host, dataset, id, destDataset string) error {
+	if err := validateSSHHost(host); err != nil {
+		return fmt.Errorf("invalid ssh host: %w", err)
+	}
+	if err := validateDatasetName(dataset); err != nil {
+		return fmt.Errorf("invalid remote dataset name: %w", err)
+	}
+	if err := validateDatasetName(destDataset); err != nil {
+		return fmt.Errorf("invalid destination dataset name: %w", err)
+	}
 	sendCmd := b.exec.CommandContext(ctx, "ssh", host, "sudo", "-n", "zfs", "send", "-R", fmt.Sprintf("%s@%s", dataset, id))
 	recvCmd := b.zfsCommand(ctx, "receive", "-F", destDataset)
 
