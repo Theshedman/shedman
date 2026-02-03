@@ -229,7 +229,7 @@ func (b *Backend) Search(query string) ([]core.PackageInfo, error) {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 			return []core.PackageInfo{}, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("search for %q failed: %w", query, err)
 	}
 
 	return parsePacmanSearchOutput(string(output)), nil
@@ -282,7 +282,7 @@ func parsePacmanSearchOutput(output string) []core.PackageInfo {
 func (b *Backend) Info(pkgName string) (*core.PackageInfo, error) {
 	output, err := b.executor.Output(b.binaryPath, "-Si", pkgName)
 	if err != nil {
-		return nil, core.ErrPackageNotFound
+		return nil, fmt.Errorf("package %s: %w", pkgName, core.ErrPackageNotFound)
 	}
 
 	return parsePacmanInfo(string(output)), nil
@@ -335,7 +335,7 @@ func parsePacmanInfo(output string) *core.PackageInfo {
 func (b *Backend) GetInstalledPackages() ([]core.PackageInfo, error) {
 	output, err := b.executor.Output(b.binaryPath, "-Q")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list installed packages: %w", err)
 	}
 
 	var packages []core.PackageInfo
@@ -359,7 +359,7 @@ func (b *Backend) GetInstalledPackages() ([]core.PackageInfo, error) {
 func (b *Backend) GetPackageFiles(pkgName string) ([]string, error) {
 	output, err := b.executor.Output(b.binaryPath, "-Ql", pkgName)
 	if err != nil {
-		return nil, core.ErrPackageNotFound
+		return nil, fmt.Errorf("package %s: %w", pkgName, core.ErrPackageNotFound)
 	}
 
 	var files []string

@@ -225,7 +225,7 @@ func TestBackend_Info_NotFound(t *testing.T) {
 	b := NewWithExecutor(mock)
 
 	_, err := b.Info("nonexistent")
-	if err != core.ErrPackageNotFound {
+	if !errors.Is(err, core.ErrPackageNotFound) {
 		t.Errorf("Expected ErrPackageNotFound, got %v", err)
 	}
 }
