@@ -1,5 +1,6 @@
 # Binaries
 /shedman
+/shedman-test
 *.exe
 *.exe~
 *.dll
@@ -37,3 +38,6 @@ build/
 
 # Debug
 __debug_bin*
+
+# AI files/configs
+.claude/
